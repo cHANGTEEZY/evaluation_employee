@@ -1,26 +1,65 @@
-import { StyleSheet, Text, View } from "react-native";
-import React from "react";
+import { useState } from "react";
+import { ScrollView, StyleSheet, View } from "react-native";
+import { Button, useTheme } from "react-native-paper";
 import { useAuthSession } from "../../lib/auth-store";
-import { authClient } from "../../lib/auth-client";
-import { Button } from "tamagui";
+import GuestProfile from "../../components/profile/GuestProfile";
+import UserProfile from "../../components/profile/UserProfile";
+import EditUserProfileForm from "../../components/profile/EditUserProfileForm";
+import OrganizationDetails from "../../components/profile/OrganizationDetails";
+import BranchDetails from "../../components/profile/BranchDetails";
+import { SafeAreaView } from "react-native-safe-area-context";
+import PageHeader from "../../components/PageHeader";
 
-const Profile = () => {
-  const { user } = useAuthSession();
+export default function Profile() {
+  const { signOut, mode } = useAuthSession();
+  const theme = useTheme();
+  const [isEditing, setIsEditing] = useState(false);
+  const isGuest = mode === "guest";
 
-  const handleSignOut = async () => {
-    await authClient.signOut();
-  };
+  if (isGuest) {
+    return <GuestProfile />;
+  }
 
   return (
-    <View>
-      <Text>{user?.name}</Text>
-      <Text>{user?.email}</Text>
-      <Text>{user?.role}</Text>
-      <Button onPress={handleSignOut}>SignOut</Button>
-    </View>
+    <SafeAreaView style={{ flex: 1 }} edges={["left"]}>
+      <PageHeader title={"Profile"} subtitle="Manage your profile" />
+      <ScrollView
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {isEditing ? (
+          <EditUserProfileForm onCancel={() => setIsEditing(false)} />
+        ) : (
+          <UserProfile onEdit={() => setIsEditing(true)} />
+        )}
+        <OrganizationDetails />
+        <BranchDetails />
+        <View style={styles.signOutButtonContainer}>
+          <Button
+            mode="contained"
+            onPress={() => signOut()}
+            style={styles.button}
+          >
+            Sign Out
+          </Button>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
-};
+}
 
-export default Profile;
-
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    // paddingVertical: 46,
+    paddingHorizontal: 16,
+  },
+  signOutButtonContainer: {
+    marginTop: 16,
+    paddingBottom: 120,
+    alignItems: "center",
+  },
+  button: {
+    width: "100%",
+  },
+});

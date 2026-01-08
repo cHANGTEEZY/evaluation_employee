@@ -9,19 +9,23 @@ This document outlines the complete implementation plan for the mobile app based
 ## 1. Authentication & Session
 
 ### Completed
+
 - [x] Better Auth client setup
 - [x] Zustand auth store with session management
 - [x] Login screen with redirect logic
 - [x] Tab layout with auth protection
 
 ### Todo
-- [ ] **Secure token storage** — Use `expo-secure-store` instead of AsyncStorage for tokens
+
+- [✅] **Secure token storage** — Use `expo-secure-store` instead of AsyncStorage for tokens
+- [ ] **Login as Guest** - Allow User to login as a guest but need authentication when syncing
 - [ ] **Session refresh** — Handle token expiration gracefully, auto-refresh or prompt re-login
 - [ ] **Logout with local data warning** — If user has unsynced data, warn before logout
 - [ ] **Biometric unlock (optional)** — Allow fingerprint/face unlock for returning users
 - [ ] **Network state awareness** — Check if offline at login, show appropriate message
 
 ### Edge Cases to Handle
+
 - Token expired while app was in background
 - Login attempted while offline (should fail with clear message)
 - Server unreachable vs invalid credentials (different error messages)
@@ -32,6 +36,7 @@ This document outlines the complete implementation plan for the mobile app based
 ## 2. Local Database (Offline Storage)
 
 ### Options
+
 1. **WatermelonDB** — Best for React Native, handles sync, lazy loading
 2. **SQLite (expo-sqlite)** — Direct SQL, more control, but manual sync logic
 3. **MMKV** — Fast key-value store, good for small data
@@ -39,6 +44,7 @@ This document outlines the complete implementation plan for the mobile app based
 ### Recommended: WatermelonDB
 
 ### Tables to Create
+
 ```
 valuations
 ├── id (local UUID)
@@ -82,6 +88,7 @@ sync_queue
 ```
 
 ### Todo
+
 - [ ] Install and configure WatermelonDB
 - [ ] Define schema models
 - [ ] Create database initialization on app start
@@ -90,6 +97,7 @@ sync_queue
 - [ ] Handle schema migrations for app updates
 
 ### Edge Cases
+
 - App update with schema changes (need migration strategy)
 - Database corruption recovery
 - Storage limit reached on device
@@ -102,6 +110,7 @@ sync_queue
 ### Required Fields (from project spec)
 
 **Auto-populated from session:**
+
 - Organization Name
 - Organization Address
 - Organization Contact
@@ -112,10 +121,12 @@ sync_queue
 - Employee Branch
 
 **User enters:**
+
 - Property valuation fields (as per bank format)
 - Status selection
 
 ### Form Implementation
+
 - [ ] Create multi-step form wizard (properties can have many fields)
 - [ ] Implement form state with `react-hook-form` + `zod` validation
 - [ ] Save draft to local DB on every field change (debounced)
@@ -125,12 +136,14 @@ sync_queue
 - [ ] Handle form restoration when reopening incomplete valuation
 
 ### Timestamps (Auto-captured)
+
 - [ ] `created_at` — When valuation record first created
 - [ ] `updated_at` — Every time any field changes
 - [ ] `submitted_at` — When user taps "Submit"
 - [ ] `synced_at` — When successfully synced to server
 
 ### Edge Cases
+
 - App killed while filling form (auto-save must work)
 - Form with 50+ fields (need pagination/sections)
 - Validation errors on submit (highlight all errors)
@@ -142,16 +155,19 @@ sync_queue
 ## 4. Status Management
 
 ### Status Values (Employee can set)
+
 - `Site Visit Started`
 - `Site Visit Completed`
 - `Data Submitted`
 
 ### Status Values (Admin only, synced from server)
+
 - `Verified by Admin`
 - `Sent to Client`
 - `Closed`
 
 ### Implementation
+
 - [ ] Status dropdown/selector in valuation form
 - [ ] Status history log (local + synced)
 - [ ] Visual status badges in valuation list
@@ -159,6 +175,7 @@ sync_queue
 - [ ] Prevent editing after certain statuses (e.g., Verified, Closed)
 
 ### Edge Cases
+
 - Status changed on server while offline (sync conflict)
 - Employee tries to edit "Closed" valuation (block with message)
 - Status rollback if sync fails
@@ -168,6 +185,7 @@ sync_queue
 ## 5. Image Capture & Management
 
 ### Features
+
 - [ ] Camera integration with `expo-camera` or `expo-image-picker`
 - [ ] Capture high-resolution photos
 - [ ] Store images locally in app's file system
@@ -179,6 +197,7 @@ sync_queue
 - [ ] Maximum image count per valuation (configurable)
 
 ### Image Metadata to Store
+
 ```typescript
 {
   localUri: string;
@@ -192,6 +211,7 @@ sync_queue
 ```
 
 ### Edge Cases
+
 - Camera permission denied
 - Location permission denied (capture anyway, mark as no-GPS)
 - Storage full on device
@@ -204,6 +224,7 @@ sync_queue
 ## 6. GPS Location Capture
 
 ### Implementation
+
 - [ ] Use `expo-location` for GPS
 - [ ] Request location permission on first use
 - [ ] Capture location with photo automatically
@@ -213,6 +234,7 @@ sync_queue
 - [ ] Handle GPS timeout
 
 ### Location Data
+
 ```typescript
 {
   latitude: number;
@@ -225,6 +247,7 @@ sync_queue
 ```
 
 ### Edge Cases
+
 - GPS disabled on device
 - Indoor location (poor accuracy)
 - Mock location apps (detect and warn)
@@ -236,12 +259,14 @@ sync_queue
 ## 7. Sync Engine
 
 ### Sync Strategy
+
 1. **Background sync** — Attempt sync when network available
 2. **Manual sync** — User can trigger sync from UI
 3. **Priority queue** — Images upload after data (data is more critical)
 4. **Retry logic** — Exponential backoff on failures
 
 ### Implementation
+
 - [ ] Create sync service/manager
 - [ ] Network state listener (`@react-native-community/netinfo`)
 - [ ] Sync queue processor
@@ -251,6 +276,7 @@ sync_queue
 - [ ] Image upload to Google Drive (via backend proxy)
 
 ### Sync Flow
+
 ```
 1. Check network status
 2. Get all pending items from sync_queue
@@ -264,6 +290,7 @@ sync_queue
 ```
 
 ### Sync Queue Screen
+
 - [ ] List of pending syncs
 - [ ] Show status: Pending | Syncing | Failed
 - [ ] Retry failed items button
@@ -271,6 +298,7 @@ sync_queue
 - [ ] Pull-to-refresh to trigger sync
 
 ### Edge Cases
+
 - Network drops mid-sync (pause and resume)
 - Server returns 401 (session expired, need re-auth)
 - Partial upload (some items sync, others fail)
@@ -283,12 +311,14 @@ sync_queue
 ## 8. Offline Mode UI/UX
 
 ### Visual Indicators
+
 - [ ] Offline banner at top of screen when no network
 - [ ] Sync status icon in header (cloud with checkmark/x/spinner)
 - [ ] Badge on valuations tab showing pending sync count
 - [ ] Last synced timestamp display
 
 ### Offline Behavior
+
 - [ ] All forms work fully offline
 - [ ] Valuations list shows local data
 - [ ] Clear messaging: "You're offline. Data saved locally."
@@ -300,6 +330,7 @@ sync_queue
 ## 9. Valuation List & History
 
 ### Features
+
 - [ ] List all valuations (local + synced)
 - [ ] Search by property address/client name
 - [ ] Filter by status, date range
@@ -309,6 +340,7 @@ sync_queue
 - [ ] Pull-to-refresh (triggers sync if online)
 
 ### List Item Display
+
 - Property address (primary text)
 - Status badge
 - Created date
@@ -320,6 +352,7 @@ sync_queue
 ## 10. App Architecture
 
 ### Folder Structure
+
 ```
 evaluation_employee/
 ├── app/                    # Expo Router screens
@@ -389,24 +422,28 @@ evaluation_employee/
 ## 12. Implementation Order
 
 ### Phase 1: Foundation (Week 1)
+
 1. [ ] Set up WatermelonDB with schema
 2. [ ] Create valuation CRUD operations
 3. [ ] Build basic valuation form (text fields only)
 4. [ ] Save drafts to local DB
 
 ### Phase 2: Media (Week 2)
+
 5. [ ] Add camera integration
 6. [ ] Add GPS capture
 7. [ ] Store images locally with metadata
 8. [ ] Display images in form
 
 ### Phase 3: Sync (Week 3)
+
 9. [ ] Build sync queue system
 10. [ ] Implement network detection
 11. [ ] Create sync manager with retry logic
 12. [ ] Build sync status UI
 
 ### Phase 4: Polish (Week 4)
+
 13. [ ] Valuation list with search/filter
 14. [ ] Status management
 15. [ ] Offline indicators
@@ -418,18 +455,21 @@ evaluation_employee/
 ## 13. Testing Checklist
 
 ### Offline Scenarios
+
 - [ ] Create valuation with no network
 - [ ] Take photos offline
 - [ ] Reconnect and verify auto-sync
 - [ ] Kill app while offline, reopen and verify data persists
 
 ### Sync Scenarios
+
 - [ ] Sync 10 valuations with images
 - [ ] Interrupt sync mid-way, verify resume
 - [ ] Handle server 500 error during sync
 - [ ] Handle session expiry during sync
 
 ### Edge Cases
+
 - [ ] Fill form, switch apps, return — form state preserved
 - [ ] Take photo, GPS times out — photo saved without GPS
 - [ ] Storage full — graceful error message
@@ -439,15 +479,15 @@ evaluation_employee/
 
 ## Summary Priority
 
-| Priority | Feature | Effort |
-|----------|---------|--------|
-| **P0** | Local database + valuation form | High |
-| **P0** | Save drafts offline | Medium |
-| **P0** | Basic sync to server | High |
-| **P1** | Camera + images | Medium |
-| **P1** | GPS capture | Low |
-| **P1** | Sync queue UI | Medium |
-| **P2** | Valuation list + search | Medium |
-| **P2** | Status management | Low |
-| **P3** | Offline indicators | Low |
-| **P3** | Biometric unlock | Low |
+| Priority | Feature                         | Effort |
+| -------- | ------------------------------- | ------ |
+| **P0**   | Local database + valuation form | High   |
+| **P0**   | Save drafts offline             | Medium |
+| **P0**   | Basic sync to server            | High   |
+| **P1**   | Camera + images                 | Medium |
+| **P1**   | GPS capture                     | Low    |
+| **P1**   | Sync queue UI                   | Medium |
+| **P2**   | Valuation list + search         | Medium |
+| **P2**   | Status management               | Low    |
+| **P3**   | Offline indicators              | Low    |
+| **P3**   | Biometric unlock                | Low    |

@@ -1,0 +1,91 @@
+import { View, StyleSheet } from "react-native";
+import { Button, Text, useTheme, Avatar, Card, List } from "react-native-paper";
+import { useAuthSession } from "../../lib/auth-store";
+
+export default function GuestProfile() {
+  const { signOut } = useAuthSession();
+  const theme = useTheme();
+
+  return (
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
+      <Card style={styles.card}>
+        <Card.Content style={styles.cardContent}>
+          <Avatar.Icon
+            size={80}
+            icon="account-outline"
+            style={{ backgroundColor: theme.colors.secondaryContainer }}
+          />
+          <Text
+            variant="headlineMedium"
+            style={{ marginTop: 16, textAlign: "center" }}
+          >
+            Guest User
+          </Text>
+          <Text
+            variant="bodyMedium"
+            style={{
+              textAlign: "center",
+              color: theme.colors.onSurfaceVariant,
+              marginBottom: 16,
+            }}
+          >
+            You are currently browsing as a guest.
+          </Text>
+
+          <Text
+            variant="titleMedium"
+            style={{
+              alignSelf: "flex-start",
+              marginTop: 16,
+              marginBottom: 8,
+            }}
+          >
+            Why Sign In?
+          </Text>
+          <View style={{ width: "100%" }}>
+            <List.Item
+              title="Save your preferences"
+              left={(props) => <List.Icon {...props} icon="cog" />}
+            />
+            <List.Item
+              title="Access exclusive content"
+              left={(props) => <List.Icon {...props} icon="star" />}
+            />
+            <List.Item
+              title="Sync across devices"
+              left={(props) => <List.Icon {...props} icon="cloud-sync" />}
+            />
+          </View>
+        </Card.Content>
+        <Card.Actions style={{ justifyContent: "center", paddingBottom: 16 }}>
+          <Button
+            mode="contained"
+            onPress={() => signOut()}
+            style={styles.button}
+          >
+            Log In
+          </Button>
+        </Card.Actions>
+      </Card>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 16,
+    justifyContent: "center",
+  },
+  card: {
+    // marginVertical: 8,
+  },
+  cardContent: {
+    alignItems: "center",
+  },
+  button: {
+    width: "100%",
+  },
+});

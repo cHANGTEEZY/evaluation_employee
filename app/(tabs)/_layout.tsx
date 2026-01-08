@@ -1,55 +1,46 @@
-import { Link, Redirect, router, Tabs } from "expo-router";
-import { Button, useTheme } from "tamagui";
-import { Atom, AudioWaveform, UserCog } from "@tamagui/lucide-icons";
+import { Redirect, Tabs } from "expo-router";
 import { redirectSystemPath } from "../+native-intent";
 import { useAuthSession } from "../../lib/auth-store";
+import { useColorScheme } from "react-native";
+import { useTheme } from "react-native-paper";
+import TabBar from "../../components/TabBar";
 
 export default function TabLayout() {
+  const colorScheme = useColorScheme();
   const theme = useTheme();
-  const { isAuthenticated, isPending } = useAuthSession();
+  const { isAuthenticated, isPending, isGuest } = useAuthSession();
 
   if (isPending) {
     return null;
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !isGuest) {
     return <Redirect href={"/(auth)/login"} />;
   }
 
   return (
     <Tabs
+      tabBar={(props) => <TabBar {...props} />}
       screenOptions={{
-        // tabBarActiveTintColor: theme.red10.val,
-        tabBarStyle: {
-          backgroundColor: theme.background.val,
-          borderTopColor: theme.borderColor.val,
-        },
-        headerStyle: {
-          backgroundColor: theme.background.val,
-          borderBottomColor: theme.borderColor.val,
-        },
-        headerTintColor: theme.color.val,
+        headerShown: false,
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="evaluations"
         options={{
-          tabBarIcon: () => <Atom color={"violet"} />,
-          tabBarActiveTintColor: "violet",
+          title: "Evaluations",
         }}
       />
       <Tabs.Screen
-        name="two"
+        name="sync"
         options={{
-          title: "Tab Two",
-          tabBarIcon: ({ color }) => <AudioWaveform color={color as any} />,
+          title: "Sync",
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
-          tabBarIcon: () => <UserCog color={"violet"} />,
         }}
       />
     </Tabs>

@@ -1,52 +1,69 @@
 import { useState } from "react";
 import {
-  View,
-  TextInput,
-  Pressable,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
-  useColorScheme,
   ScrollView,
+  View,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Eye, EyeOff, User, Lock, Building2 } from "@tamagui/lucide-icons";
-import { Button, Text, YStack, XStack } from "tamagui";
-import { useToastController } from "@tamagui/toast";
 import { authClient } from "../../lib/auth-client";
-
-const INPUT_HEIGHT = 56;
+import { Link, useRouter } from "expo-router";
+import {
+  Text,
+  TextInput,
+  Snackbar,
+  Portal,
+  useTheme,
+  Button,
+} from "react-native-paper";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import AuthLogo from "../../features/auth/components/AuthLogo";
+import Divider from "../../components/Divider";
+import { useAuthSession } from "../../lib/auth-store";
 
 export default function SignIn() {
+  const theme = useTheme();
+  const router = useRouter();
+  const { setMode } = useAuthSession();
+  const isDark = theme.dark;
+
+  // Dynamic colors based on theme
+  const colors = {
+    background: isDark ? "#0B1023" : "#F8FAFC",
+    backgroundEnd: isDark ? "#1A1F35" : "#E2E8F0",
+    inputBg: isDark ? "#1E2642" : "#FFFFFF",
+    inputText: isDark ? "#FFFFFF" : "#1F2937",
+    inputPlaceholder: isDark ? "#6B7280" : "#9CA3AF",
+    labelText: isDark ? "#9CA3AF" : "#64748B",
+    titleText: isDark ? "#FFFFFF" : "#1F2937",
+    iconColor: isDark ? "#6B7280" : "#9CA3AF",
+    linkText: theme.colors.primary,
+    borderColor: isDark ? "#374151" : "#E5E7EB",
+    logoColor: isDark ? "#4B5563" : "#CBD5E1",
+    divider: !isDark ? "#374151" : "#E5E7EB",
+  };
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  const toast = useToastController();
-  const theme = useColorScheme();
-  const isDark = theme === "dark";
-
-  const colors = {
-    bg: isDark ? "#121212" : "#FFFFFF",
-    inputBg: isDark ? "#1E1E1E" : "#F7F8FA",
-    text: isDark ? "#FFFFFF" : "#1B2B48",
-    subText: isDark ? "#AAAAAA" : "#666666",
-    icon: isDark ? "#888888" : "#888",
-    illustrationBg: isDark ? "#1E1E1E" : "#F0F4F8",
-  };
+  const [snackVisible, setSnackVisible] = useState(false);
+  const [snackMessage, setSnackMessage] = useState("");
 
   const handleSignIn = async () => {
-    // Validation
     if (!email || !password) {
-      toast.show("Error", { message: "Please fill in all fields" });
+      setSnackMessage("Please fill in all fields");
+      setSnackVisible(true);
       return;
     }
 
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      toast.show("Error", { message: "Please enter a valid email address" });
+      setSnackMessage("Please enter a valid email address");
+      setSnackVisible(true);
       return;
     }
 
@@ -60,15 +77,14 @@ export default function SignIn() {
           callbackURL: "/(tabs)",
         },
         {
-          onSuccess: () => {
-            toast.show("Success", {
-              message: "Login successful!",
-            });
+          onSuccess: async () => {
+            await setMode("user");
+            setSnackMessage("Login successful!");
+            setSnackVisible(true);
           },
           onError: (ctx) => {
             console.error("Login error:", ctx.error);
 
-            // Handle specific error types
             let errorMessage = "Login failed. Please try again.";
 
             if (ctx.error?.message) {
@@ -79,16 +95,14 @@ export default function SignIn() {
               errorMessage = "Too many attempts. Please try again later";
             }
 
-            toast.show("Login Failed", {
-              message: errorMessage,
-            });
+            setSnackMessage(errorMessage);
+            setSnackVisible(true);
           },
         }
       );
     } catch (error) {
       console.error("SignIn catch error:", error);
 
-      // Handle network and other errors
       let errorMessage = "An unexpected error occurred";
 
       if (
@@ -100,148 +114,304 @@ export default function SignIn() {
         errorMessage = error.message;
       }
 
-      toast.show("Error", {
-        message: errorMessage,
-      });
+      setSnackMessage(errorMessage);
+      setSnackVisible(true);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView
-      style={[styles.safe, { backgroundColor: colors.bg }]}
-      edges={["left", "right", "bottom"]}
-    >
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
-      >
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1 }}
-          bounces={false}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[colors.background, colors.backgroundEnd]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <SafeAreaView style={{ flex: 1 }} edges={["left", "right", "bottom"]}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
         >
-          <YStack flex={1} bg={colors.bg as any} px="$6" pt="$4" pb="$8">
-            <YStack items="center" mb="$4" mt="$8">
-              <View
-                style={[
-                  styles.illustrationCircle,
-                  { backgroundColor: colors.illustrationBg },
-                ]}
-              >
-                <Building2
-                  size={80}
-                  color={isDark ? "#3B82F6" : "#1B2B48"}
-                  opacity={0.8}
-                />
-              </View>
-            </YStack>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Logo Section */}
+            <View style={styles.logoSection}>
+              <AuthLogo size={140} color={colors.logoColor} />
+            </View>
 
-            <YStack mb="$8">
-              <Text fontSize={32} fontWeight="700" color={colors.text as any}>
-                Login
+            {/* Header Section */}
+            <View style={styles.headerSection}>
+              <Text style={[styles.labelText, { color: colors.labelText }]}>
+                WELCOME
               </Text>
-              <Text fontSize={16} color={colors.subText as any} mt="$1">
-                Please Sign in to continue.
+              <Text style={[styles.titleText, { color: colors.titleText }]}>
+                Log In Again
               </Text>
-            </YStack>
+            </View>
 
-            <YStack gap="$4">
-              <View
-                style={[
-                  styles.inputContainer,
-                  { backgroundColor: colors.inputBg },
-                ]}
-              >
-                <User size={20} color={colors.icon as any} />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  placeholder="john@example.com"
-                  placeholderTextColor={colors.icon}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  value={email}
-                  keyboardType="email-address"
-                  textContentType="emailAddress"
-                  onChangeText={setEmail}
-                  editable={!loading}
-                />
-              </View>
-
-              <View
-                style={[
-                  styles.inputContainer,
-                  { backgroundColor: colors.inputBg },
-                ]}
-              >
-                <Lock size={20} color={colors.icon as any} />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  placeholder="••••••••••••••••••"
-                  placeholderTextColor={colors.icon}
-                  secureTextEntry={!showPass}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  value={password}
-                  textContentType="password"
-                  onChangeText={setPassword}
-                  editable={!loading}
-                />
-                <Pressable onPress={() => setShowPass((v) => !v)}>
-                  {showPass ? (
-                    <EyeOff size={20} color={colors.icon as any} />
-                  ) : (
-                    <Eye size={20} color={colors.icon as any} />
-                  )}
-                </Pressable>
-              </View>
-
-              <Button
-                size="$5"
-                mt="$6"
-                onPress={handleSignIn}
-                disabled={loading}
-                bg={isDark ? "#3B82F6" : "#1B2B48"}
-                pressStyle={{ opacity: 0.8 }}
-                opacity={loading ? 0.6 : 1}
-              >
-                <Text color="white" fontWeight="600" fontSize={16}>
-                  {loading ? "Signing in..." : "Sign In"}
+            {/* Form Section */}
+            <View style={styles.formSection}>
+              {/* Email Input */}
+              <View style={styles.inputContainer}>
+                <Text style={[styles.inputLabel, { color: colors.labelText }]}>
+                  Email
                 </Text>
-              </Button>
-            </YStack>
-          </YStack>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    {
+                      backgroundColor: colors.inputBg,
+                      borderColor: colors.borderColor,
+                      borderWidth: isDark ? 0 : 1,
+                    },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="email-outline"
+                    size={20}
+                    color={colors.iconColor}
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    mode="flat"
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="canandoe@gmail.com"
+                    placeholderTextColor={colors.inputPlaceholder}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    style={styles.textInput}
+                    textColor={colors.inputText}
+                    disabled={loading}
+                    underlineColor="transparent"
+                  />
+                </View>
+              </View>
+
+              {/* Password Input */}
+              <View style={styles.inputContainer}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Text
+                    style={[styles.inputLabel, { color: colors.labelText }]}
+                  >
+                    Password
+                  </Text>
+                  <View>
+                    <Link href={"/(auth)/forgot-password"}>
+                      <Text
+                        style={[styles.linkText, { color: colors.linkText }]}
+                      >
+                        Forgot Password?
+                      </Text>
+                    </Link>
+                  </View>
+                </View>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    {
+                      backgroundColor: colors.inputBg,
+                      borderColor: colors.borderColor,
+                      borderWidth: isDark ? 0 : 1,
+                    },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="lock-outline"
+                    size={20}
+                    color={colors.iconColor}
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    mode="flat"
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="••••••••••••"
+                    placeholderTextColor={colors.inputPlaceholder}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    secureTextEntry={!showPass}
+                    style={styles.textInput}
+                    textColor={colors.inputText}
+                    underlineColor="transparent"
+                    disabled={loading}
+                  />
+                  <Pressable
+                    onPress={() => setShowPass((v) => !v)}
+                    style={styles.eyeButton}
+                  >
+                    <MaterialCommunityIcons
+                      name={showPass ? "eye-off-outline" : "eye-outline"}
+                      size={20}
+                      color={colors.iconColor}
+                    />
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.buttonSection}>
+              <LinearGradient
+                colors={[
+                  theme.colors.primary,
+                  theme.colors.secondary || theme.colors.primary,
+                ]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{ borderRadius: 12 }}
+              >
+                <Button
+                  mode="contained"
+                  onPress={handleSignIn}
+                  disabled={loading}
+                  contentStyle={{ height: 46 }}
+                  style={{ borderRadius: 12, backgroundColor: "transparent" }}
+                  labelStyle={styles.buttonText}
+                >
+                  {loading ? "Signing in..." : "Login"}
+                </Button>
+              </LinearGradient>
+            </View>
+
+            <Divider
+              colors={{
+                divider: colors.divider,
+                text: colors.labelText,
+                background: undefined,
+              }}
+            />
+
+            <Button
+              mode="outlined"
+              onPress={async () => {
+                await setMode("guest");
+                router.replace("/(tabs)/evaluations");
+              }}
+              contentStyle={{ height: 46 }}
+              style={{ borderRadius: 12 }}
+            >
+              Continue as Guest
+            </Button>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+      <Portal>
+        <Snackbar
+          visible={snackVisible}
+          onDismiss={() => setSnackVisible(false)}
+          duration={3000}
+        >
+          <Text style={{ color: "#FFFFFF" }}>{snackMessage}</Text>
+        </Snackbar>
+      </Portal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
+  container: {
     flex: 1,
   },
-  illustrationCircle: {
-    width: 220,
-    height: 220,
-    borderRadius: 110,
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
+  logoSection: {
     alignItems: "center",
-    justifyContent: "center",
+    marginTop: 20,
+  },
+  headerSection: {
+    marginTop: 32,
+    marginBottom: 32,
+  },
+  labelText: {
+    fontSize: 13,
+    fontWeight: "500",
+    letterSpacing: 2,
+    marginBottom: 8,
+  },
+  titleText: {
+    fontSize: 32,
+    fontWeight: "700",
+    letterSpacing: -0.5,
+  },
+  formSection: {
+    gap: 20,
   },
   inputContainer: {
-    height: INPUT_HEIGHT,
+    gap: 8,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 20,
-    borderRadius: 16,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 56,
   },
-  input: {
+  inputIcon: {
+    marginRight: 12,
+  },
+  textInput: {
     flex: 1,
-    height: INPUT_HEIGHT,
+    backgroundColor: "transparent",
     fontSize: 16,
+    height: 56,
+    paddingHorizontal: 0,
+  },
+  eyeButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  buttonSection: {
+    marginTop: 32,
+  },
+  signInButton: {
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  signInButtonPressed: {
+    opacity: 0.9,
+  },
+  signInButtonDisabled: {
+    opacity: 0.6,
+  },
+  buttonGradient: {
+    height: 56,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+  },
+  buttonText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+
+  linkText: {
+    fontSize: 14,
+    textDecorationLine: "underline",
+  },
+  divider: {
+    height: 1,
+    marginVertical: 24,
   },
 });

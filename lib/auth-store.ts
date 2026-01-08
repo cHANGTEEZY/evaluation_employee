@@ -1,6 +1,7 @@
 import type { Atom } from "nanostores";
 import { create } from "zustand";
 import { authClient } from "./auth-client";
+import * as SecureStore from "expo-secure-store";
 
 // `authClient.useSession` is a nanostores atom that auto-fetches /get-session
 // when it gets its first subscriber (see better-auth's session atom).
@@ -44,29 +45,44 @@ type Session = {
   };
 };
 
+type AuthMode = "user" | "guest" | null;
+
 type AuthStoreState = {
   session: SessionData;
+  mode: AuthMode;
   isPending: boolean;
   isRefetching: boolean;
   error: unknown;
   initialized: boolean;
 
-  init: () => void;
+  init: () => Promise<void>;
   refetch: () => Promise<void>;
   signOut: () => Promise<void>;
+  setMode: (mode: AuthMode) => Promise<void>;
 };
 
 let unsubscribeSession: null | (() => void) = null;
 
 export const useAuthStore = create<AuthStoreState>((set, get) => ({
   session: null as SessionData,
+  mode: null,
   isPending: true,
   isRefetching: false,
   error: null,
   initialized: false,
 
-  init: () => {
+  init: async () => {
     if (get().initialized) return;
+
+    // Load persisted mode
+    try {
+      const storedMode = await SecureStore.getItemAsync("auth_mode");
+      if (storedMode === "guest" || storedMode === "user") {
+        set({ mode: storedMode as AuthMode });
+      }
+    } catch (e) {
+      console.error("Failed to load auth mode", e);
+    }
 
     set({ initialized: true });
 
@@ -88,33 +104,56 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
 
   signOut: async () => {
     await authClient.signOut();
+    await SecureStore.deleteItemAsync("auth_mode");
+    set({ mode: null });
     // After signout, better-auth will toggle the session signal and refetch.
+  },
+
+  setMode: async (mode: AuthMode) => {
+    set({ mode });
+    if (mode) {
+      await SecureStore.setItemAsync("auth_mode", mode);
+    } else {
+      await SecureStore.deleteItemAsync("auth_mode");
+    }
   },
 }));
 
 export function useAuthSession() {
   const session = useAuthStore((s) => s.session as Session | null);
+  const mode = useAuthStore((s) => s.mode);
   const isPending = useAuthStore((s) => s.isPending);
   const isRefetching = useAuthStore((s) => s.isRefetching);
   const error = useAuthStore((s) => s.error);
   const refetch = useAuthStore((s) => s.refetch);
   const init = useAuthStore((s) => s.init);
+  const setMode = useAuthStore((s) => s.setMode);
+  const signOut = useAuthStore((s) => s.signOut);
 
   // session from /get-session is typically `{ user, session }`.
-  const user = (session as Session)?.user ?? null;
-  const sessionInfo = (session as Session)?.session ?? null;
+  const user = (session as any)?.user ?? null;
+  const sessionInfo = (session as any)?.session ?? null;
+  const organization = (session as any)?.organization ?? null;
+  const branch = (session as any)?.branch ?? null;
   const isAuthenticated = !!user;
+  const isGuest = mode === "guest";
 
   return {
     init,
     session,
     user,
     sessionInfo,
+    organization,
+    branch,
     isAuthenticated,
+    isGuest,
+    mode,
     isPending,
     isRefetching,
     error,
     refetch,
+    setMode,
+    signOut,
   };
 }
 
