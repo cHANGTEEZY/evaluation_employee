@@ -3,9 +3,6 @@ import { create } from "zustand";
 import { authClient } from "./auth-client";
 import * as SecureStore from "expo-secure-store";
 
-// `authClient.useSession` is a nanostores atom that auto-fetches /get-session
-// when it gets its first subscriber (see better-auth's session atom).
-
 type UseSessionAtomValue = typeof authClient extends {
   useSession: Atom<infer V>;
 }
@@ -45,11 +42,8 @@ type Session = {
   };
 };
 
-type AuthMode = "user" | "guest" | null;
-
 type AuthStoreState = {
   session: SessionData;
-  mode: AuthMode;
   isPending: boolean;
   isRefetching: boolean;
   error: unknown;
@@ -58,14 +52,14 @@ type AuthStoreState = {
   init: () => Promise<void>;
   refetch: () => Promise<void>;
   signOut: () => Promise<void>;
-  setMode: (mode: AuthMode) => Promise<void>;
 };
 
 let unsubscribeSession: null | (() => void) = null;
 
+const AUTH_TIMEOUT = 5000; // 5 seconds max to wait for session
+
 export const useAuthStore = create<AuthStoreState>((set, get) => ({
   session: null as SessionData,
-  mode: null,
   isPending: true,
   isRefetching: false,
   error: null,
@@ -74,20 +68,18 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   init: async () => {
     if (get().initialized) return;
 
-    // Load persisted mode
-    try {
-      const storedMode = await SecureStore.getItemAsync("auth_mode");
-      if (storedMode === "guest" || storedMode === "user") {
-        set({ mode: storedMode as AuthMode });
-      }
-    } catch (e) {
-      console.error("Failed to load auth mode", e);
-    }
-
     set({ initialized: true });
+
+    // Set a timeout to stop pending state if auth takes too long
+    const timeout = setTimeout(() => {
+      if (get().isPending) {
+        set({ isPending: false });
+      }
+    }, AUTH_TIMEOUT);
 
     // Subscribe once; nanostores will start fetching session automatically.
     unsubscribeSession = authClient.useSession.subscribe((value: any) => {
+      clearTimeout(timeout);
       set({
         session: value?.data ?? null,
         isPending: !!value?.isPending,
@@ -103,31 +95,21 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   },
 
   signOut: async () => {
-    await authClient.signOut();
-    await SecureStore.deleteItemAsync("auth_mode");
-    set({ mode: null });
-    // After signout, better-auth will toggle the session signal and refetch.
-  },
-
-  setMode: async (mode: AuthMode) => {
-    set({ mode });
-    if (mode) {
-      await SecureStore.setItemAsync("auth_mode", mode);
-    } else {
-      await SecureStore.deleteItemAsync("auth_mode");
+    try {
+      await authClient.signOut();
+    } catch (e) {
+      console.error("Sign out failed", e);
     }
   },
 }));
 
 export function useAuthSession() {
   const session = useAuthStore((s) => s.session as Session | null);
-  const mode = useAuthStore((s) => s.mode);
   const isPending = useAuthStore((s) => s.isPending);
   const isRefetching = useAuthStore((s) => s.isRefetching);
   const error = useAuthStore((s) => s.error);
   const refetch = useAuthStore((s) => s.refetch);
   const init = useAuthStore((s) => s.init);
-  const setMode = useAuthStore((s) => s.setMode);
   const signOut = useAuthStore((s) => s.signOut);
 
   // session from /get-session is typically `{ user, session }`.
@@ -136,7 +118,6 @@ export function useAuthSession() {
   const organization = (session as any)?.organization ?? null;
   const branch = (session as any)?.branch ?? null;
   const isAuthenticated = !!user;
-  const isGuest = mode === "guest";
 
   return {
     init,
@@ -146,13 +127,10 @@ export function useAuthSession() {
     organization,
     branch,
     isAuthenticated,
-    isGuest,
-    mode,
     isPending,
     isRefetching,
     error,
     refetch,
-    setMode,
     signOut,
   };
 }

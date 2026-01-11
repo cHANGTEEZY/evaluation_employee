@@ -3,7 +3,7 @@ import { expoClient } from "@better-auth/expo/client";
 import * as SecureStore from "expo-secure-store";
 
 export const authClient = createAuthClient({
-  baseURL: "https://novella-cantoral-terrance.ngrok-free.dev",
+  baseURL: "https://evaluation-backend-ntpb.onrender.com",
   plugins: [
     expoClient({
       scheme: "evaluationapp",

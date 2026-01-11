@@ -8,13 +8,13 @@ import TabBar from "../../components/TabBar";
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const theme = useTheme();
-  const { isAuthenticated, isPending, isGuest } = useAuthSession();
+  const { isAuthenticated, isPending } = useAuthSession();
 
   if (isPending) {
     return null;
   }
 
-  if (!isAuthenticated && !isGuest) {
+  if (!isAuthenticated) {
     return <Redirect href={"/(auth)/login"} />;
   }
 
@@ -25,6 +25,12 @@ export default function TabLayout() {
         headerShown: false,
       }}
     >
+      <Tabs.Screen
+        name="home"
+        options={{
+          title: "Home",
+        }}
+      />
       <Tabs.Screen
         name="evaluations"
         options={{

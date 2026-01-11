@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { useColorScheme } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -10,6 +10,9 @@ import { SplashScreen, Stack } from "expo-router";
 import { Provider } from "../components/Provider";
 import { useAuthStore } from "../lib/auth-store";
 import { SQLiteProvider } from "expo-sqlite";
+import { ActivityIndicator } from "react-native-paper";
+import { getDb } from "../lib/db";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -24,15 +27,36 @@ export const unstable_settings = {
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
+const SPLASH_TIMEOUT = 3000; // Max 3 seconds for splash screen
+
 export default function RootLayout() {
   const initAuth = useAuthStore((s) => s.init);
+  const isPending = useAuthStore((s) => s.isPending);
+  const initialized = useAuthStore((s) => s.initialized);
+  const splashHidden = useRef(false);
 
   useEffect(() => {
     initAuth();
   }, [initAuth]);
 
   useEffect(() => {
-    SplashScreen.hideAsync();
+    // Hide splash when auth is ready
+    if (initialized && !isPending && !splashHidden.current) {
+      splashHidden.current = true;
+      SplashScreen.hideAsync();
+    }
+  }, [initialized, isPending]);
+
+  useEffect(() => {
+    // Fallback: hide splash after timeout even if auth is still pending
+    const timeout = setTimeout(() => {
+      if (!splashHidden.current) {
+        splashHidden.current = true;
+        SplashScreen.hideAsync();
+      }
+    }, SPLASH_TIMEOUT);
+
+    return () => clearTimeout(timeout);
   }, []);
 
   return (
@@ -50,25 +74,43 @@ function RootLayoutNav() {
   const colorScheme = useColorScheme();
 
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <SQLiteProvider databaseName="evaluationapp">
-        <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
-        <Stack>
-          <Stack.Screen
-            name="(tabs)"
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Suspense fallback={<ActivityIndicator size={"large"} />}>
+        <ThemeProvider
+          value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+        >
+          <SQLiteProvider
+            databaseName="evaluationapp"
             options={{
-              headerShown: false,
+              enableChangeListener: true,
             }}
-          />
+            useSuspense
+          >
+            <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
+            <Stack>
+              <Stack.Screen
+                name="(tabs)"
+                options={{
+                  headerShown: false,
+                }}
+              />
 
-          <Stack.Screen
-            name="(auth)"
-            options={{
-              headerShown: false,
-            }}
-          />
-        </Stack>
-      </SQLiteProvider>
-    </ThemeProvider>
+              <Stack.Screen
+                name="(auth)"
+                options={{
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen
+                name="(pages)"
+                options={{
+                  headerShown: false,
+                }}
+              />
+            </Stack>
+          </SQLiteProvider>
+        </ThemeProvider>
+      </Suspense>
+    </GestureHandlerRootView>
   );
 }

@@ -53,6 +53,8 @@ export default function TabBar({ state, descriptors, navigation }: any) {
             iconName = isFocused ? "cloud-sync" : "cloud-sync-outline";
           if (route.name === "profile")
             iconName = isFocused ? "account" : "account-outline";
+          if (route.name === "home")
+            iconName = isFocused ? "home" : "home-outline";
 
           return (
             <Pressable

@@ -1,7 +1,6 @@
 import PageHeader from "../../components/PageHeader";
 import { useRouter } from "expo-router";
 import { StyleSheet } from "react-native";
-import { authClient } from "../../lib/auth-client";
 import { View } from "react-native";
 import { Button, Snackbar, Portal, Text, useTheme } from "react-native-paper";
 import { useState } from "react";

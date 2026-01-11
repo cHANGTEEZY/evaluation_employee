@@ -2,7 +2,6 @@ import { useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { Button, useTheme } from "react-native-paper";
 import { useAuthSession } from "../../lib/auth-store";
-import GuestProfile from "../../components/profile/GuestProfile";
 import UserProfile from "../../components/profile/UserProfile";
 import EditUserProfileForm from "../../components/profile/EditUserProfileForm";
 import OrganizationDetails from "../../components/profile/OrganizationDetails";
@@ -11,14 +10,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import PageHeader from "../../components/PageHeader";
 
 export default function Profile() {
-  const { signOut, mode } = useAuthSession();
+  const { signOut } = useAuthSession();
   const theme = useTheme();
   const [isEditing, setIsEditing] = useState(false);
-  const isGuest = mode === "guest";
-
-  if (isGuest) {
-    return <GuestProfile />;
-  }
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={["left"]}>

@@ -1,10 +1,18 @@
 import { View, StyleSheet } from "react-native";
 import { Button, Text, useTheme, Avatar, Card, List } from "react-native-paper";
 import { useAuthSession } from "../../lib/auth-store";
+import { router } from "expo-router";
 
 export default function GuestProfile() {
   const { signOut } = useAuthSession();
   const theme = useTheme();
+
+  const handleLogin = async () => {
+    await signOut();
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    router.replace("/(auth)/login");
+  };
 
   return (
     <View
@@ -60,11 +68,7 @@ export default function GuestProfile() {
           </View>
         </Card.Content>
         <Card.Actions style={{ justifyContent: "center", paddingBottom: 16 }}>
-          <Button
-            mode="contained"
-            onPress={() => signOut()}
-            style={styles.button}
-          >
+          <Button mode="contained" onPress={handleLogin} style={styles.button}>
             Log In
           </Button>
         </Card.Actions>

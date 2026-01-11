@@ -27,7 +27,6 @@ import { useAuthSession } from "../../lib/auth-store";
 export default function SignIn() {
   const theme = useTheme();
   const router = useRouter();
-  const { setMode } = useAuthSession();
   const isDark = theme.dark;
 
   // Dynamic colors based on theme
@@ -78,7 +77,6 @@ export default function SignIn() {
         },
         {
           onSuccess: async () => {
-            await setMode("user");
             setSnackMessage("Login successful!");
             setSnackVisible(true);
           },
@@ -286,25 +284,13 @@ export default function SignIn() {
               </LinearGradient>
             </View>
 
-            <Divider
+            {/* <Divider
               colors={{
                 divider: colors.divider,
                 text: colors.labelText,
                 background: undefined,
               }}
-            />
-
-            <Button
-              mode="outlined"
-              onPress={async () => {
-                await setMode("guest");
-                router.replace("/(tabs)/evaluations");
-              }}
-              contentStyle={{ height: 46 }}
-              style={{ borderRadius: 12 }}
-            >
-              Continue as Guest
-            </Button>
+            /> */}
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>

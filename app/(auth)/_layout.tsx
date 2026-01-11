@@ -6,7 +6,7 @@ import { useColorScheme } from "react-native";
 import { AuthLight, AuthDark } from "../../constants/Themes";
 
 const AuthLayout = () => {
-  const { isPending, isAuthenticated, isGuest } = useAuthSession();
+  const { isPending, isAuthenticated } = useAuthSession();
   const colorScheme = useColorScheme();
   const authTheme = colorScheme === "dark" ? AuthDark : AuthLight;
 
@@ -14,7 +14,7 @@ const AuthLayout = () => {
     return null;
   }
 
-  if (isAuthenticated || isGuest) {
+  if (isAuthenticated) {
     return <Redirect href={"/(tabs)/evaluations"} />;
   }
 
