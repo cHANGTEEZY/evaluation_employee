@@ -5,6 +5,11 @@ import { useColorScheme } from "react-native";
 import { useTheme } from "react-native-paper";
 import TabBar from "../../components/TabBar";
 
+/**
+ * Render the app's authenticated tab navigator, redirecting to login when unauthenticated and rendering nothing while authentication is pending.
+ *
+ * @returns A JSX element: the Tabs navigator when authenticated, a Redirect to the login route when not authenticated, or `null` while authentication status is pending.
+ */
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const theme = useTheme();

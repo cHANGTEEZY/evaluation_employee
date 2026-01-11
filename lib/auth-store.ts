@@ -103,6 +103,23 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   },
 }));
 
+/**
+ * Provides reactive access to the current authentication session, derived values, status flags, and related actions.
+ *
+ * @returns An object with the following fields:
+ * - `init` - Initializes the auth store; should be awaited by callers before relying on initial state.
+ * - `session` - Raw session payload or `null` when no session exists.
+ * - `user` - Authenticated user object or `null` if unauthenticated.
+ * - `sessionInfo` - Session metadata (e.g., token, expiresAt) or `null` if unavailable.
+ * - `organization` - Organization data from the session payload or `null`.
+ * - `branch` - Branch data from the session payload or `null`.
+ * - `isAuthenticated` - `true` if a `user` is present, `false` otherwise.
+ * - `isPending` - `true` while initial session resolution is in progress, `false` otherwise.
+ * - `isRefetching` - `true` when an active refetch of session data is in progress, `false` otherwise.
+ * - `error` - Error encountered during session retrieval, or `null` if none.
+ * - `refetch` - Function to trigger a session refetch.
+ * - `signOut` - Function to sign out the current user.
+ */
 export function useAuthSession() {
   const session = useAuthStore((s) => s.session as Session | null);
   const isPending = useAuthStore((s) => s.isPending);

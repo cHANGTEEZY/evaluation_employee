@@ -4,6 +4,15 @@ import { useTheme } from "react-native-paper";
 import { Text } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+/**
+ * Render a floating, themed bottom tab bar with per-route icons, labels, and navigation handlers.
+ *
+ * @param props - Component props
+ * @param props.state - Navigation state containing `routes` and the active index
+ * @param props.descriptors - Descriptor objects for each route (used to read options)
+ * @param props.navigation - Navigation object used to emit tab events and navigate
+ * @returns A React element representing the custom bottom tab bar
+ */
 export default function TabBar({ state, descriptors, navigation }: any) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();

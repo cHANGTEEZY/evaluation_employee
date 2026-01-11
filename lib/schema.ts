@@ -1,5 +1,10 @@
 import { getDb } from "./db";
 
+/**
+ * Ensures the `valuations` table exists in the database.
+ *
+ * Creates the table with columns: `id` (primary key), `serverid`, `organization_name`, `organization_address`, `organization_contact`, `branch_name`, `employee_name`, `employee_contact`, `employee_role`, `employee_branch`, `property_data`, `status`, `sync_status`, `created_at`, `updated_at`, `submitted_at`, `synced_at`, and `error_message`.
+ */
 export async function createValuationTable() {
   const db = await getDb();
 
@@ -25,6 +30,13 @@ export async function createValuationTable() {
   )`);
 }
 
+/**
+ * Ensures the `valuation_images` table exists in the database.
+ *
+ * Creates a table with columns: `id`, `valuation_id`, `local_uri`, `remote_url`,
+ * `upload_status`, `captured_at`, `latitude`, and `longitude`, and a foreign key
+ * constraint on `valuation_id` referencing `valuations(id)`.
+ */
 export async function createValuationImagesTable() {
   const db = await getDb();
   await db.execAsync(`CREATE TABLE IF NOT EXISTS valuation_images (
@@ -40,6 +52,11 @@ export async function createValuationImagesTable() {
     )`);
 }
 
+/**
+ * Ensures the database contains a `sync_queue` table with the expected schema.
+ *
+ * Creates the `sync_queue` table if it does not exist with columns: `id` (primary key), `entity_type`, `entity_id`, `action`, `attempts`, `last_attempt_at`, `status`, and `error_message`.
+ */
 export async function createSyncQueue() {
   const db = await getDb();
   await db.execAsync(`CREATE TABLE IF NOT EXISTS sync_queue (

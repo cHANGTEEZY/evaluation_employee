@@ -2,6 +2,11 @@ import { View, StyleSheet } from "react-native";
 import { Card, Text, Divider, Avatar } from "react-native-paper";
 import { useAuthSession } from "../../lib/auth-store";
 
+/**
+ * Render a card showing the current session branch's name, address, and contact.
+ *
+ * @returns A Card displaying the branch's name, address (or `N/A`), and contact (or `N/A`), or `null` when no branch is available.
+ */
 export default function BranchDetails() {
   const { branch } = useAuthSession();
 

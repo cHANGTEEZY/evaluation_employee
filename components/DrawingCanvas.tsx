@@ -8,6 +8,14 @@ interface PathData {
   color: string;
 }
 
+/**
+ * A full-screen drawing canvas component that captures freehand touch input and renders strokes as SVG paths.
+ *
+ * Captures pan gestures to construct the current stroke's SVG path data, stores completed strokes in component state,
+ * and renders both completed and in-progress strokes on an SVG canvas.
+ *
+ * @returns A JSX element that renders the interactive drawing canvas
+ */
 export default function DrawingCanvas() {
   const [paths, setPaths] = useState<PathData[]>([]);
   const [currentPath, setCurrentPath] = useState<string>("");

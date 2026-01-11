@@ -3,6 +3,14 @@ import { Button, Text, useTheme, Avatar, Card, List } from "react-native-paper";
 import { useAuthSession } from "../../lib/auth-store";
 import { router } from "expo-router";
 
+/**
+ * Renders a guest profile screen with information about signing in and a primary Log In action.
+ *
+ * The UI shows an avatar, explanatory text, a short list of sign-in benefits, and a full-width "Log In" button.
+ * Activating the button clears the current session and navigates to the authentication login route.
+ *
+ * @returns A React element that displays the guest profile screen.
+ */
 export default function GuestProfile() {
   const { signOut } = useAuthSession();
   const theme = useTheme();

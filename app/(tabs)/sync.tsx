@@ -5,6 +5,13 @@ import { View } from "react-native";
 import { Button, Snackbar, Portal, Text, useTheme } from "react-native-paper";
 import { useState } from "react";
 
+/**
+ * Renders the "Sync" tab screen with a header, descriptive paragraphs, a contained button that shows a top Snackbar and navigates to the evaluations tab.
+ *
+ * The button sets the snackbar visible and navigates to "/(tabs)/evaluations"; the Snackbar can be dismissed to hide it.
+ *
+ * @returns A React element representing the Sync screen
+ */
 export default function TabTwoScreen() {
   const router = useRouter();
   const theme = useTheme();

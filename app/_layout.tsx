@@ -27,7 +27,13 @@ export const unstable_settings = {
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
-const SPLASH_TIMEOUT = 3000; // Max 3 seconds for splash screen
+const SPLASH_TIMEOUT = 3000; /**
+ * Initializes authentication, manages hiding the splash screen (when auth is ready or after a timeout), and renders the provider-wrapped navigation root.
+ *
+ * Calls the auth initializer on mount and ensures the splash screen is hidden either once authentication initialization completes and is not pending or after the SPLASH_TIMEOUT fallback.
+ *
+ * @returns The root React element for the app, rendering Providers around the navigation layout.
+ */
 
 export default function RootLayout() {
   const initAuth = useAuthStore((s) => s.init);
@@ -70,6 +76,11 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
   return <Provider>{children}</Provider>;
 };
 
+/**
+ * Render the app's navigation layout with gesture handling, theming, SQLite provider, and status bar configured.
+ *
+ * @returns The root React element containing a GestureHandlerRootView that wraps a Suspense boundary, ThemeProvider, SQLiteProvider, StatusBar, and the app Stack routes.
+ */
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
 

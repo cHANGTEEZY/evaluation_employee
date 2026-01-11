@@ -2,6 +2,11 @@ import { View, StyleSheet } from "react-native";
 import { Card, Text, Divider, Avatar } from "react-native-paper";
 import { useAuthSession } from "../../lib/auth-store";
 
+/**
+ * Displays organization details in a card with name, address, and contact number.
+ *
+ * @returns A Card containing the organization's name, address (or "N/A" if absent), and contact number; returns `null` when no organization is available.
+ */
 export default function OrganizationDetails() {
   const { organization } = useAuthSession();
 

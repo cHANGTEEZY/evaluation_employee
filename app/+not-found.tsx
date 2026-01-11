@@ -2,6 +2,11 @@ import { Link, Stack } from "expo-router";
 import { StyleSheet } from "react-native";
 import { View, Text } from "react-native";
 
+/**
+ * Screen displayed for unknown routes that shows a "not found" message and a link to the home screen.
+ *
+ * @returns The JSX element rendering the not-found message and a navigation link to `/`.
+ */
 export default function NotFoundScreen() {
   return (
     <>

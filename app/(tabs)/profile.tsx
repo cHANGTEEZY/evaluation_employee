@@ -9,6 +9,11 @@ import BranchDetails from "../../components/profile/BranchDetails";
 import { SafeAreaView } from "react-native-safe-area-context";
 import PageHeader from "../../components/PageHeader";
 
+/**
+ * Renders the Profile screen with view and edit modes, organization and branch sections, and a sign-out button.
+ *
+ * @returns The Profile screen React element.
+ */
 export default function Profile() {
   const { signOut } = useAuthSession();
   const theme = useTheme();

@@ -7,6 +7,16 @@ type EditUserProfileFormProps = {
   onCancel: () => void;
 };
 
+/**
+ * Form component for editing the current user's profile (name and password).
+ *
+ * Renders inputs for name, new password, and password confirmation, and actions to cancel or save changes.
+ *
+ * @param onCancel - Callback invoked when the Cancel button is pressed.
+ * @returns The rendered profile edit form component.
+ *
+ * Notes: The name field is initialized from the current user session. Pressing Save currently logs the name and password to console (TODO: implement actual save logic).
+ */
 export default function EditUserProfileForm({
   onCancel,
 }: EditUserProfileFormProps) {

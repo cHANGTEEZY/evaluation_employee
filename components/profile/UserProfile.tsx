@@ -6,6 +6,12 @@ type UserProfileProps = {
   onEdit: () => void;
 };
 
+/**
+ * Render a user profile card showing the current user's avatar (or a default icon), name, email, and role, with an Edit action.
+ *
+ * @param onEdit - Callback invoked when the "Edit" button is pressed
+ * @returns A Card displaying the current user's avatar, name, email, and role with an Edit button; `null` if there is no authenticated user
+ */
 export default function UserProfile({ onEdit }: UserProfileProps) {
   const { user } = useAuthSession();
 

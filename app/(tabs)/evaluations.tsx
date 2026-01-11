@@ -21,6 +21,13 @@ const dummyData = Array.from({ length: 20 }).map((_, index) => {
   };
 });
 
+/**
+ * Display the Evaluations screen with header, filter controls, drawer, and a status-indicating list of evaluations.
+ *
+ * The list can be filtered by All, Pending, Completed, or Synced. Tapping an item navigates to the EvaluationDetail route, passing the selected evaluation serialized as a parameter.
+ *
+ * @returns The rendered Evaluations screen React element.
+ */
 export default function EvaluationsScreen() {
   const { session, user } = useAuthSession();
   const theme = useTheme();

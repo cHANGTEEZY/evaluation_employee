@@ -24,6 +24,11 @@ import AuthLogo from "../../features/auth/components/AuthLogo";
 import Divider from "../../components/Divider";
 import { useAuthSession } from "../../lib/auth-store";
 
+/**
+ * Render the sign-in screen containing email and password inputs, client-side validation, password visibility toggle, a "Forgot Password" link, and submission handling that triggers authentication and user-facing snackbar messages.
+ *
+ * @returns The rendered SignIn screen component.
+ */
 export default function SignIn() {
   const theme = useTheme();
   const router = useRouter();
