@@ -1,28 +1,558 @@
 import { getDb } from "./db";
+import type { ValuationFormValues } from "../constants/form-schema";
+import "react-native-get-random-values";
+import { v4 as uuidv4 } from "uuid";
+
+// Generate unique ID
+export function generateId() {
+  return uuidv4();
+}
 
 export async function createValuationTable() {
   const db = await getDb();
 
   await db.execAsync(`CREATE TABLE IF NOT EXISTS valuations (
+    -- System Fields
     id TEXT PRIMARY KEY,
-    serverid TEXT,
-    organization_name TEXT,
-    organization_address TEXT,
-    organization_contact TEXT,
-    branch_name TEXT,
-    employee_name TEXT,
-    employee_contact TEXT,
-    employee_role TEXT,
-    employee_branch TEXT,
-    property_data TEXT,
-    status TEXT,
-    sync_status TEXT,
+    server_id TEXT,
+    status TEXT DEFAULT 'draft',
+    sync_status TEXT DEFAULT 'pending',
     created_at TEXT,
     updated_at TEXT,
     submitted_at TEXT,
     synced_at TEXT,
-    error_message TEXT
+    error_message TEXT,
+
+    -- Basic Details
+    ref_no TEXT,
+    valuation_date TEXT,
+    branch TEXT,
+    client_name TEXT,
+    contact_number TEXT,
+    client_address_nagrita TEXT,
+
+    -- Property Ownership & Location
+    owner_of_property TEXT,
+    property_address_deed TEXT,
+    plot_no TEXT,
+    present_property_address TEXT,
+    district TEXT,
+
+    -- Valuation Purpose
+    valuation_for TEXT,
+
+    -- Road & Access
+    road_type TEXT,
+    road_width REAL,
+    access_road_direction TEXT,
+
+    -- Property Dimensions
+    property_area_length REAL,
+    property_frontage_direction TEXT,
+    property_narrowest_length REAL,
+    property_narrowest_direction TEXT,
+
+    -- Access & Rights
+    right_of_way INTEGER DEFAULT 0,
+    motorable_access INTEGER DEFAULT 0,
+    electricity_available INTEGER DEFAULT 0,
+    drainage_near_property INTEGER DEFAULT 0,
+
+    -- Property Classification
+    property_type TEXT,
+    property_ownership_type TEXT,
+    ownership_transferred_through TEXT,
+    hold_type TEXT,
+
+    -- Land Rates
+    commercial_rate_per_anna REAL,
+    government_rate_per_anna REAL,
+
+    -- Building Details
+    building_type TEXT,
+    building_purpose TEXT,
+    number_of_storeys INTEGER,
+    storey_height REAL,
+    building_age_years INTEGER,
+    completion_date TEXT,
+
+    -- Risk / Area
+    landslide_prone_area INTEGER DEFAULT 0,
+    river_side INTEGER DEFAULT 0,
+    high_tension_area INTEGER DEFAULT 0,
+    canal_area INTEGER DEFAULT 0,
+
+    -- Site & Topography
+    site_charge REAL,
+    high_land_ft REAL,
+    low_land_ft REAL,
+    latitude REAL,
+    longitude REAL,
+    slope_degree REAL,
+
+    -- Documents (stored as JSON)
+    documents TEXT,
+
+    -- Site Plan
+    site_plan_note TEXT
   )`);
+}
+
+// Insert a new valuation
+export async function insertValuation(
+  data: ValuationFormValues
+): Promise<string> {
+  const db = await getDb();
+  const id = generateId();
+  const now = new Date().toISOString();
+
+  await db.runAsync(
+    `INSERT INTO valuations (
+      id, created_at, updated_at, status, sync_status,
+      ref_no, valuation_date, branch, client_name, contact_number, client_address_nagrita,
+      owner_of_property, property_address_deed, plot_no, present_property_address, district,
+      valuation_for, road_type, road_width, access_road_direction,
+      property_area_length, property_frontage_direction, property_narrowest_length, property_narrowest_direction,
+      right_of_way, motorable_access, electricity_available, drainage_near_property,
+      property_type, property_ownership_type, ownership_transferred_through, hold_type,
+      commercial_rate_per_anna, government_rate_per_anna,
+      building_type, building_purpose, number_of_storeys, storey_height, building_age_years, completion_date,
+      landslide_prone_area, river_side, high_tension_area, canal_area,
+      site_charge, high_land_ft, low_land_ft, latitude, longitude, slope_degree,
+      documents, site_plan_note
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      now,
+      now,
+      "draft",
+      "pending",
+      data.ref_no ?? null,
+      data.valuation_date?.toISOString() ?? null,
+      data.branch ?? null,
+      data.client_name ?? null,
+      data.contact_number ?? null,
+      data.client_address_nagrita ?? null,
+      data.owner_of_property ?? null,
+      data.property_address_deed ?? null,
+      data.plot_no ?? null,
+      data.present_property_address ?? null,
+      data.district ?? null,
+      data.valuation_for ?? null,
+      data.road_type ?? null,
+      data.road_width ?? null,
+      data.access_road_direction ?? null,
+      data.property_area_length ?? null,
+      data.property_frontage_direction ?? null,
+      data.property_narrowest_length ?? null,
+      data.property_narrowest_direction ?? null,
+      data.right_of_way ? 1 : 0,
+      data.motorable_access ? 1 : 0,
+      data.electricity_available ? 1 : 0,
+      data.drainage_near_property ? 1 : 0,
+      data.property_type ?? null,
+      data.property_ownership_type ?? null,
+      data.ownership_transferred_through ?? null,
+      data.hold_type ?? null,
+      data.commercial_rate_per_anna ?? null,
+      data.government_rate_per_anna ?? null,
+      data.building_type ?? null,
+      data.building_purpose ?? null,
+      data.number_of_storeys ?? null,
+      data.storey_height ?? null,
+      data.building_age_years ?? null,
+      data.completion_date?.toISOString() ?? null,
+      data.landslide_prone_area ? 1 : 0,
+      data.river_side ? 1 : 0,
+      data.high_tension_area ? 1 : 0,
+      data.canal_area ? 1 : 0,
+      data.site_charge ?? null,
+      data.high_land_ft ?? null,
+      data.low_land_ft ?? null,
+      data.latitude ?? null,
+      data.longitude ?? null,
+      data.slope_degree ?? null,
+      data.documents ? JSON.stringify(data.documents) : null,
+      data.site_plan_note ?? null,
+    ]
+  );
+
+  return id;
+}
+
+// Update an existing valuation
+export async function updateValuation(
+  id: string,
+  data: Partial<ValuationFormValues>
+): Promise<void> {
+  const db = await getDb();
+  const now = new Date().toISOString();
+
+  // Build dynamic update query based on provided fields
+  const updates: string[] = ["updated_at = ?", "sync_status = ?"];
+  const values: (string | number | null)[] = [now, "pending"];
+
+  const fieldMappings: {
+    key: keyof ValuationFormValues;
+    column: string;
+    transform?: (val: unknown) => string | number | null;
+  }[] = [
+    { key: "ref_no", column: "ref_no" },
+    {
+      key: "valuation_date",
+      column: "valuation_date",
+      transform: (v) => (v instanceof Date ? v.toISOString() : null),
+    },
+    { key: "branch", column: "branch" },
+    { key: "client_name", column: "client_name" },
+    { key: "contact_number", column: "contact_number" },
+    { key: "client_address_nagrita", column: "client_address_nagrita" },
+    { key: "owner_of_property", column: "owner_of_property" },
+    { key: "property_address_deed", column: "property_address_deed" },
+    { key: "plot_no", column: "plot_no" },
+    { key: "present_property_address", column: "present_property_address" },
+    { key: "district", column: "district" },
+    { key: "valuation_for", column: "valuation_for" },
+    { key: "road_type", column: "road_type" },
+    { key: "road_width", column: "road_width" },
+    { key: "access_road_direction", column: "access_road_direction" },
+    { key: "property_area_length", column: "property_area_length" },
+    {
+      key: "property_frontage_direction",
+      column: "property_frontage_direction",
+    },
+    { key: "property_narrowest_length", column: "property_narrowest_length" },
+    {
+      key: "property_narrowest_direction",
+      column: "property_narrowest_direction",
+    },
+    {
+      key: "right_of_way",
+      column: "right_of_way",
+      transform: (v) => (v ? 1 : 0),
+    },
+    {
+      key: "motorable_access",
+      column: "motorable_access",
+      transform: (v) => (v ? 1 : 0),
+    },
+    {
+      key: "electricity_available",
+      column: "electricity_available",
+      transform: (v) => (v ? 1 : 0),
+    },
+    {
+      key: "drainage_near_property",
+      column: "drainage_near_property",
+      transform: (v) => (v ? 1 : 0),
+    },
+    { key: "property_type", column: "property_type" },
+    { key: "property_ownership_type", column: "property_ownership_type" },
+    {
+      key: "ownership_transferred_through",
+      column: "ownership_transferred_through",
+    },
+    { key: "hold_type", column: "hold_type" },
+    { key: "commercial_rate_per_anna", column: "commercial_rate_per_anna" },
+    { key: "government_rate_per_anna", column: "government_rate_per_anna" },
+    { key: "building_type", column: "building_type" },
+    { key: "building_purpose", column: "building_purpose" },
+    { key: "number_of_storeys", column: "number_of_storeys" },
+    { key: "storey_height", column: "storey_height" },
+    { key: "building_age_years", column: "building_age_years" },
+    {
+      key: "completion_date",
+      column: "completion_date",
+      transform: (v) => (v instanceof Date ? v.toISOString() : null),
+    },
+    {
+      key: "landslide_prone_area",
+      column: "landslide_prone_area",
+      transform: (v) => (v ? 1 : 0),
+    },
+    { key: "river_side", column: "river_side", transform: (v) => (v ? 1 : 0) },
+    {
+      key: "high_tension_area",
+      column: "high_tension_area",
+      transform: (v) => (v ? 1 : 0),
+    },
+    { key: "canal_area", column: "canal_area", transform: (v) => (v ? 1 : 0) },
+    { key: "site_charge", column: "site_charge" },
+    { key: "high_land_ft", column: "high_land_ft" },
+    { key: "low_land_ft", column: "low_land_ft" },
+    { key: "latitude", column: "latitude" },
+    { key: "longitude", column: "longitude" },
+    { key: "slope_degree", column: "slope_degree" },
+    {
+      key: "documents",
+      column: "documents",
+      transform: (v) => (v ? JSON.stringify(v) : null),
+    },
+    { key: "site_plan_note", column: "site_plan_note" },
+  ];
+
+  for (const mapping of fieldMappings) {
+    if (mapping.key in data) {
+      updates.push(`${mapping.column} = ?`);
+      const value = data[mapping.key];
+      values.push(
+        mapping.transform
+          ? mapping.transform(value)
+          : (value as string | number | null) ?? null
+      );
+    }
+  }
+
+  values.push(id);
+
+  await db.runAsync(
+    `UPDATE valuations SET ${updates.join(", ")} WHERE id = ?`,
+    values
+  );
+}
+
+// Get a valuation by ID
+export async function getValuationById(
+  id: string
+): Promise<ValuationRow | null> {
+  const db = await getDb();
+  const result = await db.getFirstAsync<ValuationRow>(
+    "SELECT * FROM valuations WHERE id = ?",
+    [id]
+  );
+  return result ?? null;
+}
+
+// Get all valuations
+export async function getAllValuations(): Promise<ValuationRow[]> {
+  const db = await getDb();
+  const results = await db.getAllAsync<ValuationRow>(
+    "SELECT * FROM valuations ORDER BY created_at DESC"
+  );
+  return results;
+}
+
+// Get recent valuations
+export async function getRecentValuations(): Promise<ValuationRow[]> {
+  const db = await getDb();
+  const results = await db.getAllAsync<ValuationRow>(
+    "SELECT * FROM valuations ORDER BY created_at DESC LIMIT 10"
+  );
+  return results;
+}
+
+// Get valuations by status
+export async function getValuationsByStatus(
+  status: "draft" | "submitted" | "synced"
+): Promise<ValuationRow[]> {
+  const db = await getDb();
+  const results = await db.getAllAsync<ValuationRow>(
+    "SELECT * FROM valuations WHERE status = ? ORDER BY created_at DESC",
+    [status]
+  );
+  return results;
+}
+
+// Type for valuation metrics
+export interface ValuationMetrics {
+  total: number;
+  draft: number;
+  submitted: number;
+  synced: number;
+}
+
+// Get valuations metrics counts (pending,completed,synced)
+export async function getValuationsMetrics(): Promise<ValuationMetrics> {
+  const db = await getDb();
+  const result = await db.getFirstAsync<ValuationMetrics>(
+    "SELECT COUNT(*) AS total, COUNT(CASE WHEN status = 'draft' THEN 1 END) AS draft, COUNT(CASE WHEN status = 'submitted' THEN 1 END) AS submitted, COUNT(CASE WHEN status = 'synced' THEN 1 END) AS synced FROM valuations"
+  );
+  return result ?? { total: 0, draft: 0, submitted: 0, synced: 0 };
+}
+
+// Get pending sync valuations
+export async function getPendingSyncValuations(): Promise<ValuationRow[]> {
+  const db = await getDb();
+  const results = await db.getAllAsync<ValuationRow>(
+    "SELECT * FROM valuations WHERE sync_status = 'pending' ORDER BY created_at ASC"
+  );
+  return results;
+}
+
+// Update valuation status
+export async function updateValuationStatus(
+  id: string,
+  status: "draft" | "submitted" | "synced",
+  syncStatus?: "pending" | "syncing" | "synced" | "error",
+  errorMessage?: string
+): Promise<void> {
+  const db = await getDb();
+  const now = new Date().toISOString();
+
+  const updates: string[] = ["status = ?", "updated_at = ?"];
+  const values: (string | null)[] = [status, now];
+
+  if (syncStatus) {
+    updates.push("sync_status = ?");
+    values.push(syncStatus);
+  }
+
+  if (status === "submitted") {
+    updates.push("submitted_at = ?");
+    values.push(now);
+  }
+
+  if (syncStatus === "synced") {
+    updates.push("synced_at = ?");
+    values.push(now);
+  }
+
+  if (errorMessage !== undefined) {
+    updates.push("error_message = ?");
+    values.push(errorMessage);
+  }
+
+  values.push(id);
+
+  await db.runAsync(
+    `UPDATE valuations SET ${updates.join(", ")} WHERE id = ?`,
+    values
+  );
+}
+
+// Delete a valuation
+export async function deleteValuation(id: string): Promise<void> {
+  const db = await getDb();
+  await db.runAsync("DELETE FROM valuations WHERE id = ?", [id]);
+  // Also delete associated images
+  await db.runAsync("DELETE FROM valuation_images WHERE valuation_id = ?", [
+    id,
+  ]);
+}
+
+// Type for database row
+export interface ValuationRow {
+  id: string;
+  server_id: string | null;
+  status: string;
+  sync_status: string;
+  created_at: string;
+  updated_at: string;
+  submitted_at: string | null;
+  synced_at: string | null;
+  error_message: string | null;
+  ref_no: string | null;
+  valuation_date: string | null;
+  branch: string | null;
+  client_name: string | null;
+  contact_number: string | null;
+  client_address_nagrita: string | null;
+  owner_of_property: string | null;
+  property_address_deed: string | null;
+  plot_no: string | null;
+  present_property_address: string | null;
+  district: string | null;
+  valuation_for: string | null;
+  road_type: string | null;
+  road_width: number | null;
+  access_road_direction: string | null;
+  property_area_length: number | null;
+  property_frontage_direction: string | null;
+  property_narrowest_length: number | null;
+  property_narrowest_direction: string | null;
+  right_of_way: number;
+  motorable_access: number;
+  electricity_available: number;
+  drainage_near_property: number;
+  property_type: string | null;
+  property_ownership_type: string | null;
+  ownership_transferred_through: string | null;
+  hold_type: string | null;
+  commercial_rate_per_anna: number | null;
+  government_rate_per_anna: number | null;
+  building_type: string | null;
+  building_purpose: string | null;
+  number_of_storeys: number | null;
+  storey_height: number | null;
+  building_age_years: number | null;
+  completion_date: string | null;
+  landslide_prone_area: number;
+  river_side: number;
+  high_tension_area: number;
+  canal_area: number;
+  site_charge: number | null;
+  high_land_ft: number | null;
+  low_land_ft: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  slope_degree: number | null;
+  documents: string | null;
+  site_plan_note: string | null;
+}
+
+// Convert database row to form values
+export function rowToFormValues(
+  row: ValuationRow
+): Partial<ValuationFormValues> {
+  return {
+    ref_no: row.ref_no ?? undefined,
+    valuation_date: row.valuation_date
+      ? new Date(row.valuation_date)
+      : undefined,
+    branch: row.branch ?? undefined,
+    client_name: row.client_name ?? undefined,
+    contact_number: row.contact_number ?? undefined,
+    client_address_nagrita: row.client_address_nagrita ?? undefined,
+    owner_of_property: row.owner_of_property ?? undefined,
+    property_address_deed: row.property_address_deed ?? undefined,
+    plot_no: row.plot_no ?? undefined,
+    present_property_address: row.present_property_address ?? undefined,
+    district: row.district ?? undefined,
+    valuation_for: row.valuation_for as ValuationFormValues["valuation_for"],
+    road_type: row.road_type as ValuationFormValues["road_type"],
+    road_width: row.road_width ?? undefined,
+    access_road_direction:
+      row.access_road_direction as ValuationFormValues["access_road_direction"],
+    property_area_length: row.property_area_length ?? undefined,
+    property_frontage_direction:
+      row.property_frontage_direction as ValuationFormValues["property_frontage_direction"],
+    property_narrowest_length: row.property_narrowest_length ?? undefined,
+    property_narrowest_direction:
+      row.property_narrowest_direction as ValuationFormValues["property_narrowest_direction"],
+    right_of_way: row.right_of_way === 1,
+    motorable_access: row.motorable_access === 1,
+    electricity_available: row.electricity_available === 1,
+    drainage_near_property: row.drainage_near_property === 1,
+    property_type: row.property_type as ValuationFormValues["property_type"],
+    property_ownership_type:
+      row.property_ownership_type as ValuationFormValues["property_ownership_type"],
+    ownership_transferred_through:
+      row.ownership_transferred_through as ValuationFormValues["ownership_transferred_through"],
+    hold_type: row.hold_type as ValuationFormValues["hold_type"],
+    commercial_rate_per_anna: row.commercial_rate_per_anna ?? undefined,
+    government_rate_per_anna: row.government_rate_per_anna ?? undefined,
+    building_type: row.building_type as ValuationFormValues["building_type"],
+    building_purpose:
+      row.building_purpose as ValuationFormValues["building_purpose"],
+    number_of_storeys: row.number_of_storeys ?? undefined,
+    storey_height: row.storey_height ?? undefined,
+    building_age_years: row.building_age_years ?? undefined,
+    completion_date: row.completion_date
+      ? new Date(row.completion_date)
+      : undefined,
+    landslide_prone_area: row.landslide_prone_area === 1,
+    river_side: row.river_side === 1,
+    high_tension_area: row.high_tension_area === 1,
+    canal_area: row.canal_area === 1,
+    site_charge: row.site_charge ?? undefined,
+    high_land_ft: row.high_land_ft ?? undefined,
+    low_land_ft: row.low_land_ft ?? undefined,
+    latitude: row.latitude ?? undefined,
+    longitude: row.longitude ?? undefined,
+    slope_degree: row.slope_degree ?? undefined,
+    documents: row.documents ? JSON.parse(row.documents) : undefined,
+    site_plan_note: row.site_plan_note ?? undefined,
+  };
 }
 
 export async function createValuationImagesTable() {

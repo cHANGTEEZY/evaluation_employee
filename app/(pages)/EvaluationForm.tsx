@@ -4,14 +4,20 @@ import {
   View,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
-import { Button, ProgressBar, useTheme } from "react-native-paper";
+import {
+  Button,
+  ProgressBar,
+  useTheme,
+  ActivityIndicator,
+} from "react-native-paper";
 import {
   FormProvider,
   useForm,
@@ -24,7 +30,15 @@ import {
   valuationSchema,
   ValuationFormValues,
   defaultValuationValues,
-} from "../../constants/schema";
+} from "../../constants/form-schema";
+import {
+  insertValuation,
+  updateValuationStatus,
+  updateValuation,
+  getValuationById,
+  rowToFormValues,
+} from "../../lib/schema";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
 import Step1 from "../../components/evaluation-form/Step1";
 import Step2 from "../../components/evaluation-form/Step2";
@@ -68,11 +82,17 @@ const step3Fields: FieldPath<ValuationFormValues>[] = [];
 const step4Fields: FieldPath<ValuationFormValues>[] = [];
 
 const EvaluationForm = () => {
-  const [currentStep, setCurrentStep] = useState(4);
+  const { id, mode } = useLocalSearchParams<{ id?: string; mode?: string }>();
+  const isEditMode = mode === "edit" && id;
+
+  const [currentStep, setCurrentStep] = useState(1);
   const [isValidating, setIsValidating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(isEditMode);
 
   const theme = useTheme();
   const inset = useSafeAreaInsets();
+  const router = useRouter();
 
   const form = useForm<ValuationFormValues>({
     // Type assertion needed due to Zod v4 + @hookform/resolvers compatibility
@@ -80,6 +100,28 @@ const EvaluationForm = () => {
     defaultValues: defaultValuationValues,
     mode: "onTouched",
   });
+
+  // Load existing valuation data in edit mode
+  useEffect(() => {
+    const loadValuation = async () => {
+      if (isEditMode && id) {
+        try {
+          setIsLoading(true as any);
+          const data = await getValuationById(id);
+          if (data) {
+            const formValues = rowToFormValues(data);
+            form.reset(formValues as ValuationFormValues);
+          }
+        } catch (error) {
+          console.error("Error loading valuation:", error);
+          Alert.alert("Error", "Failed to load valuation data");
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+    loadValuation();
+  }, [id, isEditMode]);
 
   const getFieldsForStep = (step: number): FieldPath<ValuationFormValues>[] => {
     switch (step) {
@@ -120,9 +162,44 @@ const EvaluationForm = () => {
     }
   };
 
-  const onSubmit: SubmitHandler<ValuationFormValues> = (data) => {
-    console.log("Form Data:", JSON.stringify(data, null, 2));
-    // TODO: Handle submission - send to API
+  const onSubmit: SubmitHandler<ValuationFormValues> = async (data) => {
+    try {
+      setIsSubmitting(true);
+      console.log("Form Data:", JSON.stringify(data, null, 2));
+
+      if (isEditMode && id) {
+        // Update existing valuation
+        await updateValuation(id, data);
+        await updateValuationStatus(id, "submitted", "pending");
+        console.log("Valuation updated with ID:", id);
+
+        Alert.alert("Success", "Valuation has been updated successfully!", [
+          {
+            text: "OK",
+            onPress: () => router.back(),
+          },
+        ]);
+      } else {
+        // Create new valuation
+        const valuationId = await insertValuation(data);
+        console.log("Valuation saved with ID:", valuationId);
+
+        // Update status to submitted
+        await updateValuationStatus(valuationId, "submitted", "pending");
+
+        Alert.alert("Success", "Valuation has been saved successfully!", [
+          {
+            text: "OK",
+            onPress: () => router.back(),
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error("Error saving valuation:", error);
+      Alert.alert("Error", "Failed to save valuation. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const renderStepContent = () => {
@@ -142,6 +219,25 @@ const EvaluationForm = () => {
 
   const progress = currentStep / TOTAL_STEPS;
 
+  if (isLoading) {
+    return (
+      <SafeAreaView
+        edges={["left"]}
+        style={[styles.safeArea, { backgroundColor: theme.colors.surface }]}
+      >
+        <View
+          style={[
+            styles.container,
+            { justifyContent: "center", alignItems: "center" },
+          ]}
+        >
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={{ marginTop: 16 }}>Loading valuation...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView
       edges={["left"]}
@@ -151,7 +247,7 @@ const EvaluationForm = () => {
         {/* Header Section */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.colors.primary }]}>
-            Property Valuation Form
+            {isEditMode ? "Edit Valuation" : "Property Valuation Form"}
           </Text>
 
           {/* Step Indicator */}
@@ -221,6 +317,8 @@ const EvaluationForm = () => {
               style={styles.button}
               icon="check"
               contentStyle={styles.buttonContent}
+              loading={isSubmitting}
+              disabled={isSubmitting}
             >
               Submit
             </Button>

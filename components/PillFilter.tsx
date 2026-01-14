@@ -19,28 +19,29 @@ const PillFilter = ({ filters }: { filters: Filter[] }) => {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {filters.map((filter: Filter) => (
-          <Chip
-            key={filter.name}
-            icon={filter.icon}
-            onPress={filter?.onPress}
-            selected={filter.selected}
-            showSelectedOverlay
-            style={[
-              styles.chip,
-              filter.selected && {
-                backgroundColor: theme.colors.secondaryContainer,
-              },
-            ]}
-            textStyle={
-              filter.selected
-                ? { color: theme.colors.onSecondaryContainer }
-                : undefined
-            }
-          >
-            {filter.name}
-          </Chip>
-        ))}
+        {filters.map((filter) => {
+          const backgroundColor = filter.selected
+            ? theme.colors.onBackground
+            : undefined;
+
+          const contentColor = filter.selected
+            ? theme.colors.onPrimary
+            : theme.colors.onSurfaceVariant;
+
+          return (
+            <Chip
+              key={filter.name}
+              icon={filter.icon}
+              onPress={filter.onPress}
+              selected={filter.selected}
+              showSelectedOverlay
+              selectedColor={contentColor}
+              style={[styles.chip, { backgroundColor: backgroundColor }]}
+            >
+              {filter.name}
+            </Chip>
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -57,6 +58,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
-    marginRight: 4,
+    // marginRight is handled by 'gap' in scrollContent, so this is optional
+    // marginRight: 4,
   },
 });

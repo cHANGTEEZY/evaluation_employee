@@ -1,58 +1,29 @@
 import { StyleSheet, View, ScrollView } from "react-native";
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 
 import {
   useTheme,
   Text,
   Card,
   Button,
-  Avatar,
   ProgressBar,
-  Surface,
   IconButton,
-  Searchbar,
-  FAB,
-  Portal,
+  TouchableRipple,
 } from "react-native-paper";
 import { useAuthSession } from "../../lib/auth-store";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import MenuDrawer from "../../components/MenuDrawer";
 import { greeting } from "../../lib/greeting";
 import EvaliationFAB from "../../components/EvaliationFAB";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const stats = {
-  pending: 3,
-  completed: 12,
-  synced: 10,
-  total: 15,
-};
-
-const recentActivity = [
-  {
-    id: "1",
-    title: "Valuation #1023",
-    address: "123 Main St, Springfield",
-    status: "Pending",
-    date: "2 hours ago",
-  },
-  {
-    id: "2",
-    title: "Valuation #1022",
-    address: "456 Oak Ave, Shelbyville",
-    status: "Completed",
-    date: "Yesterday",
-  },
-  {
-    id: "3",
-    title: "Valuation #1021",
-    address: "789 Pine Ln, Capital City",
-    status: "Synced",
-    date: "2 days ago",
-  },
-];
+import {
+  getRecentValuations,
+  getValuationsMetrics,
+  ValuationMetrics,
+  ValuationRow,
+} from "../../lib/schema";
 
 const HomeScreen = () => {
   const [drawerVisible, setDrawerVisible] = useState(false);
@@ -61,6 +32,61 @@ const HomeScreen = () => {
   const userName = session?.user?.name || "User";
 
   const insets = useSafeAreaInsets();
+
+  const [recentValuations, setRecentValuations] = useState<ValuationRow[]>([]);
+  const [stats, setStats] = useState({
+    pending: 0,
+    completed: 0,
+    synced: 0,
+    total: 0,
+  });
+
+  // Fetch data whenever screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      const fetchData = async () => {
+        // Fetch recent valuations
+        const valuations = await getRecentValuations();
+        setRecentValuations(valuations);
+
+        // Fetch stats
+        const metrics = await getValuationsMetrics();
+        // Map database fields to UI labels: draft → pending, submitted → completed
+        setStats({
+          pending: metrics.draft,
+          completed: metrics.submitted,
+          synced: metrics.synced,
+          total: metrics.total,
+        });
+      };
+
+      fetchData();
+    }, [])
+  );
+
+  // Helper function to format relative time
+  const getRelativeTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 60) return `${diffMins} min${diffMins !== 1 ? "s" : ""} ago`;
+    if (diffHours < 24)
+      return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return date.toLocaleDateString();
+  };
+
+  // Helper function to get status display
+  const getStatusDisplay = (status: string, syncStatus: string) => {
+    if (syncStatus === "synced") return "Synced";
+    if (status === "submitted") return "Completed";
+    return "Pending";
+  };
 
   return (
     <View
@@ -71,201 +97,294 @@ const HomeScreen = () => {
         onDismiss={() => setDrawerVisible(false)}
       />
 
+      <LinearGradient
+        colors={[theme.colors.primaryContainer, theme.colors.primary]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.gradientHeader, { paddingTop: insets.top + 10 }]}
+      >
+        <View style={styles.headerTopRow}>
+          <View style={{ flex: 1, marginLeft: 8 }}>
+            <Text variant="titleLarge" style={{ color: "white", opacity: 0.9 }}>
+              {greeting()}
+            </Text>
+            <Text
+              variant="headlineLarge"
+              style={{
+                fontWeight: "bold",
+                color: "white",
+                marginTop: 4,
+                textTransform: "capitalize",
+              }}
+            >
+              {userName}
+            </Text>
+            <Text
+              variant="bodyMedium"
+              style={{ color: "white", opacity: 0.85, marginTop: 4 }}
+            >
+              {new Date().toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              })}
+            </Text>
+          </View>
+
+          <IconButton
+            icon={drawerVisible ? "menu-open" : "menu"}
+            iconColor={theme.colors.shadow}
+            size={28}
+            onPress={() => setDrawerVisible(!drawerVisible)}
+            style={{ marginLeft: -8 }}
+          />
+        </View>
+
+        {/* Quick Stats Summary in Header */}
+        <View style={styles.headerStatsRow}>
+          <View style={styles.headerStatItem}>
+            <Text
+              variant="headlineSmall"
+              style={{ fontWeight: "bold", color: "white" }}
+            >
+              {stats.total}
+            </Text>
+            <Text
+              variant="labelMedium"
+              style={{ color: "white", opacity: 0.85 }}
+            >
+              Total
+            </Text>
+          </View>
+
+          <View style={styles.headerStatDivider} />
+
+          <View style={styles.headerStatItem}>
+            <Text
+              variant="headlineSmall"
+              style={{ fontWeight: "bold", color: "white" }}
+            >
+              {stats.pending}
+            </Text>
+            <Text
+              variant="labelMedium"
+              style={{ color: "white", opacity: 0.85 }}
+            >
+              Pending
+            </Text>
+          </View>
+
+          <View style={styles.headerStatDivider} />
+
+          <View style={styles.headerStatItem}>
+            <Text
+              variant="headlineSmall"
+              style={{ fontWeight: "bold", color: "white" }}
+            >
+              {stats.completed}
+            </Text>
+            <Text
+              variant="labelMedium"
+              style={{ color: "white", opacity: 0.85 }}
+            >
+              Completed
+            </Text>
+          </View>
+        </View>
+      </LinearGradient>
       <ScrollView
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
-        <LinearGradient
-          colors={[theme.colors.primaryContainer, theme.colors.primary]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.gradientHeader, { paddingTop: insets.top + 10 }]}
-        >
-          <View style={styles.headerTopRow}>
-            <View style={{ flex: 1, marginLeft: 8, flexDirection: "row" }}>
-              <View>
-                <Text variant="titleMedium" style={{ color: "white" }}>
-                  {greeting()}
-                </Text>
-                <Text
-                  variant="headlineSmall"
-                  style={{ fontWeight: "bold", color: "white" }}
-                >
-                  {userName}
-                </Text>
-              </View>
-            </View>
-
-            <IconButton
-              icon={drawerVisible ? "menu-open" : "menu"}
-              iconColor={theme.colors.shadow}
-              size={28}
-              onPress={() => setDrawerVisible(!drawerVisible)}
-              style={{ marginLeft: -8 }}
-            />
-          </View>
-
-          <Searchbar
-            placeholder="Search valuations..."
-            value={""}
-            onChange={() => ""}
-          />
-        </LinearGradient>
-
         <View style={styles.scrollContent}>
           <View style={styles.section}>
             <Text variant="titleLarge" style={styles.sectionTitle}>
-              Overview
+              Quick Actions
             </Text>
-            <View style={styles.statsGrid}>
+            <View style={styles.quickActionsGrid}>
               <Card
                 style={[
-                  styles.statsCard,
+                  styles.quickActionCard,
                   { backgroundColor: theme.colors.primaryContainer },
                 ]}
-                onPress={() => router.push("/(tabs)/evaluations")}
+                onPress={() => router.push("/(pages)/EvaluationForm")}
               >
-                <Card.Content>
+                <Card.Content style={styles.quickActionContent}>
                   <MaterialCommunityIcons
-                    name="clock-outline"
-                    size={28}
+                    name="plus-circle"
+                    size={32}
                     color={theme.colors.onPrimaryContainer}
                   />
                   <Text
-                    variant="displaySmall"
+                    variant="labelLarge"
                     style={{
-                      marginTop: 8,
                       color: theme.colors.onPrimaryContainer,
-                      fontWeight: "bold",
+                      marginTop: 8,
+                      fontWeight: "600",
                     }}
                   >
-                    {stats.pending}
-                  </Text>
-                  <Text
-                    variant="labelLarge"
-                    style={{ color: theme.colors.onPrimaryContainer }}
-                  >
-                    Pending
+                    Create
                   </Text>
                 </Card.Content>
               </Card>
 
-              <View style={styles.statsColumn}>
-                <Card
-                  style={[
-                    styles.statsCardSmall,
-                    {
-                      backgroundColor: theme.colors.secondaryContainer,
-                      marginBottom: 12,
-                    },
-                  ]}
-                  onPress={() => {}}
-                >
-                  <Card.Content style={styles.smallCardContent}>
-                    <View>
-                      <Text
-                        variant="titleLarge"
-                        style={{
-                          fontWeight: "bold",
-                          color: theme.colors.onSecondaryContainer,
-                        }}
-                      >
-                        {stats.completed}
-                      </Text>
-                      <Text
-                        variant="labelMedium"
-                        style={{ color: theme.colors.onSecondaryContainer }}
-                      >
-                        Completed
-                      </Text>
-                    </View>
-                    <MaterialCommunityIcons
-                      name="check-circle-outline"
-                      size={24}
-                      color={theme.colors.onSecondaryContainer}
-                    />
-                  </Card.Content>
-                </Card>
+              <Card
+                style={[
+                  styles.quickActionCard,
+                  { backgroundColor: theme.colors.secondaryContainer },
+                ]}
+                onPress={() => router.push("/(tabs)/evaluations")}
+              >
+                <Card.Content style={styles.quickActionContent}>
+                  <MaterialCommunityIcons
+                    name="file-document-multiple"
+                    size={32}
+                    color={theme.colors.onSecondaryContainer}
+                  />
+                  <Text
+                    variant="labelLarge"
+                    style={{
+                      color: theme.colors.onSecondaryContainer,
+                      marginTop: 8,
+                      fontWeight: "600",
+                    }}
+                  >
+                    View All
+                  </Text>
+                </Card.Content>
+              </Card>
 
-                <Card
-                  style={[
-                    styles.statsCardSmall,
-                    { backgroundColor: theme.colors.tertiaryContainer },
-                  ]}
-                  onPress={() => router.push("/(tabs)/sync")}
-                >
-                  <Card.Content style={styles.smallCardContent}>
-                    <View>
-                      <Text
-                        variant="titleLarge"
-                        style={{
-                          fontWeight: "bold",
-                          color: theme.colors.onTertiaryContainer,
-                        }}
-                      >
-                        {stats.synced}
-                      </Text>
-                      <Text
-                        variant="labelMedium"
-                        style={{ color: theme.colors.onTertiaryContainer }}
-                      >
-                        Synced
-                      </Text>
-                    </View>
-                    <MaterialCommunityIcons
-                      name="cloud-check-outline"
-                      size={24}
-                      color={theme.colors.onTertiaryContainer}
-                    />
-                  </Card.Content>
-                </Card>
-              </View>
+              <Card
+                style={[
+                  styles.quickActionCard,
+                  { backgroundColor: theme.colors.tertiaryContainer },
+                ]}
+                onPress={() => router.push("/(tabs)/sync")}
+              >
+                <Card.Content style={styles.quickActionContent}>
+                  <MaterialCommunityIcons
+                    name="cloud-sync"
+                    size={32}
+                    color={theme.colors.onTertiaryContainer}
+                  />
+                  <Text
+                    variant="labelLarge"
+                    style={{
+                      color: theme.colors.onTertiaryContainer,
+                      marginTop: 8,
+                      fontWeight: "600",
+                    }}
+                  >
+                    Sync Data
+                  </Text>
+                </Card.Content>
+              </Card>
             </View>
           </View>
 
-          {/* Progress Section */}
           <Card
             style={[
-              styles.progressCard,
+              styles.insightsCard,
               { borderColor: theme.colors.outlineVariant, borderWidth: 1 },
             ]}
             mode="outlined"
           >
             <Card.Content>
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 8,
-                }}
-              >
-                <Text variant="titleMedium" style={{ fontWeight: "bold" }}>
-                  Daily Goal
-                </Text>
+              <View style={styles.insightsHeader}>
+                <MaterialCommunityIcons
+                  name="chart-line"
+                  size={24}
+                  color={theme.colors.primary}
+                />
                 <Text
-                  variant="bodyMedium"
-                  style={{ color: theme.colors.primary }}
+                  variant="titleMedium"
+                  style={{ fontWeight: "bold", marginLeft: 8 }}
                 >
-                  {stats.completed}/{stats.total}
+                  Productivity Insights
                 </Text>
               </View>
-              <ProgressBar
-                progress={stats.completed / stats.total}
-                color={theme.colors.primary}
-                style={{ height: 8, borderRadius: 4 }}
-              />
-              <Text
-                variant="bodySmall"
-                style={{ marginTop: 8, color: theme.colors.onSurfaceVariant }}
-              >
-                You're 80% done with your assigned valuations for today. Keep it
-                up!
-              </Text>
+
+              <View style={styles.insightsRow}>
+                <View style={styles.insightItem}>
+                  <Text
+                    variant="bodySmall"
+                    style={{ color: theme.colors.onSurfaceVariant }}
+                  >
+                    Completion Rate
+                  </Text>
+                  <Text
+                    variant="headlineSmall"
+                    style={{
+                      fontWeight: "bold",
+                      color: theme.colors.primary,
+                      marginTop: 4,
+                    }}
+                  >
+                    {stats.total > 0
+                      ? Math.round((stats.completed / stats.total) * 100)
+                      : 0}
+                    %
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.divider,
+                    { backgroundColor: theme.colors.outlineVariant },
+                  ]}
+                />
+
+                <View style={styles.insightItem}>
+                  <Text
+                    variant="bodySmall"
+                    style={{ color: theme.colors.onSurfaceVariant }}
+                  >
+                    Sync Status
+                  </Text>
+                  <Text
+                    variant="headlineSmall"
+                    style={{
+                      fontWeight: "bold",
+                      color:
+                        stats.pending > 0
+                          ? theme.colors.error
+                          : theme.colors.tertiary,
+                      marginTop: 4,
+                    }}
+                  >
+                    {stats.pending > 0
+                      ? `${stats.pending} Pending`
+                      : "All Synced"}
+                  </Text>
+                </View>
+              </View>
+
+              {stats.total > 0 && (
+                <>
+                  <View
+                    style={[
+                      styles.progressBarContainer,
+                      { marginTop: 16, marginBottom: 8 },
+                    ]}
+                  >
+                    <ProgressBar
+                      progress={stats.completed / stats.total}
+                      color={theme.colors.primary}
+                      style={{ height: 8, borderRadius: 4 }}
+                    />
+                  </View>
+                  <Text
+                    variant="bodySmall"
+                    style={{ color: theme.colors.onSurfaceVariant }}
+                  >
+                    {stats.completed} of {stats.total} valuations completed
+                    {stats.synced > 0 && ` • ${stats.synced} synced to server`}
+                  </Text>
+                </>
+              )}
             </Card.Content>
           </Card>
 
-          {/* Recent Activity */}
           <View style={styles.section}>
             <View
               style={{
@@ -286,66 +405,144 @@ const HomeScreen = () => {
               </Button>
             </View>
 
-            {recentActivity.map((item) => (
+            {recentValuations.length === 0 ? (
               <Card
-                key={item.id}
-                style={styles.activityCard}
-                mode="contained"
-                onPress={() => {}}
+                style={[
+                  styles.activityCard,
+                  { backgroundColor: theme.colors.surfaceVariant },
+                ]}
               >
-                <Card.Content style={styles.activityContent}>
-                  <View
-                    style={[
-                      styles.iconBox,
-                      { backgroundColor: theme.colors.surfaceVariant },
-                    ]}
+                <Card.Content style={{ padding: 24, alignItems: "center" }}>
+                  <MaterialCommunityIcons
+                    name="clipboard-text-outline"
+                    size={48}
+                    color={theme.colors.onSurfaceVariant}
+                  />
+                  <Text
+                    variant="bodyMedium"
+                    style={{
+                      color: theme.colors.onSurfaceVariant,
+                      marginTop: 12,
+                    }}
                   >
-                    <MaterialCommunityIcons
-                      name={
-                        item.status === "Pending"
-                          ? "clock-outline"
-                          : item.status === "Completed"
-                          ? "check-circle-outline"
-                          : "cloud-check"
-                      }
-                      size={24}
-                      color={theme.colors.onSurfaceVariant}
-                    />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 16 }}>
-                    <Text variant="titleMedium" style={{ fontWeight: "600" }}>
-                      {item.title}
-                    </Text>
-                    <Text
-                      variant="bodySmall"
-                      style={{ color: theme.colors.onSurfaceVariant }}
-                    >
-                      {item.address}
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: "flex-end" }}>
-                    <Text
-                      variant="labelSmall"
-                      style={{
-                        color: theme.colors.primary,
-                        fontWeight: "bold",
-                      }}
-                    >
-                      {item.status}
-                    </Text>
-                    <Text
-                      variant="labelSmall"
-                      style={{
-                        color: theme.colors.onSurfaceVariant,
-                        marginTop: 4,
-                      }}
-                    >
-                      {item.date}
-                    </Text>
-                  </View>
+                    No valuations yet. Create your first one!
+                  </Text>
                 </Card.Content>
               </Card>
-            ))}
+            ) : (
+              recentValuations.map((item) => {
+                const displayStatus = getStatusDisplay(
+                  item.status,
+                  item.sync_status
+                );
+                return (
+                  <Card
+                    key={item.id}
+                    style={[
+                      styles.activityCard,
+                      { backgroundColor: theme.colors.surface },
+                    ]}
+                    mode="contained"
+                  >
+                    <TouchableRipple
+                      onPress={() => {
+                        router.push({
+                          pathname: "/(pages)/EvaluationDetail",
+                          params: { id: item.id },
+                        });
+                      }}
+                      rippleColor={theme.colors.primary + "1A"}
+                      style={{ flex: 1 }}
+                    >
+                      <View style={styles.activityContent}>
+                        {/* Icon Box */}
+                        <View
+                          style={[
+                            styles.iconBox,
+                            { backgroundColor: theme.colors.elevation.level2 },
+                          ]}
+                        >
+                          <MaterialCommunityIcons
+                            name={
+                              displayStatus === "Pending"
+                                ? "clock-outline"
+                                : displayStatus === "Completed"
+                                ? "check-circle-outline"
+                                : "cloud-check"
+                            }
+                            size={24}
+                            color={
+                              displayStatus === "Pending"
+                                ? theme.colors.error
+                                : theme.colors.primary
+                            }
+                          />
+                        </View>
+
+                        {/* Text Info */}
+                        <View style={{ flex: 1, marginLeft: 16 }}>
+                          <Text
+                            variant="titleMedium"
+                            style={{ fontWeight: "600" }}
+                          >
+                            {item.client_name || "Unnamed Valuation"}
+                          </Text>
+                          <Text
+                            variant="bodySmall"
+                            style={{
+                              color: theme.colors.onSurfaceVariant,
+                              marginTop: 2,
+                            }}
+                            numberOfLines={1}
+                          >
+                            {item.present_property_address ||
+                              item.property_address_deed ||
+                              "No address"}
+                          </Text>
+                        </View>
+
+                        {/* Status Badge & Date */}
+                        <View style={{ alignItems: "flex-end" }}>
+                          <View
+                            style={[
+                              styles.statusBadge,
+                              {
+                                backgroundColor:
+                                  displayStatus === "Pending"
+                                    ? theme.colors.errorContainer
+                                    : theme.colors.secondaryContainer,
+                              },
+                            ]}
+                          >
+                            <Text
+                              variant="labelSmall"
+                              style={{
+                                color:
+                                  displayStatus === "Pending"
+                                    ? theme.colors.onErrorContainer
+                                    : theme.colors.onSecondaryContainer,
+                                fontWeight: "bold",
+                              }}
+                            >
+                              {displayStatus}
+                            </Text>
+                          </View>
+                          <Text
+                            variant="labelSmall"
+                            style={{
+                              color: theme.colors.onSurfaceVariant,
+                              marginTop: 6,
+                            }}
+                          >
+                            {getRelativeTime(item.created_at)}
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableRipple>
+                  </Card>
+                );
+              })
+            )}
           </View>
         </View>
       </ScrollView>
@@ -372,14 +569,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
   },
+  headerStatsRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    marginTop: 8,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.2)",
+  },
+  headerStatItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  headerStatDivider: {
+    width: 1,
+    height: 35,
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+  },
   scrollContent: {
     padding: 20,
-  },
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 4,
-    height: 50,
   },
   section: {
     marginBottom: 24,
@@ -413,13 +622,55 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     backgroundColor: "transparent",
   },
+  quickActionsGrid: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  quickActionCard: {
+    flex: 1,
+    borderRadius: 16,
+  },
+  quickActionContent: {
+    alignItems: "center",
+    paddingVertical: 16,
+  },
+  insightsCard: {
+    marginBottom: 24,
+    backgroundColor: "transparent",
+    borderRadius: 16,
+  },
+  insightsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  insightsRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+  },
+  insightItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  divider: {
+    width: 1,
+    height: 40,
+    marginHorizontal: 16,
+  },
+  progressBarContainer: {
+    width: "100%",
+  },
+  // Updated Styles for Recent Activity
   activityCard: {
     marginBottom: 12,
-    backgroundColor: "transparent",
+    borderRadius: 16,
+    overflow: "hidden", // Ensures the ripple effect is clipped to the card corners
   },
   activityContent: {
     flexDirection: "row",
     alignItems: "center",
+    padding: 16, // Padding moved inside the TouchableRipple
   },
   iconBox: {
     width: 48,
@@ -427,5 +678,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
 });

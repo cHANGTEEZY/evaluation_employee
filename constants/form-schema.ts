@@ -223,37 +223,90 @@ export const valuationSchema = z.object({
 
 export type ValuationFormValues = z.infer<typeof valuationSchema>;
 
-// Default values for the form
+// Default values for the form (pre-filled with test data for easier testing)
 export const defaultValuationValues: Partial<ValuationFormValues> = {
-  ref_no: "",
-  branch: "",
-  client_name: "",
-  contact_number: "",
-  client_address_nagrita: "",
-  owner_of_property: "",
-  property_address_deed: "",
-  plot_no: "",
-  present_property_address: "",
-  district: "",
-  right_of_way: false,
-  motorable_access: false,
-  electricity_available: false,
-  drainage_near_property: false,
+  // Basic Details
+  ref_no: "VAL-2026-001",
+  valuation_date: new Date(),
+  branch: "Kathmandu Branch",
+  client_name: "Sushank Gurung",
+  contact_number: "9841234567",
+  client_address_nagrita: "Thamel, Kathmandu",
+
+  // Property Ownership & Location
+  owner_of_property: "Sushank Gurung",
+  property_address_deed: "Ward No. 16, Thamel, Kathmandu",
+  plot_no: "123",
+  present_property_address: "Ward No. 16, Thamel, Kathmandu",
+  district: "Kathmandu",
+
+  // Valuation Purpose
+  valuation_for: "land_and_building",
+
+  // Road & Access
+  road_type: "black_topped",
+  road_width: 15,
+  access_road_direction: "north",
+
+  // Property Dimensions
+  property_area_length: 2500,
+  property_frontage_direction: "north",
+  property_narrowest_length: 50,
+  property_narrowest_direction: "east",
+
+  // Access & Rights
+  right_of_way: true,
+  motorable_access: true,
+  electricity_available: true,
+  drainage_near_property: true,
+
+  // Property Classification
+  property_type: "residential",
+  property_ownership_type: "individual_single",
+  ownership_transferred_through: "sale",
+  hold_type: "freehold",
+
+  // Land Rates
+  commercial_rate_per_anna: 500000,
+  government_rate_per_anna: 450000,
+
+  // Building Details
+  building_type: "rcc_framed",
+  building_purpose: "residential",
+  number_of_storeys: 3,
+  storey_height: 10,
+  building_age_years: 5,
+  completion_date: new Date(2021, 0, 1),
+
+  // Risk / Area
   landslide_prone_area: false,
   river_side: false,
   high_tension_area: false,
   canal_area: false,
-  site_plan_note: "",
+
+  // Site & Topography
+  site_charge: 50000,
+  high_land_ft: 100,
+  low_land_ft: 95,
+  latitude: 27.7172,
+  longitude: 85.324,
+  slope_degree: 5,
+
+  // Documents
   documents: {
-    citizenship_client: { original: false, photocopy: false },
-    citizenship_owner: { original: false, photocopy: false },
-    lorc: { original: false, photocopy: false },
-    bptm: { original: false, photocopy: false },
-    charkilla: { original: false, photocopy: false },
-    blueprint: { original: false, photocopy: false },
+    citizenship_client: { original: true, photocopy: false },
+    citizenship_owner: { original: true, photocopy: false },
+    lorc: { original: false, photocopy: true },
+    bptm: { original: false, photocopy: true },
+    charkilla: { original: false, photocopy: true },
+    blueprint: { original: false, photocopy: true },
     plot_utar: { original: false, photocopy: false },
     nirmal_lagat: { original: false, photocopy: false },
     nirmal_sangarna: { original: false, photocopy: false },
-    building_drawing: { original: false, photocopy: false },
+    building_drawing: { original: false, photocopy: true },
   },
+
+  // Site Plan
+  site_plan_note:
+    "Property located in prime residential area with good access to main road.",
 };

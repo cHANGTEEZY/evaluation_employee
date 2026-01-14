@@ -3,7 +3,7 @@ import { expoClient } from "@better-auth/expo/client";
 import * as SecureStore from "expo-secure-store";
 
 export const authClient = createAuthClient({
-  baseURL: "https://evaluation-backend-ntpb.onrender.com",
+  baseURL: "https://evaluationbackend-production.up.railway.app",
   plugins: [
     expoClient({
       scheme: "evaluationapp",

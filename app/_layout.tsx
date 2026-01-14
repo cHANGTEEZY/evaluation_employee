@@ -11,7 +11,7 @@ import { Provider } from "../components/Provider";
 import { useAuthStore } from "../lib/auth-store";
 import { SQLiteProvider } from "expo-sqlite";
 import { ActivityIndicator } from "react-native-paper";
-import { getDb } from "../lib/db";
+import { initializeDatabase } from "../lib/db";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 export {
@@ -36,7 +36,15 @@ export default function RootLayout() {
   const splashHidden = useRef(false);
 
   useEffect(() => {
-    initAuth();
+    const initialize = async () => {
+      try {
+        await initializeDatabase();
+        initAuth();
+      } catch (error) {
+        console.error("Initialization error:", error);
+      }
+    };
+    initialize();
   }, [initAuth]);
 
   useEffect(() => {

@@ -1,13 +1,8 @@
 import { Redirect, Tabs } from "expo-router";
-import { redirectSystemPath } from "../+native-intent";
 import { useAuthSession } from "../../lib/auth-store";
-import { useColorScheme } from "react-native";
-import { useTheme } from "react-native-paper";
 import TabBar from "../../components/TabBar";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  const theme = useTheme();
   const { isAuthenticated, isPending } = useAuthSession();
 
   if (isPending) {

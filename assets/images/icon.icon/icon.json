@@ -1,0 +1,48 @@
+{
+  "fill" : {
+    "automatic-gradient" : "display-p3:0.29810,0.50732,0.71338,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "blend-mode-specializations" : [
+            {
+              "value" : "soft-light"
+            },
+            {
+              "appearance" : "dark",
+              "value" : "soft-light"
+            }
+          ],
+          "fill" : "automatic",
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "home.png",
+          "name" : "home",
+          "position" : {
+            "scale" : 1.5,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

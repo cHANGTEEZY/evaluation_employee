@@ -4,7 +4,7 @@
     "slug": "expo-router-example",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/icon.icon",
     "scheme": "evaluationapp",
     "userInterfaceStyle": "automatic",
     "splash": {
@@ -12,9 +12,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.changteezy.expo-router-example"

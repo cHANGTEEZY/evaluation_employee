@@ -15,7 +15,7 @@ const AuthLayout = () => {
   }
 
   if (isAuthenticated) {
-    return <Redirect href={"/(tabs)/evaluations"} />;
+    return <Redirect href={"/(tabs)/home"} />;
   }
 
   return (
