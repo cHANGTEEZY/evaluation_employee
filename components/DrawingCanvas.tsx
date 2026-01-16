@@ -1,16 +1,24 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Svg, { Path } from "react-native-svg";
-
 interface PathData {
   d: string;
   color: string;
 }
 
-export default function DrawingCanvas() {
+export default function DrawingCanvas({
+  getCompletedPath,
+}: {
+  getCompletedPath: (image: any) => void;
+}) {
   const [paths, setPaths] = useState<PathData[]>([]);
   const [currentPath, setCurrentPath] = useState<string>("");
+
+  // Call getCompletedPath when paths change (after render)
+  useEffect(() => {
+    getCompletedPath(paths);
+  }, [paths]);
 
   const pan = Gesture.Pan()
     .runOnJS(true)

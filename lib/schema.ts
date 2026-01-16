@@ -94,7 +94,13 @@ export async function createValuationTable() {
     documents TEXT,
 
     -- Site Plan
-    site_plan_note TEXT
+    site_plan_note TEXT,
+
+    -- Site Plan Drawing (local file URI or remote URL)
+    site_plan_image TEXT,
+
+    -- Property Images (stored as JSON array of URIs)
+    property_images TEXT
   )`);
 }
 
@@ -119,8 +125,8 @@ export async function insertValuation(
       building_type, building_purpose, number_of_storeys, storey_height, building_age_years, completion_date,
       landslide_prone_area, river_side, high_tension_area, canal_area,
       site_charge, high_land_ft, low_land_ft, latitude, longitude, slope_degree,
-      documents, site_plan_note
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      documents, site_plan_note, site_plan_image, property_images
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       now,
@@ -174,6 +180,8 @@ export async function insertValuation(
       data.slope_degree ?? null,
       data.documents ? JSON.stringify(data.documents) : null,
       data.site_plan_note ?? null,
+      data.site_plan_drawing ?? null,
+      data.property_images ? JSON.stringify(data.property_images) : null,
     ]
   );
 
@@ -289,6 +297,12 @@ export async function updateValuation(
       transform: (v) => (v ? JSON.stringify(v) : null),
     },
     { key: "site_plan_note", column: "site_plan_note" },
+    { key: "site_plan_drawing", column: "site_plan_image" },
+    {
+      key: "property_images",
+      column: "property_images",
+      transform: (v) => (v ? JSON.stringify(v) : null),
+    },
   ];
 
   for (const mapping of fieldMappings) {
@@ -379,10 +393,29 @@ export async function getPendingSyncValuations(): Promise<ValuationRow[]> {
   return results;
 }
 
+// Get failed sync valuations
+export async function getFailedSyncValuations(): Promise<ValuationRow[]> {
+  const db = await getDb();
+  const results = await db.getAllAsync<ValuationRow>(
+    "SELECT * FROM valuations WHERE sync_status = 'error' ORDER BY created_at ASC"
+  );
+  return results;
+}
+
+// Reset failed sync valuations to pending for retry
+export async function resetFailedSyncValuations(): Promise<void> {
+  const db = await getDb();
+  const now = new Date().toISOString();
+  await db.runAsync(
+    "UPDATE valuations SET sync_status = 'pending', error_message = NULL, updated_at = ? WHERE sync_status = 'error'",
+    [now]
+  );
+}
+
 // Update valuation status
 export async function updateValuationStatus(
   id: string,
-  status: "draft" | "submitted" | "synced",
+  status: "draft" | "fitting" | "submitted" | "synced",
   syncStatus?: "pending" | "syncing" | "synced" | "error",
   errorMessage?: string
 ): Promise<void> {
@@ -488,6 +521,8 @@ export interface ValuationRow {
   slope_degree: number | null;
   documents: string | null;
   site_plan_note: string | null;
+  site_plan_image: string | null;
+  property_images: string | null;
 }
 
 // Convert database row to form values
@@ -552,6 +587,10 @@ export function rowToFormValues(
     slope_degree: row.slope_degree ?? undefined,
     documents: row.documents ? JSON.parse(row.documents) : undefined,
     site_plan_note: row.site_plan_note ?? undefined,
+    site_plan_drawing: row.site_plan_image ?? undefined,
+    property_images: row.property_images
+      ? JSON.parse(row.property_images)
+      : undefined,
   };
 }
 
@@ -582,4 +621,125 @@ export async function createSyncQueue() {
     status TEXT,
     error_message TEXT
   )`);
+}
+
+// ===== AUDIT LOGS =====
+
+// Create audit_logs table
+export async function createAuditLogsTable() {
+  const db = await getDb();
+  await db.execAsync(`CREATE TABLE IF NOT EXISTS audit_logs (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    user_name TEXT,
+    user_email TEXT,
+    action TEXT NOT NULL,
+    entity_type TEXT,
+    entity_id TEXT,
+    details TEXT,
+    created_at TEXT NOT NULL,
+    synced INTEGER DEFAULT 0
+  )`);
+}
+
+// Audit log entry type
+export interface AuditLogEntry {
+  id: string;
+  userId: string;
+  userName: string | null;
+  userEmail: string | null;
+  action: string;
+  entityType: string | null;
+  entityId: string | null;
+  details: string | null;
+  createdAt: string;
+  synced: boolean;
+}
+
+// Insert an audit log entry
+export async function insertAuditLog(
+  userId: string,
+  userName: string | null,
+  userEmail: string | null,
+  action: string,
+  entityType?: string,
+  entityId?: string,
+  details?: Record<string, any>
+): Promise<string> {
+  const db = await getDb();
+  const id = generateId();
+  const now = new Date().toISOString();
+
+  await db.runAsync(
+    `INSERT INTO audit_logs (id, user_id, user_name, user_email, action, entity_type, entity_id, details, created_at, synced)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      userId,
+      userName ?? null,
+      userEmail ?? null,
+      action,
+      entityType ?? null,
+      entityId ?? null,
+      details ? JSON.stringify(details) : null,
+      now,
+      0,
+    ]
+  );
+
+  return id;
+}
+
+// Get all unsynced audit logs
+export async function getUnsyncedAuditLogs(): Promise<AuditLogEntry[]> {
+  const db = await getDb();
+  const results = await db.getAllAsync<{
+    id: string;
+    user_id: string;
+    user_name: string | null;
+    user_email: string | null;
+    action: string;
+    entity_type: string | null;
+    entity_id: string | null;
+    details: string | null;
+    created_at: string;
+    synced: number;
+  }>(`SELECT * FROM audit_logs WHERE synced = 0 ORDER BY created_at ASC`);
+
+  return results.map((row) => ({
+    id: row.id,
+    userId: row.user_id,
+    userName: row.user_name,
+    userEmail: row.user_email,
+    action: row.action,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    details: row.details,
+    createdAt: row.created_at,
+    synced: row.synced === 1,
+  }));
+}
+
+// Delete synced audit logs by IDs
+export async function deleteAuditLogs(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+
+  const db = await getDb();
+  const placeholders = ids.map(() => "?").join(", ");
+  await db.runAsync(
+    `DELETE FROM audit_logs WHERE id IN (${placeholders})`,
+    ids
+  );
+}
+
+// Mark audit logs as synced
+export async function markAuditLogsSynced(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+
+  const db = await getDb();
+  const placeholders = ids.map(() => "?").join(", ");
+  await db.runAsync(
+    `UPDATE audit_logs SET synced = 1 WHERE id IN (${placeholders})`,
+    ids
+  );
 }

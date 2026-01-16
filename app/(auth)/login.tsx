@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -29,21 +29,22 @@ export default function SignIn() {
   const router = useRouter();
   const isDark = theme.dark;
 
-  // Dynamic colors based on theme
-  const colors = {
-    background: isDark ? "#0B1023" : "#F8FAFC",
-    backgroundEnd: isDark ? "#1A1F35" : "#E2E8F0",
-    inputBg: isDark ? "#1E2642" : "#FFFFFF",
-    inputText: isDark ? "#FFFFFF" : "#1F2937",
-    inputPlaceholder: isDark ? "#6B7280" : "#9CA3AF",
-    labelText: isDark ? "#9CA3AF" : "#64748B",
-    titleText: isDark ? "#FFFFFF" : "#1F2937",
-    iconColor: isDark ? "#6B7280" : "#9CA3AF",
-    linkText: theme.colors.primary,
-    borderColor: isDark ? "#374151" : "#E5E7EB",
-    logoColor: isDark ? "#4B5563" : "#CBD5E1",
-    divider: !isDark ? "#374151" : "#E5E7EB",
-  };
+  const colors = useMemo(() => {
+    return {
+      background: isDark ? "#0B1023" : "#F8FAFC",
+      backgroundEnd: isDark ? "#1A1F35" : "#E2E8F0",
+      inputBg: isDark ? "#1E2642" : "#FFFFFF",
+      inputText: isDark ? "#FFFFFF" : "#1F2937",
+      inputPlaceholder: isDark ? "#6B7280" : "#9CA3AF",
+      labelText: isDark ? "#9CA3AF" : "#64748B",
+      titleText: isDark ? "#FFFFFF" : "#1F2937",
+      iconColor: isDark ? "#6B7280" : "#9CA3AF",
+      linkText: theme.colors.primary,
+      borderColor: isDark ? "#374151" : "#E5E7EB",
+      logoColor: isDark ? "#4B5563" : "#CBD5E1",
+      divider: !isDark ? "#374151" : "#E5E7EB",
+    };
+  }, []);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -79,6 +80,7 @@ export default function SignIn() {
           onSuccess: async () => {
             setSnackMessage("Login successful!");
             setSnackVisible(true);
+            router.replace("/(tabs)/home");
           },
           onError: (ctx) => {
             console.error("Login error:", ctx.error);

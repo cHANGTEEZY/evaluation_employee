@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "expo-router-example",
-    "slug": "expo-router-example",
+    "name": "Evaluation",
+    "slug": "Evaluation",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.icon",
+    "icon": "./assets/images/icon/",
     "scheme": "evaluationapp",
     "userInterfaceStyle": "automatic",
     "splash": {
@@ -15,7 +15,8 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.changteezy.expo-router-example"
+      "bundleIdentifier": "com.changteezy.expo-router-example",
+      "appleTeamId": "XPZVK3T5VQ"
     },
     "android": {
       "adaptiveIcon": {
@@ -30,6 +31,20 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them with your friends."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone",
+          "recordAudioAndroid": true
+        }
+      ],
       "expo-router",
       "expo-font",
       [

@@ -44,8 +44,9 @@ import Step1 from "../../components/evaluation-form/Step1";
 import Step2 from "../../components/evaluation-form/Step2";
 import Step3 from "../../components/evaluation-form/Step3";
 import Step4 from "../../components/evaluation-form/Step4";
+import Step5 from "../../components/evaluation-form/Step5";
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 
 const stepTitles: Record<number, string> = {
   1: "Basic Details",
@@ -77,9 +78,14 @@ const step2Fields: FieldPath<ValuationFormValues>[] = [
   "access_road_direction",
 ];
 
-const step3Fields: FieldPath<ValuationFormValues>[] = [];
+const step3Fields: FieldPath<ValuationFormValues>[] = [
+  "building_type",
+  "building_purpose",
+];
 
-const step4Fields: FieldPath<ValuationFormValues>[] = [];
+const step4Fields: FieldPath<ValuationFormValues>[] = ["site_plan_drawing"];
+
+const step5Fields: FieldPath<ValuationFormValues>[] = [];
 
 const EvaluationForm = () => {
   const { id, mode } = useLocalSearchParams<{ id?: string; mode?: string }>();
@@ -89,6 +95,8 @@ const EvaluationForm = () => {
   const [isValidating, setIsValidating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(isEditMode);
+  const [propertyImages, setPropertyImages] = useState<string[]>([]);
+  const [drawingSaved, setDrawingSaved] = useState(false);
 
   const theme = useTheme();
   const inset = useSafeAreaInsets();
@@ -133,6 +141,8 @@ const EvaluationForm = () => {
         return step3Fields;
       case 4:
         return step4Fields;
+      case 5:
+        return step5Fields;
       default:
         return [];
     }
@@ -211,7 +221,23 @@ const EvaluationForm = () => {
       case 3:
         return <Step3 />;
       case 4:
-        return <Step4 />;
+        return (
+          <Step4
+            onDrawingSaved={(uri) => {
+              form.setValue("site_plan_drawing", uri);
+              setDrawingSaved(true);
+            }}
+          />
+        );
+      case 5:
+        return (
+          <Step5
+            onImagesChange={(images) => {
+              setPropertyImages(images);
+              form.setValue("property_images", images);
+            }}
+          />
+        );
       default:
         return null;
     }
@@ -318,7 +344,7 @@ const EvaluationForm = () => {
               icon="check"
               contentStyle={styles.buttonContent}
               loading={isSubmitting}
-              disabled={isSubmitting}
+              disabled={isSubmitting || propertyImages.length < 5}
             >
               Submit
             </Button>

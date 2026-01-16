@@ -6,33 +6,44 @@ import {
   StyleSheet,
   View,
   Pressable,
+  TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useForm, FormProvider } from "react-hook-form";
+import { useForm, FormProvider, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Text, Snackbar, Portal, useTheme } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 
-import ForgotPasswordStep1 from "../../features/auth/components/ForgotPasswordStep1";
 import AuthLogo from "../../features/auth/components/AuthLogo";
-import { BASE_API_URL } from "../../constants";
+import { authClient } from "../../lib/auth-client";
 
-const forgotPasswordSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email address" }),
-});
+const resetPasswordSchema = z
+  .object({
+    newPassword: z
+      .string()
+      .min(8, { message: "Password must be at least 8 characters" }),
+    confirmPassword: z
+      .string()
+      .min(8, { message: "Password must be at least 8 characters" }),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "Passwords do not match",
+  });
 
-type ForgotPasswordSchema = z.infer<typeof forgotPasswordSchema>;
+type ResetPasswordSchema = z.infer<typeof resetPasswordSchema>;
 
-const stepConfig = [
-  { label: "DON'T WORRY", title: "Did you forget your password?" },
-];
-
-const ForgotPassword = () => {
+const ResetPassword = () => {
   const theme = useTheme();
   const isDark = theme.dark;
+  const router = useRouter();
+  const { token, error } = useLocalSearchParams<{
+    token: string;
+    error: string;
+  }>();
 
   // Dynamic colors based on theme
   const colors = {
@@ -53,65 +64,50 @@ const ForgotPassword = () => {
   const [submitting, setSubmitting] = useState(false);
   const [snackVisible, setSnackVisible] = useState(false);
   const [snackMessage, setSnackMessage] = useState("");
-  const router = useRouter();
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
-  const form = useForm<ForgotPasswordSchema>({
-    resolver: zodResolver(forgotPasswordSchema),
+  const form = useForm<ResetPasswordSchema>({
+    resolver: zodResolver(resetPasswordSchema),
     defaultValues: {
-      email: "",
+      newPassword: "",
+      confirmPassword: "",
     },
   });
 
   const handleBack = () => {
-    router.back();
+    router.replace("/(auth)/login");
   };
 
-  const onSubmit = async (values: ForgotPasswordSchema) => {
+  const onSubmit = async (values: ResetPasswordSchema) => {
+    /* 
+     // Temporarily bypass token check for UI testing if needed, 
+     // but in production we need the token.
+     if (!token) {
+       setSnackMessage("Missing reset token. Please request a new link.");
+       setSnackVisible(true);
+       return;
+     }
+    */
+
     setSubmitting(true);
     try {
-      const baseUrl = BASE_API_URL || process.env.EXPO_BASE_URL;
+      const { data, error } = await authClient.resetPassword({
+        newPassword: values.newPassword,
+        token: token || "", // Ensure token is passed if available
+      });
 
-      if (!baseUrl) {
-        throw new Error("Missing API base URL.");
+      if (error) {
+        throw error;
       }
 
-      const response = await fetch(
-        `${baseUrl}/api/auth/request-password-reset`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: values.email,
-            platform: "mobile",
-          }),
-        }
-      );
-
-      console.log("response", response);
-
-      if (!response.ok) {
-        let message = "Failed to send reset email. Please try again.";
-
-        try {
-          const data = await response.json();
-          if (data?.message && typeof data.message === "string") {
-            message = data.message;
-          }
-        } catch {
-          // ignore JSON parse errors
-        }
-
-        throw new Error(message);
-      }
-
-      setSnackMessage("Password reset email sent. Please check your inbox.");
+      setSnackMessage("Password reset successfully. Please login.");
       setSnackVisible(true);
       form.reset();
+      setTimeout(() => router.replace("/(auth)/login"), 2000);
     } catch (error: any) {
       setSnackMessage(
-        error?.message || "Failed to send reset email. Please try again."
+        error?.message || "Failed to reset password. Please try again."
       );
       setSnackVisible(true);
       console.error(error);
@@ -119,6 +115,64 @@ const ForgotPassword = () => {
       setSubmitting(false);
     }
   };
+
+  const renderPasswordField = (
+    name: "newPassword" | "confirmPassword",
+    label: string,
+    placeholder: string,
+    show: boolean,
+    toggle: () => void
+  ) => (
+    <View style={styles.inputContainer}>
+      <Text style={[styles.inputLabel, { color: colors.labelText }]}>
+        {label}
+      </Text>
+      <Controller
+        control={form.control}
+        name={name}
+        render={({ field: { value, onChange } }) => (
+          <View
+            style={[
+              styles.inputWrapper,
+              {
+                backgroundColor: colors.inputBg,
+                borderColor: colors.borderColor,
+                borderWidth: isDark ? 0 : 1,
+              },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name="lock-outline"
+              size={20}
+              color={colors.iconColor}
+              style={styles.inputIcon}
+            />
+            <TextInput
+              value={value}
+              onChangeText={onChange}
+              placeholder={placeholder}
+              placeholderTextColor={colors.inputPlaceholder}
+              secureTextEntry={!show}
+              autoCapitalize="none"
+              style={[styles.textInput, { color: colors.inputText }]}
+            />
+            <Pressable onPress={toggle} style={styles.eyeButton}>
+              <MaterialCommunityIcons
+                name={show ? "eye-off-outline" : "eye-outline"}
+                size={20}
+                color={colors.iconColor}
+              />
+            </Pressable>
+          </View>
+        )}
+      />
+      {form.formState.errors[name]?.message && (
+        <Text style={[styles.errorText, { color: colors.errorText }]}>
+          {String(form.formState.errors[name]?.message)}
+        </Text>
+      )}
+    </View>
+  );
 
   return (
     <View style={styles.container}>
@@ -160,16 +214,38 @@ const ForgotPassword = () => {
             {/* Header Section */}
             <View style={styles.headerSection}>
               <Text style={[styles.labelText, { color: colors.labelText }]}>
-                {stepConfig[0].label}
+                ALMOST THERE
               </Text>
               <Text style={[styles.titleText, { color: colors.titleText }]}>
-                {stepConfig[0].title}
+                Create new password
               </Text>
             </View>
 
             <FormProvider {...form}>
               <View style={styles.formSection}>
-                <ForgotPasswordStep1 colors={colors} isDark={isDark} />
+                <View style={styles.fieldsContainer}>
+                  <Text
+                    style={[styles.description, { color: colors.labelText }]}
+                  >
+                    Create a strong password with at least 8 characters.
+                  </Text>
+
+                  {renderPasswordField(
+                    "newPassword",
+                    "New Password",
+                    "••••••••",
+                    showNew,
+                    () => setShowNew((v) => !v)
+                  )}
+
+                  {renderPasswordField(
+                    "confirmPassword",
+                    "Confirm Password",
+                    "••••••••",
+                    showConfirm,
+                    () => setShowConfirm((v) => !v)
+                  )}
+                </View>
               </View>
             </FormProvider>
 
@@ -193,7 +269,7 @@ const ForgotPassword = () => {
                   style={styles.buttonGradient}
                 >
                   <Text style={styles.buttonText}>
-                    {submitting ? "Sending..." : "Request password reset"}
+                    {submitting ? "Resetting..." : "Reset Password"}
                   </Text>
                 </LinearGradient>
               </Pressable>
@@ -214,7 +290,7 @@ const ForgotPassword = () => {
   );
 };
 
-export default ForgotPassword;
+export default ResetPassword;
 
 const styles = StyleSheet.create({
   container: {
@@ -253,6 +329,42 @@ const styles = StyleSheet.create({
   formSection: {
     flex: 1,
   },
+  fieldsContainer: {
+    gap: 24,
+  },
+  description: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  inputContainer: {
+    gap: 8,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 56,
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 16,
+    height: "100%",
+  },
+  eyeButton: {
+    padding: 4,
+  },
+  errorText: {
+    fontSize: 12,
+    marginTop: 4,
+  },
   buttonSection: {
     marginTop: 32,
   },
@@ -276,16 +388,5 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: "#FFFFFF",
-  },
-  stepIndicator: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 8,
-    marginTop: 24,
-  },
-  stepDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
   },
 });

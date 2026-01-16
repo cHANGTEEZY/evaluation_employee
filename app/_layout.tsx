@@ -14,13 +14,11 @@ import { ActivityIndicator } from "react-native-paper";
 import { initializeDatabase } from "../lib/db";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
-export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary,
-} from "expo-router";
+// Catch any errors thrown by the Layout component.
+export { ErrorBoundary } from "expo-router";
 
+// Ensure that reloading on `/modal` keeps a back button present.
 export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
   initialRouteName: "(tabs)",
 };
 

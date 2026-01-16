@@ -24,6 +24,7 @@ import {
 } from "../../lib/sync";
 import {
   getPendingSyncValuations,
+  getFailedSyncValuations,
   getValuationById,
   type ValuationRow,
 } from "../../lib/schema";
@@ -60,11 +61,16 @@ export default function SyncScreen() {
     errors: string[];
   } | null>(null);
 
-  // Load pending valuations
+  // Load pending and failed valuations
   const loadSyncItems = useCallback(async () => {
     try {
       const pendingValuations = await getPendingSyncValuations();
-      const items: SyncItem[] = pendingValuations.map((v) => ({
+      const failedValuations = await getFailedSyncValuations();
+
+      // Combine pending and failed valuations
+      const allValuations = [...pendingValuations, ...failedValuations];
+
+      const items: SyncItem[] = allValuations.map((v) => ({
         id: v.id,
         type: "valuation" as const,
         title: v.client_name || "Unknown Client",

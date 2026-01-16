@@ -105,16 +105,12 @@ export const valuationSchema = z.object({
     .optional(),
 
   // ===== Building Details =====
-  building_type: z
-    .enum(["rcc_framed", "steel", "load_bearing", "others"], {
-      message: "Please select a valid building type",
-    })
-    .optional(),
-  building_purpose: z
-    .enum(["residential", "commercial", "both"], {
-      message: "Please select a valid building purpose",
-    })
-    .optional(),
+  building_type: z.enum(["rcc_framed", "steel", "load_bearing", "others"], {
+    message: "Please select a valid building type",
+  }),
+  building_purpose: z.enum(["residential", "commercial", "both"], {
+    message: "Please select a valid building purpose",
+  }),
   number_of_storeys: z
     .number({ message: "Number of storeys must be a number" })
     .int("Number of storeys must be a whole number")
@@ -219,6 +215,12 @@ export const valuationSchema = z.object({
 
   // ===== Site Plan =====
   site_plan_note: z.string().optional(),
+
+  // ===== Site Plan Drawing =====
+  site_plan_drawing: z.string().optional(),
+
+  // ===== Property Images =====
+  property_images: z.array(z.string()).optional(),
 });
 
 export type ValuationFormValues = z.infer<typeof valuationSchema>;

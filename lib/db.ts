@@ -3,6 +3,7 @@ import {
   createValuationTable,
   createValuationImagesTable,
   createSyncQueue,
+  createAuditLogsTable,
 } from "./schema";
 
 const DB_NAME = "evaluation_db";
@@ -32,6 +33,7 @@ export async function initializeDatabase() {
     await createValuationTable();
     await createValuationImagesTable();
     await createSyncQueue();
+    await createAuditLogsTable();
 
     isInitialized = true;
     console.log("Database initialized successfully");

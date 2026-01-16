@@ -1,13 +1,17 @@
 import { getDb } from "../db";
 import {
   getPendingSyncValuations,
+  getFailedSyncValuations,
+  resetFailedSyncValuations,
   updateValuationStatus,
+  getUnsyncedAuditLogs,
+  deleteAuditLogs,
   type ValuationRow,
+  type AuditLogEntry,
 } from "../schema";
 import { useSyncStore, type SyncQueueItem } from "./sync-store";
-
-// API base URL from auth-client
-const API_BASE_URL = "https://evaluationbackend-production.up.railway.app";
+import { BASE_API_URL } from "../../constants";
+import { File } from "expo-file-system";
 
 // Maximum retry attempts
 const MAX_RETRY_ATTEMPTS = 3;
@@ -15,9 +19,7 @@ const MAX_RETRY_ATTEMPTS = 3;
 // Exponential backoff delays (in ms)
 const BACKOFF_DELAYS = [1000, 5000, 15000];
 
-/**
- * Convert valuation row to API payload
- */
+//* Convert valuations to api
 function valuationToPayload(valuation: ValuationRow): Record<string, unknown> {
   return {
     id: valuation.id,
@@ -75,9 +77,23 @@ function valuationToPayload(valuation: ValuationRow): Record<string, unknown> {
   };
 }
 
-/**
- * Sync a single valuation to the server
- */
+// Helper to read file as base64
+async function fileToBase64(uri: string): Promise<string | null> {
+  try {
+    const file = new File(uri);
+    if (!file.exists) {
+      console.warn(`File not found: ${uri}`);
+      return null;
+    }
+    const base64 = await file.base64();
+    return base64;
+  } catch (error) {
+    console.error(`Error reading file ${uri}:`, error);
+    return null;
+  }
+}
+
+// Sync single valuation to server with images
 export async function syncValuation(
   valuation: ValuationRow,
   authToken?: string
@@ -85,45 +101,89 @@ export async function syncValuation(
   try {
     const payload = valuationToPayload(valuation);
 
+    // Prepare images
+    let sitePlanImage: string | null = null;
+    const propertyImages: string[] = [];
+
+    // Read site plan image if exists
+    if (valuation.site_plan_image) {
+      sitePlanImage = await fileToBase64(valuation.site_plan_image);
+    }
+
+    // Read property images if exist
+    if (valuation.property_images) {
+      const imageUris = JSON.parse(valuation.property_images) as string[];
+      for (const uri of imageUris) {
+        const base64 = await fileToBase64(uri);
+        if (base64) {
+          propertyImages.push(base64);
+        }
+      }
+    }
+
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
 
+    // Send auth token as cookie for better-auth compatibility
     if (authToken) {
-      headers["Authorization"] = `Bearer ${authToken}`;
+      headers["Cookie"] = `better-auth.session_token=${authToken}`;
+      console.log("[SYNC] Auth token present, length:", authToken.length);
+    } else {
+      console.log("[SYNC] WARNING: No auth token provided!");
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/valuations`, {
+    console.log(
+      "[SYNC] Sending request to:",
+      `${BASE_API_URL}/api/sync/valuation`
+    );
+
+    // Send to sync API endpoint
+    const response = await fetch(`${BASE_API_URL}/api/sync/valuation`, {
       method: "POST",
       headers,
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        valuation: payload,
+        sitePlanImage,
+        propertyImages,
+      }),
     });
 
+    console.log("[SYNC] Response status:", response.status);
+
     if (response.status === 401) {
+      const errorBody = await response.text();
+      console.log("[SYNC] 401 Error body:", errorBody);
       return { success: false, error: "Session expired. Please log in again." };
     }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.log("[SYNC] Error response:", JSON.stringify(errorData));
       return {
         success: false,
-        error: errorData.message || `Server error: ${response.status}`,
+        error:
+          errorData.error ||
+          errorData.message ||
+          `Server error: ${response.status}`,
       };
     }
 
     const data = await response.json();
-    return { success: true, serverId: data.id };
-  } catch (error) {
+    console.log("[SYNC] Success!");
+    return { success: true, serverId: data.driveFolderId };
+  } catch (error: any) {
+    console.log("[SYNC] Exception:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Network error",
+      error:
+        error?.message ||
+        (error instanceof Error ? error.message : "Network error"),
     };
   }
 }
 
-/**
- * Add an item to the sync queue
- */
+//* Add item to scync queue
 export async function addToSyncQueue(
   entityType: "valuation" | "image",
   entityId: string,
@@ -235,9 +295,7 @@ export async function resetFailedItems(): Promise<void> {
   );
 }
 
-/**
- * Process the entire sync queue
- */
+//* Process the entire sync queue
 export async function processQueue(authToken?: string): Promise<{
   synced: number;
   failed: number;
@@ -311,14 +369,77 @@ export async function processQueue(authToken?: string): Promise<{
   return { synced, failed, errors };
 }
 
-/**
- * Retry all failed sync items
- */
+//* Retry all failed sync valuations
 export async function retryFailedSync(authToken?: string): Promise<{
   synced: number;
   failed: number;
   errors: string[];
 }> {
+  // Reset all failed valuations to pending
+  await resetFailedSyncValuations();
+  // Also reset failed items in sync queue
   await resetFailedItems();
+  // Process the queue
   return processQueue(authToken);
+}
+
+// ===== AUDIT LOG SYNC =====
+
+// Sync audit logs to Google Sheets and delete after sync
+export async function syncAuditLogs(
+  authToken?: string
+): Promise<{ synced: number; error?: string }> {
+  try {
+    // Get unsynced audit logs
+    const auditLogs = await getUnsyncedAuditLogs();
+
+    if (auditLogs.length === 0) {
+      console.log("[AUDIT] No audit logs to sync");
+      return { synced: 0 };
+    }
+
+    console.log(`[AUDIT] Syncing ${auditLogs.length} audit logs...`);
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (authToken) {
+      headers["Cookie"] = `better-auth.session_token=${authToken}`;
+    }
+
+    const response = await fetch(`${BASE_API_URL}/api/sync/audit`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ auditLogs }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.log("[AUDIT] Sync failed:", errorData);
+      return {
+        synced: 0,
+        error: errorData.error || `Server error: ${response.status}`,
+      };
+    }
+
+    const data = await response.json();
+    console.log(`[AUDIT] Synced ${data.syncedCount} audit logs`);
+
+    // Delete synced audit logs from local database
+    if (data.syncedIds && data.syncedIds.length > 0) {
+      await deleteAuditLogs(data.syncedIds);
+      console.log(
+        `[AUDIT] Deleted ${data.syncedIds.length} synced logs from local DB`
+      );
+    }
+
+    return { synced: data.syncedCount };
+  } catch (error: any) {
+    console.error("[AUDIT] Sync error:", error);
+    return {
+      synced: 0,
+      error: error?.message || "Failed to sync audit logs",
+    };
+  }
 }
