@@ -1,18 +1,20 @@
-import { useCallback, useEffect, useState } from "react";
-import { StyleSheet, View, RefreshControl } from "react-native";
+import { useCallback, useState } from "react";
+import { StyleSheet, View, RefreshControl, ScrollView } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import {
   Button,
   Card,
-  Chip,
   Divider,
-  IconButton,
   ProgressBar,
   Surface,
   Text,
   useTheme,
+  TouchableRipple,
 } from "react-native-paper";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, router } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import PageHeader from "../../components/PageHeader";
 import {
@@ -37,12 +39,14 @@ interface SyncItem {
   subtitle: string;
   status: "pending" | "syncing" | "synced" | "error";
   errorMessage?: string;
+  createdAt?: string;
 }
 
 export default function SyncScreen() {
   const theme = useTheme();
-  const { sessionInfo } = useAuthSession();
+  const { sessionInfo, isAuthenticated } = useAuthSession();
   const { isOnline, checkConnection } = useNetwork();
+  const insets = useSafeAreaInsets();
   const {
     isSyncing,
     syncProgress,
@@ -79,9 +83,10 @@ export default function SyncScreen() {
           v.sync_status === "syncing"
             ? "syncing"
             : v.sync_status === "error"
-            ? "error"
-            : "pending",
+              ? "error"
+              : "pending",
         errorMessage: v.error_message || undefined,
+        createdAt: v.created_at,
       }));
       setSyncItems(items);
 
@@ -99,7 +104,7 @@ export default function SyncScreen() {
     useCallback(() => {
       loadSyncItems();
       checkConnection();
-    }, [loadSyncItems, checkConnection])
+    }, [loadSyncItems, checkConnection]),
   );
 
   // Pull to refresh
@@ -110,28 +115,34 @@ export default function SyncScreen() {
     setRefreshing(false);
   }, [checkConnection, loadSyncItems]);
 
-  // Handle sync
   const handleSync = useCallback(async () => {
+    // Check if user is authenticated before syncing
+    if (!isAuthenticated) {
+      router.push("/(auth)/login");
+      return;
+    }
     setSyncResult(null);
     const result = await processQueue(sessionInfo?.token);
     setSyncResult(result);
     await loadSyncItems();
-  }, [sessionInfo?.token, loadSyncItems]);
+  }, [sessionInfo?.token, loadSyncItems, isAuthenticated]);
 
   // Handle retry
   const handleRetry = useCallback(async () => {
+    // Check if user is authenticated before retrying
+    if (!isAuthenticated) {
+      router.push("/(auth)/login");
+      return;
+    }
     setSyncResult(null);
     const result = await retryFailedSync(sessionInfo?.token);
     setSyncResult(result);
     await loadSyncItems();
-  }, [sessionInfo?.token, loadSyncItems]);
+  }, [sessionInfo?.token, loadSyncItems, isAuthenticated]);
 
-  // Format last synced time
-  const formatLastSynced = (timestamp: string | null) => {
-    if (!timestamp) return "Never synced";
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
+  // Format last synced time (helper)
+  const formatTimeAgo = (timestamp: number) => {
+    const diff = Date.now() - timestamp;
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
@@ -142,85 +153,157 @@ export default function SyncScreen() {
     return `${days}d ago`;
   };
 
-  // Get status color
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "synced":
-        return theme.colors.primary;
-      case "syncing":
-        return theme.colors.tertiary;
-      case "error":
-        return theme.colors.error;
-      default:
-        return theme.colors.outline;
-    }
-  };
-
-  // Get status icon
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "synced":
-        return "cloud-check";
-      case "syncing":
-        return "cloud-sync";
-      case "error":
-        return "cloud-alert";
-      default:
-        return "cloud-upload";
-    }
+  const formatLastSynced = (timestamp: string | null) => {
+    if (!timestamp) return "Never synced";
+    return formatTimeAgo(new Date(timestamp).getTime());
   };
 
   const pendingCount = syncItems.filter((i) => i.status === "pending").length;
   const errorCount = syncItems.filter((i) => i.status === "error").length;
 
-  const renderSyncItem = ({ item }: { item: SyncItem }) => (
-    <Card style={styles.itemCard} mode="outlined">
-      <Card.Content style={styles.itemContent}>
-        <View style={styles.itemInfo}>
-          <Text variant="titleMedium" numberOfLines={1}>
-            {item.title}
-          </Text>
-          <Text
-            variant="bodySmall"
-            style={{ color: theme.colors.outline }}
-            numberOfLines={1}
+  const renderSyncItem = ({ item }: { item: SyncItem }) => {
+    const isError = item.status === "error";
+    const isSyncingItem = item.status === "syncing";
+
+    return (
+      <Card style={styles.itemCard} mode="elevated" elevation={1}>
+        <View style={styles.itemContent}>
+          {/* Icon Box */}
+          <View
+            style={[
+              styles.iconBox,
+              {
+                backgroundColor: isError
+                  ? "#FEE2E2"
+                  : isSyncingItem
+                    ? "#DBEAFE"
+                    : "#E0E7FF",
+              },
+            ]}
           >
-            {item.subtitle}
-          </Text>
-          {item.errorMessage && (
-            <Text
-              variant="bodySmall"
-              style={{ color: theme.colors.error, marginTop: 4 }}
-              numberOfLines={2}
-            >
-              {item.errorMessage}
+            <MaterialCommunityIcons
+              name={
+                isError
+                  ? "cloud-alert"
+                  : isSyncingItem
+                    ? "cloud-sync"
+                    : "cloud-upload"
+              }
+              size={28}
+              color={
+                isError ? "#DC2626" : isSyncingItem ? "#2563EB" : "#6366F1"
+              }
+            />
+          </View>
+
+          {/* Text Info */}
+          <View style={styles.itemInfo}>
+            <Text variant="titleMedium" style={styles.itemTitle}>
+              {item.title}
             </Text>
-          )}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                marginTop: 4,
+              }}
+            >
+              <MaterialCommunityIcons
+                name="map-marker-outline"
+                size={14}
+                color={theme.colors.onSurfaceVariant}
+                style={{ marginRight: 4 }}
+              />
+              <Text
+                variant="bodySmall"
+                style={{ color: theme.colors.onSurfaceVariant, flex: 1 }}
+                numberOfLines={1}
+              >
+                {item.subtitle}
+              </Text>
+            </View>
+            {item.errorMessage && (
+              <View style={styles.errorContainer}>
+                <MaterialCommunityIcons
+                  name="alert-circle"
+                  size={14}
+                  color="#DC2626"
+                  style={{ marginRight: 4 }}
+                />
+                <Text
+                  variant="labelSmall"
+                  style={{ color: "#DC2626", flex: 1 }}
+                  numberOfLines={1}
+                >
+                  {item.errorMessage}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Status Badge */}
+          <View style={styles.statusBadgeContainer}>
+            <View
+              style={[
+                styles.statusBadge,
+                {
+                  backgroundColor: isError
+                    ? "#DC2626"
+                    : isSyncingItem
+                      ? "#2563EB"
+                      : "#10B981",
+                },
+              ]}
+            >
+              <Text
+                variant="labelSmall"
+                style={{
+                  color: "white",
+                  fontWeight: "bold",
+                  fontSize: 11,
+                }}
+              >
+                {isError ? "Failed" : isSyncingItem ? "Syncing" : "Ready"}
+              </Text>
+            </View>
+          </View>
         </View>
-        <IconButton
-          icon={getStatusIcon(item.status)}
-          iconColor={getStatusColor(item.status)}
-          size={24}
-        />
-      </Card.Content>
-    </Card>
-  );
+      </Card>
+    );
+  };
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <IconButton
-        icon="cloud-check-outline"
-        size={64}
-        iconColor={theme.colors.primary}
-      />
-      <Text variant="titleMedium" style={{ marginTop: 8 }}>
-        All synced!
+      <View
+        style={[
+          styles.emptyIconBox,
+          { backgroundColor: theme.colors.secondaryContainer },
+        ]}
+      >
+        <MaterialCommunityIcons
+          name="cloud-check-outline"
+          size={56}
+          color={theme.colors.onSecondaryContainer}
+        />
+      </View>
+      <Text
+        variant="headlineSmall"
+        style={{ marginTop: 16, fontWeight: "bold" }}
+      >
+        All Synced!
       </Text>
       <Text
         variant="bodyMedium"
-        style={{ color: theme.colors.outline, marginTop: 4 }}
+        style={{
+          color: theme.colors.onSurfaceVariant,
+          marginTop: 8,
+          textAlign: "center",
+          maxWidth: 280,
+          lineHeight: 20,
+        }}
       >
-        No pending items to sync
+        You have no pending items to sync. Everything is up to date with the
+        server.
       </Text>
     </View>
   );
@@ -229,144 +312,294 @@ export default function SyncScreen() {
     <View
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      <PageHeader title="Sync" />
-
-      {/* Status Header */}
-      <Surface style={styles.statusHeader} elevation={1}>
-        <View style={styles.statusRow}>
-          <Chip
-            icon={isOnline ? "wifi" : "wifi-off"}
-            mode="flat"
-            style={{
-              backgroundColor: isOnline
-                ? theme.colors.primaryContainer
-                : theme.colors.errorContainer,
-            }}
-            textStyle={{
-              color: isOnline
-                ? theme.colors.onPrimaryContainer
-                : theme.colors.onErrorContainer,
-            }}
-          >
-            {isOnline ? "Online" : "Offline"}
-          </Chip>
-          <Text variant="bodySmall" style={{ color: theme.colors.outline }}>
-            {formatLastSynced(lastSyncedAt)}
-          </Text>
+      <LinearGradient
+        colors={["#1E293B", "#334155", "#475569"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.gradientHeader, { paddingTop: insets.top + 10 }]}
+      >
+        <View style={styles.headerContent}>
+          <View style={{ flex: 1 }}>
+            <Text variant="titleLarge" style={{ color: "white", opacity: 0.9 }}>
+              Sync Manager
+            </Text>
+            <Text
+              variant="headlineMedium"
+              style={{
+                fontWeight: "bold",
+                color: "white",
+                marginTop: 4,
+              }}
+            >
+              Data Synchronization
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.statusDot,
+              {
+                backgroundColor: isOnline ? "#4CAF50" : theme.colors.error,
+              },
+            ]}
+          />
         </View>
 
-        <View style={styles.statsRow}>
-          <View style={styles.stat}>
-            <Text variant="headlineMedium" style={{ fontWeight: "bold" }}>
+        {/* Stats in Header */}
+        <View style={styles.headerStats}>
+          <View style={styles.headerStatItem}>
+            <Text
+              variant="headlineMedium"
+              style={{ fontWeight: "bold", color: "white" }}
+            >
               {pendingCount}
             </Text>
-            <Text variant="bodySmall" style={{ color: theme.colors.outline }}>
+            <Text
+              variant="labelMedium"
+              style={{ color: "white", opacity: 0.85, marginTop: 4 }}
+            >
               Pending
             </Text>
           </View>
-          <View style={styles.stat}>
+
+          <View style={styles.headerStatDivider} />
+
+          <View style={styles.headerStatItem}>
             <Text
               variant="headlineMedium"
-              style={{ fontWeight: "bold", color: theme.colors.error }}
+              style={{
+                fontWeight: "bold",
+                color: errorCount > 0 ? "#FF6B6B" : "white",
+              }}
             >
               {errorCount}
             </Text>
-            <Text variant="bodySmall" style={{ color: theme.colors.outline }}>
+            <Text
+              variant="labelMedium"
+              style={{ color: "white", opacity: 0.85, marginTop: 4 }}
+            >
               Failed
             </Text>
           </View>
-        </View>
-      </Surface>
 
-      {/* Sync Progress */}
-      {isSyncing && (
-        <Surface style={styles.progressSection} elevation={0}>
-          <View style={styles.progressHeader}>
-            <Text variant="bodyMedium">Syncing...</Text>
-            <Text variant="bodySmall" style={{ color: theme.colors.outline }}>
-              {syncProgress.current} of {syncProgress.total}
+          <View style={styles.headerStatDivider} />
+
+          <View style={styles.headerStatItem}>
+            <MaterialCommunityIcons
+              name={isOnline ? "wifi" : "wifi-off"}
+              size={28}
+              color="white"
+            />
+            <Text
+              variant="labelMedium"
+              style={{ color: "white", opacity: 0.85, marginTop: 4 }}
+            >
+              {isOnline ? "Online" : "Offline"}
             </Text>
           </View>
-          <ProgressBar
-            progress={
-              syncProgress.total > 0
-                ? syncProgress.current / syncProgress.total
-                : 0
-            }
-            color={theme.colors.primary}
-            style={styles.progressBar}
+        </View>
+
+        {/* Last Synced Info */}
+        <View style={styles.lastSyncedContainer}>
+          <MaterialCommunityIcons
+            name="clock-outline"
+            size={16}
+            color="white"
+            style={{ opacity: 0.7 }}
           />
-        </Surface>
-      )}
-
-      {/* Sync Result */}
-      {syncResult && !isSyncing && (
-        <Surface
-          style={[
-            styles.resultSection,
-            {
-              backgroundColor:
-                syncResult.failed > 0
-                  ? theme.colors.errorContainer
-                  : theme.colors.primaryContainer,
-            },
-          ]}
-          elevation={0}
-        >
           <Text
-            variant="bodyMedium"
-            style={{
-              color:
-                syncResult.failed > 0
-                  ? theme.colors.onErrorContainer
-                  : theme.colors.onPrimaryContainer,
-            }}
+            variant="labelMedium"
+            style={{ color: "white", opacity: 0.7, marginLeft: 6 }}
           >
-            {syncResult.synced > 0 && `${syncResult.synced} synced`}
-            {syncResult.synced > 0 && syncResult.failed > 0 && " • "}
-            {syncResult.failed > 0 && `${syncResult.failed} failed`}
+            Last synced: {formatLastSynced(lastSyncedAt)}
           </Text>
-        </Surface>
-      )}
+        </View>
+      </LinearGradient>
 
-      <Divider style={{ marginVertical: 8 }} />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 80 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <View style={styles.content}>
+          {isSyncing && (
+            <Surface style={styles.progressCard} elevation={1}>
+              <View style={styles.progressHeader}>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <MaterialCommunityIcons
+                    name="sync"
+                    size={20}
+                    color={theme.colors.primary}
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text variant="titleMedium" style={{ fontWeight: "600" }}>
+                    Syncing Data...
+                  </Text>
+                </View>
+                <Text
+                  variant="labelLarge"
+                  style={{ color: theme.colors.primary, fontWeight: "bold" }}
+                >
+                  {Math.round(
+                    (syncProgress.total > 0
+                      ? syncProgress.current / syncProgress.total
+                      : 0) * 100,
+                  )}
+                  %
+                </Text>
+              </View>
+              <ProgressBar
+                progress={
+                  syncProgress.total > 0
+                    ? syncProgress.current / syncProgress.total
+                    : 0
+                }
+                color={theme.colors.primary}
+                style={styles.progressBar}
+              />
+              <Text
+                variant="bodySmall"
+                style={{
+                  marginTop: 8,
+                  color: theme.colors.onSurfaceVariant,
+                }}
+              >
+                {syncProgress.current} of {syncProgress.total} items processed
+              </Text>
+            </Surface>
+          )}
 
-      {/* Pending Items List */}
-      <View style={styles.listContainer}>
-        <FlashList
-          data={syncItems}
-          renderItem={renderSyncItem}
-          ListEmptyComponent={renderEmptyState}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          contentContainerStyle={{ padding: 16 }}
-        />
-      </View>
+          {/* Sync Result Banner */}
+          {syncResult && !isSyncing && (
+            <Card
+              style={[
+                styles.resultBanner,
+                {
+                  backgroundColor:
+                    syncResult.failed > 0 ? "#FEE2E2" : "#D1FAE5",
+                },
+              ]}
+              mode="elevated"
+              elevation={0}
+            >
+              <Card.Content style={{ paddingVertical: 12 }}>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <View
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      backgroundColor:
+                        syncResult.failed > 0 ? "#DC2626" : "#10B981",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      marginRight: 12,
+                    }}
+                  >
+                    <MaterialCommunityIcons
+                      name={
+                        syncResult.failed > 0 ? "alert-circle-outline" : "check"
+                      }
+                      size={20}
+                      color="white"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      variant="titleSmall"
+                      style={{
+                        color: syncResult.failed > 0 ? "#7F1D1D" : "#065F46",
+                        fontWeight: "600",
+                        marginBottom: 2,
+                      }}
+                    >
+                      {syncResult.failed > 0
+                        ? "Sync Failed"
+                        : "Sync Successful"}
+                    </Text>
+                    <Text
+                      variant="bodySmall"
+                      style={{
+                        color: syncResult.failed > 0 ? "#991B1B" : "#047857",
+                      }}
+                    >
+                      {syncResult.synced > 0 &&
+                        `${syncResult.synced} item${
+                          syncResult.synced > 1 ? "s" : ""
+                        } synced`}
+                      {syncResult.failed > 0 &&
+                        `${syncResult.synced > 0 ? ", " : ""}${
+                          syncResult.failed
+                        } item${syncResult.failed > 1 ? "s" : ""} failed`}
+                    </Text>
+                  </View>
+                </View>
+              </Card.Content>
+            </Card>
+          )}
 
-      <Surface style={styles.actionButtons} elevation={2}>
-        <Button
-          mode="contained"
-          icon="cloud-sync"
-          onPress={handleSync}
-          disabled={!isOnline || isSyncing || pendingCount === 0}
-          loading={isSyncing}
-          style={styles.syncButton}
-        >
-          {isSyncing ? "Syncing..." : "Sync Now"}
-        </Button>
-        {errorCount > 0 && (
-          <Button
-            mode="outlined"
-            icon="refresh"
-            onPress={handleRetry}
-            disabled={!isOnline || isSyncing}
-            style={styles.retryButton}
-          >
-            Retry Failed
-          </Button>
-        )}
-      </Surface>
+          {/* Action Buttons */}
+          <View style={styles.actionButtonsContainer}>
+            {errorCount > 0 && (
+              <Button
+                mode="elevated"
+                onPress={handleRetry}
+                disabled={!isOnline || isSyncing}
+                style={{
+                  flex: 1,
+                  marginRight: 12,
+                  backgroundColor: "white",
+                  borderRadius: 12,
+                }}
+                contentStyle={{ height: 48 }}
+                labelStyle={{ fontWeight: "600", color: "#DC2626" }}
+                icon="refresh"
+              >
+                Retry Failed
+              </Button>
+            )}
+            <Button
+              mode="contained"
+              icon={isSyncing ? undefined : "cloud-sync"}
+              onPress={handleSync}
+              disabled={!isOnline || isSyncing || pendingCount === 0}
+              loading={isSyncing}
+              style={{
+                flex: 1,
+                backgroundColor: "#6366F1",
+                borderRadius: 12,
+              }}
+              contentStyle={{ height: 48 }}
+              labelStyle={{ fontWeight: "700", fontSize: 15 }}
+            >
+              {isSyncing ? "Syncing..." : "Sync Now"}
+            </Button>
+          </View>
+
+          {/* Section Title */}
+          {syncItems.length > 0 && (
+            <View style={styles.sectionHeader}>
+              <Text variant="titleMedium" style={styles.sectionTitle}>
+                Sync Queue
+              </Text>
+              <Text
+                variant="labelMedium"
+                style={{ color: theme.colors.onSurfaceVariant }}
+              >
+                {syncItems.length} item{syncItems.length !== 1 ? "s" : ""}
+              </Text>
+            </View>
+          )}
+
+          {/* Sync Items List */}
+          {syncItems.length > 0
+            ? syncItems.map((item) => (
+                <View key={item.id}>{renderSyncItem({ item })}</View>
+              ))
+            : renderEmptyState()}
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -375,76 +608,158 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  statusHeader: {
-    padding: 16,
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 12,
+  gradientHeader: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
-  statusRow: {
+  headerContent: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 20,
   },
-  statsRow: {
+  statusDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 3,
+    borderColor: "rgba(255,255,255,0.3)",
+  },
+  headerStats: {
     flexDirection: "row",
     justifyContent: "space-around",
-    marginTop: 16,
+    alignItems: "center",
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.2)",
   },
-  stat: {
+  headerStatItem: {
+    flex: 1,
     alignItems: "center",
   },
-  progressSection: {
+  headerStatDivider: {
+    width: 1,
+    height: 35,
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+  },
+  lastSyncedContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 12,
+  },
+  content: {
     padding: 16,
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 12,
+  },
+  progressCard: {
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
   },
   progressHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 8,
+    alignItems: "center",
+    marginBottom: 12,
   },
   progressBar: {
-    height: 6,
-    borderRadius: 3,
+    height: 8,
+    borderRadius: 4,
   },
-  resultSection: {
-    padding: 12,
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 8,
+  resultBanner: {
+    borderRadius: 16,
+    marginBottom: 16,
+    overflow: "hidden",
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 12,
   },
-  listContainer: {
-    flex: 1,
+  sectionTitle: {
+    fontWeight: "bold",
   },
   itemCard: {
-    marginBottom: 8,
+    marginBottom: 12,
+    borderRadius: 16,
+    overflow: "hidden",
   },
   itemContent: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
+    padding: 16,
+  },
+  iconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
   },
   itemInfo: {
     flex: 1,
+    marginLeft: 16,
+    justifyContent: "center",
+  },
+  itemTitle: {
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  errorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 6,
+  },
+  statusBadgeContainer: {
+    marginLeft: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    minWidth: 65,
+    alignItems: "center",
   },
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 48,
+    paddingVertical: 80,
   },
-  actionButtons: {
-    padding: 16,
+  emptyIconBox: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  actionButtonsContainer: {
     flexDirection: "row",
-    gap: 12,
-    marginBottom: 120,
+    marginBottom: 20,
   },
-  syncButton: {
-    flex: 1,
+  bottomBar: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
-  retryButton: {
-    flex: 1,
+  bottomBarGradient: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 16,
+    paddingBottom: 24,
+  },
+  bottomBarContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    maxWidth: 600,
+    alignSelf: "center",
+    width: "100%",
+    paddingHorizontal: 20,
+    paddingTop: 16,
   },
 });

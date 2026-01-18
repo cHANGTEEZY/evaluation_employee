@@ -7,9 +7,10 @@ import {
   Modal,
   Dimensions,
 } from "react-native";
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { CameraView, type CameraType, useCameraPermissions } from "expo-camera";
 import { Button, Text, IconButton } from "react-native-paper";
+import { useFormContext } from "react-hook-form";
 
 type Step5Props = {
   onImagesChange?: (images: string[]) => void;
@@ -19,13 +20,29 @@ const MIN_IMAGES = 5;
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const Step5 = ({ onImagesChange }: Step5Props) => {
-  const [images, setImages] = useState<string[]>([]);
+  const form = useFormContext();
+  const existingImages = form.watch("property_images") || [];
+
+  const [images, setImages] = useState<string[]>(
+    Array.isArray(existingImages) ? existingImages : [],
+  );
   const [cameraPermission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>("back");
   const [zoom, setZoom] = useState(0);
   const [flash, setFlash] = useState<"off" | "on" | "auto">("off");
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const cameraRef = useRef<CameraView | null>(null);
+
+  // Load existing images when form value changes
+  useEffect(() => {
+    if (
+      Array.isArray(existingImages) &&
+      existingImages.length > 0 &&
+      images.length === 0
+    ) {
+      setImages(existingImages);
+    }
+  }, [existingImages]);
 
   if (!cameraPermission) {
     // camera permissions loading

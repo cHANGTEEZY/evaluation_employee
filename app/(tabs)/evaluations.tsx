@@ -8,6 +8,10 @@ import PillFilter from "../../components/PillFilter";
 import { useState, useMemo, useCallback } from "react";
 import MenuDrawer from "../../components/MenuDrawer";
 import { useRouter, useFocusEffect } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { IconButton } from "react-native-paper";
 import { getAllValuations, ValuationRow } from "../../lib/schema";
 
 type Status = "Pending" | "submitted" | "Synced";
@@ -80,77 +84,107 @@ export default function EvaluationsScreen() {
     return filtered;
   }, [valuations, selectedFilter, searchText]);
 
-  return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: theme.colors.surface }}
-      edges={["left"]}
-    >
-      <PageHeader
-        title="Evaluations"
-        subtitle="View and manage your evaluations"
-        rightIcon="menu"
-        onRightPress={() => setDrawerVisible(true)}
-      />
+  const insets = useSafeAreaInsets();
 
-      <Searchbar
-        placeholder="Search valuations..."
-        value={searchText}
-        onChangeText={(text) => setSearchText(text)}
-        traileringIcon={searchText ? "close" : ""}
-        onTraileringIconPress={() => setSearchText("")}
-        style={{
-          marginHorizontal: 15,
-          marginBottom: 10,
-          borderRadius: 20,
-          backgroundColor: theme.colors.surfaceVariant,
-        }}
-      />
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.colors.surface }}>
+      <LinearGradient
+        colors={[theme.colors.tertiaryContainer, theme.colors.tertiary]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.gradientHeader, { paddingTop: insets.top + 10 }]}
+      >
+        <View style={styles.headerContent}>
+          <View style={{ flex: 1 }}>
+            <Text
+              variant="titleLarge"
+              style={{ color: "white", fontWeight: "bold" }}
+            >
+              Evaluations
+            </Text>
+            <Text
+              variant="bodyMedium"
+              style={{ color: "white", opacity: 0.8, marginTop: 4 }}
+            >
+              View and manage your evaluations
+            </Text>
+          </View>
+          <IconButton
+            icon="menu"
+            iconColor="white"
+            size={24}
+            onPress={() => setDrawerVisible(true)}
+            style={{ margin: 0 }}
+          />
+        </View>
+
+        <Searchbar
+          placeholder="Search valuations..."
+          value={searchText}
+          onChangeText={(text) => setSearchText(text)}
+          iconColor={theme.colors.onSurfaceVariant}
+          inputStyle={{ color: theme.colors.onSurface }}
+          traileringIcon={searchText ? "close" : ""}
+          onTraileringIconPress={() => setSearchText("")}
+          style={styles.searchBar}
+          elevation={0}
+        />
+      </LinearGradient>
 
       <MenuDrawer
         visible={drawerVisible}
         onDismiss={() => setDrawerVisible(false)}
       />
-      <PillFilter
-        filters={[
-          {
-            icon: "filter-variant",
-            name: "All",
-            onPress: () => setSelectedFilter("All"),
-            selected: selectedFilter === "All",
-          },
-          {
-            icon: "clock-outline",
-            name: "Pending",
-            onPress: () => setSelectedFilter("Pending"),
-            selected: selectedFilter === "Pending",
-          },
-          {
-            icon: "check-circle-outline",
-            name: "Submitted",
-            onPress: () => setSelectedFilter("submitted"),
-            selected: selectedFilter === "submitted",
-          },
-          {
-            icon: "cloud-check-outline",
-            name: "Synced",
-            onPress: () => setSelectedFilter("Synced"),
-            selected: selectedFilter === "Synced",
-          },
-        ]}
-      />
+
+      <View style={{ marginTop: 16 }}>
+        <PillFilter
+          filters={[
+            {
+              icon: "filter-variant",
+              name: "All",
+              onPress: () => setSelectedFilter("All"),
+              selected: selectedFilter === "All",
+            },
+            {
+              icon: "clock-outline",
+              name: "Pending",
+              onPress: () => setSelectedFilter("Pending"),
+              selected: selectedFilter === "Pending",
+            },
+            {
+              icon: "check-circle-outline",
+              name: "Submitted",
+              onPress: () => setSelectedFilter("submitted"),
+              selected: selectedFilter === "submitted",
+            },
+            {
+              icon: "cloud-check-outline",
+              name: "Synced",
+              onPress: () => setSelectedFilter("Synced"),
+              selected: selectedFilter === "Synced",
+            },
+          ]}
+        />
+      </View>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
-        <View style={{ marginHorizontal: 15, marginVertical: 20 }}>
+        <View style={{ marginHorizontal: 20, marginVertical: 16 }}>
           <Text
-            variant="titleLarge"
+            variant="titleMedium"
             style={{
-              color: theme.colors.tertiary,
+              color: theme.colors.onSurface,
+              fontWeight: "600",
               textTransform: "capitalize",
             }}
           >
             {selectedFilter} Valuations
+            <Text style={{ color: theme.colors.outline }}>
+              {" "}
+              ({filteredData.length})
+            </Text>
           </Text>
         </View>
 
@@ -169,16 +203,34 @@ export default function EvaluationsScreen() {
               padding: 24,
             }}
           >
+            <View style={styles.emptyStateIcon}>
+              <MaterialCommunityIcons
+                name="clipboard-text-search-outline"
+                size={48}
+                color={theme.colors.outline}
+              />
+            </View>
             <Text
-              variant="bodyLarge"
+              variant="titleMedium"
+              style={{
+                color: theme.colors.onSurface,
+                marginTop: 16,
+                fontWeight: "600",
+              }}
+            >
+              No valuations found
+            </Text>
+            <Text
+              variant="bodyMedium"
               style={{
                 color: theme.colors.onSurfaceVariant,
                 textAlign: "center",
+                marginTop: 8,
               }}
             >
               {searchText
-                ? "No valuations found matching your search"
-                : `No ${selectedFilter} valuations`}
+                ? `No results matching "${searchText}"`
+                : `You don't have any ${selectedFilter.toLowerCase()} valuations yet.`}
             </Text>
           </View>
         ) : (
@@ -192,76 +244,161 @@ export default function EvaluationsScreen() {
                 item.sync_status
               );
               return (
-                <List.Item
-                  title={item.client_name || "Unnamed Valuation"}
-                  description={
-                    item.present_property_address ||
-                    item.property_address_deed ||
-                    "No address"
-                  }
+                <Card
+                  mode="elevated"
+                  elevation={0}
+                  style={styles.cardItem}
                   onPress={() =>
                     router.push({
                       pathname: "/(pages)/EvaluationDetail",
                       params: { id: item.id },
                     })
                   }
-                  left={(props) => (
-                    <List.Icon
-                      {...props}
-                      icon={
-                        displayStatus === "Pending"
-                          ? "clock-outline"
-                          : displayStatus === "submitted"
-                          ? "check-circle-outline"
-                          : "cloud-check-outline"
-                      }
-                      color={
-                        displayStatus === "Pending"
-                          ? theme.colors.error
-                          : displayStatus === "submitted"
-                          ? theme.colors.primary
-                          : theme.colors.tertiary
-                      }
-                    />
-                  )}
-                  right={(props) => (
+                >
+                  <View style={styles.cardContent}>
                     <View
-                      style={{
-                        justifyContent: "center",
-                        backgroundColor: theme.colors.secondaryContainer,
-                        paddingHorizontal: 10,
-                        borderRadius: 10,
-                        alignItems: "center",
-                      }}
+                      style={[
+                        styles.iconBox,
+                        {
+                          backgroundColor:
+                            displayStatus === "Pending"
+                              ? theme.colors.errorContainer
+                              : displayStatus === "submitted"
+                              ? theme.colors.primaryContainer
+                              : theme.colors.tertiaryContainer,
+                        },
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name={
+                          displayStatus === "Pending"
+                            ? "clock-outline"
+                            : displayStatus === "submitted"
+                            ? "check-circle-outline"
+                            : "cloud-check-outline"
+                        }
+                        size={24}
+                        color={
+                          displayStatus === "Pending"
+                            ? theme.colors.error
+                            : displayStatus === "submitted"
+                            ? theme.colors.primary
+                            : theme.colors.tertiary
+                        }
+                      />
+                    </View>
+
+                    <View style={{ flex: 1, marginRight: 12 }}>
+                      <Text
+                        variant="titleSmall"
+                        numberOfLines={1}
+                        style={{ fontWeight: "600" }}
+                      >
+                        {item.client_name || "Unnamed Valuation"}
+                      </Text>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          marginTop: 4,
+                        }}
+                      >
+                        <MaterialCommunityIcons
+                          name="map-marker-outline"
+                          size={14}
+                          color={theme.colors.outline}
+                        />
+                        <Text
+                          variant="bodySmall"
+                          numberOfLines={1}
+                          style={{
+                            color: theme.colors.onSurfaceVariant,
+                            marginLeft: 2,
+                            flex: 1,
+                          }}
+                        >
+                          {item.present_property_address ||
+                            item.property_address_deed ||
+                            "No address"}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        { backgroundColor: theme.colors.surfaceVariant },
+                      ]}
                     >
                       <Text
                         variant="labelSmall"
-                        style={{ color: theme.colors.onSurfaceVariant }}
+                        style={{
+                          color: theme.colors.onSurfaceVariant,
+                          fontWeight: "500",
+                        }}
                       >
                         {displayStatus}
                       </Text>
                     </View>
-                  )}
-                  style={{
-                    borderBottomColor: theme.colors.secondaryContainer,
-                    borderBottomWidth: 1,
-                    marginHorizontal: 16,
-                  }}
-                />
+                  </View>
+                </Card>
               );
             }}
           />
         )}
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  gradientHeader: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
-  listContainer: {
-    flex: 1,
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+  searchBar: {
+    borderRadius: 16,
+    backgroundColor: "white",
+    height: 50,
+  },
+  cardItem: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  cardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+  },
+  iconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 16,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  emptyStateIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#F1F5F9",
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

@@ -17,6 +17,7 @@ import {
   ProgressBar,
   useTheme,
   ActivityIndicator,
+  IconButton,
 } from "react-native-paper";
 import {
   FormProvider,
@@ -45,6 +46,7 @@ import Step2 from "../../components/evaluation-form/Step2";
 import Step3 from "../../components/evaluation-form/Step3";
 import Step4 from "../../components/evaluation-form/Step4";
 import Step5 from "../../components/evaluation-form/Step5";
+import { goBack } from "expo-router/build/global-state/routing";
 
 const TOTAL_STEPS = 5;
 
@@ -180,7 +182,7 @@ const EvaluationForm = () => {
       if (isEditMode && id) {
         // Update existing valuation
         await updateValuation(id, data);
-        await updateValuationStatus(id, "submitted", "pending");
+        await updateValuationStatus(id, "pending", "pending");
         console.log("Valuation updated with ID:", id);
 
         Alert.alert("Success", "Valuation has been updated successfully!", [
@@ -194,8 +196,8 @@ const EvaluationForm = () => {
         const valuationId = await insertValuation(data);
         console.log("Valuation saved with ID:", valuationId);
 
-        // Update status to submitted
-        await updateValuationStatus(valuationId, "submitted", "pending");
+        // Update status to pending
+        await updateValuationStatus(valuationId, "pending", "pending");
 
         Alert.alert("Success", "Valuation has been saved successfully!", [
           {
@@ -270,11 +272,22 @@ const EvaluationForm = () => {
       style={[styles.safeArea, { backgroundColor: theme.colors.surface }]}
     >
       <View style={[styles.container, { paddingTop: inset.top + 10 }]}>
-        {/* Header Section */}
         <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.colors.primary }]}>
-            {isEditMode ? "Edit Valuation" : "Property Valuation Form"}
-          </Text>
+          {/* Header Row with Back Button and Title */}
+          <View style={styles.headerRow}>
+            <IconButton
+              icon="arrow-left"
+              size={24}
+              onPress={goBack}
+              style={{ marginLeft: -8 }}
+            />
+            <Text
+              style={[styles.title, { color: theme.colors.primary, flex: 1 }]}
+              numberOfLines={1}
+            >
+              {isEditMode ? "Edit Valuation" : "Property Valuation Form"}
+            </Text>
+          </View>
 
           {/* Step Indicator */}
           <View style={styles.stepIndicator}>
@@ -369,9 +382,12 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "bold",
-    textAlign: "center",
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 12,
   },
   stepIndicator: {

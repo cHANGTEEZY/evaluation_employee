@@ -1,15 +1,49 @@
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View, ScrollView } from "react-native";
 import React from "react";
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import { useTheme } from "react-native-paper";
+import {
+  useTheme,
+  Text,
+  Card,
+  Switch,
+  Divider,
+  List,
+  RadioButton,
+  Button,
+  Surface,
+} from "react-native-paper";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
+import { useSettingsStore, ThemeMode } from "../../lib/settings-store";
+import { useAuthSession } from "../../lib/auth-store";
 
 const Settings = () => {
   const theme = useTheme();
-
   const insets = useSafeAreaInsets();
+  const { isAuthenticated } = useAuthSession();
+
+  // Settings store
+  const {
+    themeMode,
+    notificationsEnabled,
+    syncNotificationsEnabled,
+    autoSyncEnabled,
+    autoSyncOnWifiOnly,
+    setThemeMode,
+    setNotificationsEnabled,
+    setSyncNotificationsEnabled,
+    setAutoSyncEnabled,
+    setAutoSyncOnWifiOnly,
+    resetSettings,
+  } = useSettingsStore();
+
+  const handleThemeChange = (value: string) => {
+    setThemeMode(value as ThemeMode);
+  };
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={["left", "right"]}>
@@ -17,10 +51,316 @@ const Settings = () => {
         style={{
           flex: 1,
           backgroundColor: theme.colors.background,
-          paddingVertical: insets.top + 12,
         }}
       >
-        <Text style={{ color: theme.colors.primary }}>Settings Page</Text>
+        {/* Header */}
+        <LinearGradient
+          colors={[theme.colors.primaryContainer, theme.colors.primary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.header, { paddingTop: insets.top + 12 }]}
+        >
+          <View style={styles.headerContent}>
+            <MaterialCommunityIcons
+              name="arrow-left"
+              size={24}
+              color="white"
+              onPress={() => router.back()}
+              style={{ marginRight: 16 }}
+            />
+            <View>
+              <Text
+                variant="headlineSmall"
+                style={{ color: "white", fontWeight: "bold" }}
+              >
+                Settings
+              </Text>
+              <Text
+                variant="bodyMedium"
+                style={{ color: "white", opacity: 0.85 }}
+              >
+                Customize your app experience
+              </Text>
+            </View>
+          </View>
+        </LinearGradient>
+
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Appearance Section */}
+          <Card style={styles.sectionCard} mode="elevated" elevation={1}>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons
+                name="palette-outline"
+                size={24}
+                color={theme.colors.primary}
+              />
+              <Text variant="titleMedium" style={styles.sectionTitle}>
+                Appearance
+              </Text>
+            </View>
+            <Card.Content>
+              <Text variant="labelLarge" style={{ marginBottom: 8 }}>
+                Theme
+              </Text>
+              <RadioButton.Group
+                onValueChange={handleThemeChange}
+                value={themeMode}
+              >
+                <View style={styles.radioRow}>
+                  <RadioButton.Item
+                    label="System Default"
+                    value="system"
+                    position="leading"
+                    style={styles.radioItem}
+                    labelStyle={styles.radioLabel}
+                  />
+                </View>
+                <View style={styles.radioRow}>
+                  <RadioButton.Item
+                    label="Light Mode"
+                    value="light"
+                    position="leading"
+                    style={styles.radioItem}
+                    labelStyle={styles.radioLabel}
+                  />
+                </View>
+                <View style={styles.radioRow}>
+                  <RadioButton.Item
+                    label="Dark Mode"
+                    value="dark"
+                    position="leading"
+                    style={styles.radioItem}
+                    labelStyle={styles.radioLabel}
+                  />
+                </View>
+              </RadioButton.Group>
+            </Card.Content>
+          </Card>
+
+          {/* Notifications Section */}
+          {/* <Card style={styles.sectionCard} mode="elevated" elevation={1}>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons
+                name="bell-outline"
+                size={24}
+                color={theme.colors.primary}
+              />
+              <Text variant="titleMedium" style={styles.sectionTitle}>
+                Notifications
+              </Text>
+            </View>
+            <Card.Content>
+              <List.Item
+                title="Enable Notifications"
+                description="Receive push notifications"
+                left={() => (
+                  <MaterialCommunityIcons
+                    name="bell-ring-outline"
+                    size={24}
+                    color={theme.colors.onSurfaceVariant}
+                    style={{ alignSelf: "center", marginLeft: 8 }}
+                  />
+                )}
+                right={() => (
+                  <Switch
+                    value={notificationsEnabled}
+                    onValueChange={setNotificationsEnabled}
+                  />
+                )}
+                style={styles.listItem}
+              />
+              <Divider />
+              <List.Item
+                title="Sync Notifications"
+                description="Get notified when sync completes"
+                left={() => (
+                  <MaterialCommunityIcons
+                    name="cloud-check-outline"
+                    size={24}
+                    color={theme.colors.onSurfaceVariant}
+                    style={{ alignSelf: "center", marginLeft: 8 }}
+                  />
+                )}
+                right={() => (
+                  <Switch
+                    value={syncNotificationsEnabled}
+                    onValueChange={setSyncNotificationsEnabled}
+                    disabled={!notificationsEnabled}
+                  />
+                )}
+                style={styles.listItem}
+              />
+            </Card.Content>
+          </Card> */}
+
+          {/* Data & Sync Section */}
+          <Card style={styles.sectionCard} mode="elevated" elevation={1}>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons
+                name="cloud-sync-outline"
+                size={24}
+                color={theme.colors.primary}
+              />
+              <Text variant="titleMedium" style={styles.sectionTitle}>
+                Data & Sync
+              </Text>
+            </View>
+            <Card.Content>
+              <List.Item
+                title="Auto Sync"
+                description="Automatically sync when online"
+                left={() => (
+                  <MaterialCommunityIcons
+                    name="sync"
+                    size={24}
+                    color={theme.colors.onSurfaceVariant}
+                    style={{ alignSelf: "center", marginLeft: 8 }}
+                  />
+                )}
+                right={() => (
+                  <Switch
+                    value={autoSyncEnabled}
+                    onValueChange={setAutoSyncEnabled}
+                    disabled={!isAuthenticated}
+                  />
+                )}
+                style={styles.listItem}
+              />
+              <Divider />
+              <List.Item
+                title="WiFi Only"
+                description="Only sync when connected to WiFi"
+                left={() => (
+                  <MaterialCommunityIcons
+                    name="wifi"
+                    size={24}
+                    color={theme.colors.onSurfaceVariant}
+                    style={{ alignSelf: "center", marginLeft: 8 }}
+                  />
+                )}
+                right={() => (
+                  <Switch
+                    value={autoSyncOnWifiOnly}
+                    onValueChange={setAutoSyncOnWifiOnly}
+                    disabled={!autoSyncEnabled || !isAuthenticated}
+                  />
+                )}
+                style={styles.listItem}
+              />
+              {!isAuthenticated && (
+                <View style={styles.signInPrompt}>
+                  <MaterialCommunityIcons
+                    name="information-outline"
+                    size={18}
+                    color={theme.colors.primary}
+                  />
+                  <Text
+                    variant="bodySmall"
+                    style={{
+                      color: theme.colors.primary,
+                      marginLeft: 8,
+                      flex: 1,
+                    }}
+                  >
+                    Sign in to enable auto-sync features
+                  </Text>
+                </View>
+              )}
+            </Card.Content>
+          </Card>
+
+          {/* About Section */}
+          <Card style={styles.sectionCard} mode="elevated" elevation={1}>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons
+                name="information-outline"
+                size={24}
+                color={theme.colors.primary}
+              />
+              <Text variant="titleMedium" style={styles.sectionTitle}>
+                About
+              </Text>
+            </View>
+            <Card.Content>
+              <List.Item
+                title="App Version"
+                description="1.0.0"
+                left={() => (
+                  <MaterialCommunityIcons
+                    name="tag-outline"
+                    size={24}
+                    color={theme.colors.onSurfaceVariant}
+                    style={{ alignSelf: "center", marginLeft: 8 }}
+                  />
+                )}
+                style={styles.listItem}
+              />
+              <Divider />
+              <List.Item
+                title="Privacy Policy"
+                left={() => (
+                  <MaterialCommunityIcons
+                    name="shield-lock-outline"
+                    size={24}
+                    color={theme.colors.onSurfaceVariant}
+                    style={{ alignSelf: "center", marginLeft: 8 }}
+                  />
+                )}
+                right={() => (
+                  <MaterialCommunityIcons
+                    name="chevron-right"
+                    size={24}
+                    color={theme.colors.onSurfaceVariant}
+                  />
+                )}
+                onPress={() => {
+                  /* TODO: Open privacy policy */
+                }}
+                style={styles.listItem}
+              />
+              <Divider />
+              <List.Item
+                title="Terms of Service"
+                left={() => (
+                  <MaterialCommunityIcons
+                    name="file-document-outline"
+                    size={24}
+                    color={theme.colors.onSurfaceVariant}
+                    style={{ alignSelf: "center", marginLeft: 8 }}
+                  />
+                )}
+                right={() => (
+                  <MaterialCommunityIcons
+                    name="chevron-right"
+                    size={24}
+                    color={theme.colors.onSurfaceVariant}
+                  />
+                )}
+                onPress={() => {
+                  /* TODO: Open terms of service */
+                }}
+                style={styles.listItem}
+              />
+            </Card.Content>
+          </Card>
+
+          {/* Reset Settings Button */}
+          <View style={styles.resetContainer}>
+            <Button
+              mode="outlined"
+              onPress={resetSettings}
+              icon="refresh"
+              textColor={theme.colors.error}
+              style={styles.resetButton}
+            >
+              Reset All Settings
+            </Button>
+          </View>
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
@@ -28,4 +368,63 @@ const Settings = () => {
 
 export default Settings;
 
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+  header: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  scrollView: {
+    flex: 1,
+    padding: 16,
+  },
+  sectionCard: {
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    paddingBottom: 8,
+  },
+  sectionTitle: {
+    fontWeight: "bold",
+    marginLeft: 12,
+  },
+  radioRow: {
+    marginVertical: -4,
+  },
+  radioItem: {
+    paddingVertical: 4,
+  },
+  radioLabel: {
+    marginLeft: 8,
+  },
+  listItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 0,
+  },
+  signInPrompt: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 97, 164, 0.08)",
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  resetContainer: {
+    marginTop: 8,
+    marginBottom: 24,
+    alignItems: "center",
+  },
+  resetButton: {
+    borderRadius: 12,
+  },
+});

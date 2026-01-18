@@ -22,7 +22,24 @@ type MenuDrawerProps = {
 const MenuDrawer = ({ visible, onDismiss }: MenuDrawerProps) => {
   const theme = useTheme();
   const [active, setActive] = React.useState("first");
-  const { signOut, session } = useAuthSession();
+  const { signOut, session, isAuthenticated } = useAuthSession();
+
+  // Guest fallback data
+  const userName =
+    isAuthenticated && session?.user?.name ? session.user.name : "Guest";
+  const userEmail =
+    isAuthenticated && session?.user?.email
+      ? session.user.email
+      : "Sign in to sync data";
+
+  const handleAuthAction = () => {
+    onDismiss();
+    if (isAuthenticated) {
+      signOut();
+    } else {
+      router.push("/(auth)/login");
+    }
+  };
 
   const progress = useSharedValue(0);
 
@@ -35,7 +52,7 @@ const MenuDrawer = ({ visible, onDismiss }: MenuDrawerProps) => {
       progress.value,
       [0, 1],
       [-DRAWER_WIDTH, 0],
-      Extrapolation.CLAMP
+      Extrapolation.CLAMP,
     );
     return {
       transform: [{ translateX }],
@@ -47,7 +64,7 @@ const MenuDrawer = ({ visible, onDismiss }: MenuDrawerProps) => {
       progress.value,
       [0, 1],
       [0, 0.5],
-      Extrapolation.CLAMP
+      Extrapolation.CLAMP,
     );
     return {
       opacity,
@@ -78,13 +95,15 @@ const MenuDrawer = ({ visible, onDismiss }: MenuDrawerProps) => {
                 variant="headlineSmall"
                 style={[{ color: theme.colors.onSurface }]}
               >
-                Welcome Back, {session?.user.name}
+                {isAuthenticated
+                  ? `Welcome Back, ${userName}`
+                  : `Hello, ${userName}`}
               </Text>
               <Text
                 variant="labelLarge"
                 style={{ color: theme.colors.primary }}
               >
-                {session?.user.email}
+                {userEmail}
               </Text>
             </View>
           </Drawer.Section>
@@ -112,25 +131,33 @@ const MenuDrawer = ({ visible, onDismiss }: MenuDrawerProps) => {
               }}
             />
             <Drawer.Item
-              label="Evaluation Detail"
+              label="Evaluation"
               icon="file-document"
-              active={active === "evaluationDetail"}
+              active={active === "evaluation"}
               onPress={() => {
-                setActive("evaluationDetail");
+                setActive("evaluation");
                 onDismiss();
                 setActive("");
-                router.push("/(pages)/EvaluationDetail");
+                router.push("/(tabs)/evaluations");
+              }}
+            />
+            <Drawer.Item
+              label="Sync Data"
+              icon="sync"
+              active={active === "sync"}
+              onPress={() => {
+                setActive("sync");
+                onDismiss();
+                setActive("");
+                router.push("/(tabs)/sync");
               }}
             />
           </Drawer.Section>
           <Drawer.Section title="Actions">
             <Drawer.Item
-              label="Sign Out"
-              icon="logout"
-              onPress={() => {
-                onDismiss();
-                signOut();
-              }}
+              label={isAuthenticated ? "Sign Out" : "Sign In"}
+              icon={isAuthenticated ? "logout" : "login"}
+              onPress={handleAuthAction}
             />
           </Drawer.Section>
         </View>

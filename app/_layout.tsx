@@ -9,6 +9,7 @@ import {
 import { SplashScreen, Stack } from "expo-router";
 import { Provider } from "../components/Provider";
 import { useAuthStore } from "../lib/auth-store";
+import { useSettingsStore } from "../lib/settings-store";
 import { SQLiteProvider } from "expo-sqlite";
 import { ActivityIndicator } from "react-native-paper";
 import { initializeDatabase } from "../lib/db";
@@ -77,13 +78,22 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
 };
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
+  const systemColorScheme = useColorScheme();
+  const themeMode = useSettingsStore((s) => s.themeMode);
+
+  // Determine effective theme based on settings
+  const effectiveTheme =
+    themeMode === "system"
+      ? systemColorScheme === "dark"
+        ? "dark"
+        : "light"
+      : themeMode;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Suspense fallback={<ActivityIndicator size={"large"} />}>
         <ThemeProvider
-          value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+          value={effectiveTheme === "dark" ? DarkTheme : DefaultTheme}
         >
           <SQLiteProvider
             databaseName="evaluationapp"
@@ -92,7 +102,7 @@ function RootLayoutNav() {
             }}
             useSuspense
           >
-            <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
+            <StatusBar style={effectiveTheme === "dark" ? "light" : "dark"} />
             <Stack>
               <Stack.Screen
                 name="(tabs)"

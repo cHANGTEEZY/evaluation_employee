@@ -45,23 +45,23 @@ export const AppLight = {
     onPrimary: "#FFFFFF",
     primaryContainer: "#D1E4FF",
     onPrimaryContainer: "#001D36",
-    
+
     secondary: "#535F70",
     onSecondary: "#FFFFFF",
     secondaryContainer: "#D7E3F7",
     onSecondaryContainer: "#101C2B",
-    
+
     tertiary: "#6B5778",
     onTertiary: "#FFFFFF",
     tertiaryContainer: "#F2DAFF",
     onTertiaryContainer: "#251431",
-    
-    background: "#FDFCFF", // Neutral off-white
-    surface: "#FDFCFF",
+
+    background: "#F5F5F7", // Slightly darker neutral off-white
+    surface: "#F5F5F7",
     surfaceVariant: "#DFE2EB",
     onSurface: "#1A1C1E",
     onSurfaceVariant: "#43474E",
-    
+
     outline: "#73777F",
     error: "#BA1A1A",
   },
@@ -75,23 +75,23 @@ export const AppDark = {
     onPrimary: "#003258",
     primaryContainer: "#00497D",
     onPrimaryContainer: "#D1E4FF",
-    
+
     secondary: "#BBC7DB",
     onSecondary: "#253140",
     secondaryContainer: "#3B4858",
     onSecondaryContainer: "#D7E3F7",
-    
+
     tertiary: "#D6BEE4",
     onTertiary: "#3B2948",
     tertiaryContainer: "#523F5F",
     onTertiaryContainer: "#F2DAFF",
-    
+
     background: "#1A1C1E", // Neutral dark gray (not blueish)
     surface: "#1A1C1E",
     surfaceVariant: "#43474E",
     onSurface: "#E2E2E6",
     onSurfaceVariant: "#C3C7CF",
-    
+
     outline: "#8D9199",
     error: "#FFB4AB",
   },

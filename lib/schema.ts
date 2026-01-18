@@ -415,7 +415,7 @@ export async function resetFailedSyncValuations(): Promise<void> {
 // Update valuation status
 export async function updateValuationStatus(
   id: string,
-  status: "draft" | "fitting" | "submitted" | "synced",
+  status: "pending" | "synced",
   syncStatus?: "pending" | "syncing" | "synced" | "error",
   errorMessage?: string
 ): Promise<void> {
@@ -430,7 +430,7 @@ export async function updateValuationStatus(
     values.push(syncStatus);
   }
 
-  if (status === "submitted") {
+  if (status === "pending") {
     updates.push("submitted_at = ?");
     values.push(now);
   }

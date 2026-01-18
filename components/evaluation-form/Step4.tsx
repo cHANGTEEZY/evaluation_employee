@@ -1,20 +1,34 @@
-import { StyleSheet, View, Alert } from "react-native";
-import React, { useState, useRef } from "react";
+import { StyleSheet, View, Alert, Image } from "react-native";
+import React, { useState, useRef, useEffect } from "react";
 import { Button, Text, useTheme } from "react-native-paper";
 import ViewShot from "react-native-view-shot";
 import { File, Paths } from "expo-file-system";
-import DrawingCanvas from "../DrawingCanvas";
+import { useFormContext } from "react-hook-form";
+import DrawingCanvas, { DrawingCanvasRef } from "../DrawingCanvas";
 
 type Step4Props = {
   onDrawingSaved?: (uri: string) => void;
 };
 
 const Step4 = ({ onDrawingSaved }: Step4Props) => {
+  const form = useFormContext();
+  const existingDrawing = form.watch("site_plan_drawing");
+
   const [drawnPaths, setDrawnPaths] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [savedUri, setSavedUri] = useState<string | null>(null);
+  const [savedUri, setSavedUri] = useState<string | null>(
+    existingDrawing || null,
+  );
   const viewShotRef = useRef<ViewShot>(null);
+  const canvasRef = useRef<DrawingCanvasRef>(null);
   const theme = useTheme();
+
+  // Load existing drawing on mount
+  useEffect(() => {
+    if (existingDrawing) {
+      setSavedUri(existingDrawing);
+    }
+  }, [existingDrawing]);
 
   const getCompletedPath = (paths: any[]) => {
     setDrawnPaths(paths);
@@ -67,13 +81,20 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
           text: "Clear",
           style: "destructive",
           onPress: () => {
+            // Clear the canvas via ref
+            canvasRef.current?.clear();
             setDrawnPaths([]);
             setSavedUri(null);
+            // Also clear from form
+            form.setValue("site_plan_drawing", "");
           },
         },
-      ]
+      ],
     );
   };
+
+  // If we have a saved drawing and no new paths, show the saved image
+  const showSavedPreview = savedUri && drawnPaths.length === 0;
 
   return (
     <View style={styles.container}>
@@ -87,15 +108,36 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
         Use your finger to draw the site plan. Save when complete.
       </Text>
 
-      <ViewShot
-        ref={viewShotRef}
-        options={{ format: "png", quality: 1 }}
-        style={styles.canvasContainer}
-      >
-        <DrawingCanvas getCompletedPath={getCompletedPath} />
-      </ViewShot>
+      {showSavedPreview ? (
+        // Show saved drawing preview
+        <View style={styles.canvasContainer}>
+          <Image
+            source={{ uri: savedUri }}
+            style={styles.savedImage}
+            resizeMode="contain"
+          />
+          <View
+            style={[
+              styles.savedOverlay,
+              { backgroundColor: theme.colors.primaryContainer },
+            ]}
+          >
+            <Text style={{ color: theme.colors.onPrimaryContainer }}>
+              ✓ Saved drawing - Draw to create new
+            </Text>
+          </View>
+        </View>
+      ) : (
+        <ViewShot
+          ref={viewShotRef}
+          options={{ format: "png", quality: 1 }}
+          style={styles.canvasContainer}
+        >
+          <DrawingCanvas ref={canvasRef} getCompletedPath={getCompletedPath} />
+        </ViewShot>
+      )}
 
-      {savedUri && (
+      {savedUri && drawnPaths.length > 0 && (
         <View
           style={[
             styles.savedIndicator,
@@ -103,7 +145,7 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
           ]}
         >
           <Text style={{ color: theme.colors.onPrimaryContainer }}>
-            ✓ Drawing saved
+            ✓ New drawing ready to save
           </Text>
         </View>
       )}
@@ -112,7 +154,7 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
         <Button
           mode="outlined"
           onPress={handleClearDrawing}
-          disabled={drawnPaths.length === 0}
+          disabled={drawnPaths.length === 0 && !savedUri}
           style={styles.button}
           icon="eraser"
         >
@@ -153,6 +195,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ccc",
     backgroundColor: "white",
+  },
+  savedImage: {
+    flex: 1,
+    width: "100%",
+  },
+  savedOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 8,
+    alignItems: "center",
   },
   savedIndicator: {
     padding: 8,

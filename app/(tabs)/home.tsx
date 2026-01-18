@@ -21,22 +21,21 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   getRecentValuations,
   getValuationsMetrics,
-  ValuationMetrics,
   ValuationRow,
 } from "../../lib/schema";
 
 const HomeScreen = () => {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const theme = useTheme();
-  const { session } = useAuthSession();
-  const userName = session?.user?.name || "User";
+  const { session, isAuthenticated } = useAuthSession();
+  const userName =
+    isAuthenticated && session?.user?.name ? session.user.name : "Guest";
 
   const insets = useSafeAreaInsets();
 
   const [recentValuations, setRecentValuations] = useState<ValuationRow[]>([]);
   const [stats, setStats] = useState({
     pending: 0,
-    completed: 0,
     synced: 0,
     total: 0,
   });
@@ -53,15 +52,14 @@ const HomeScreen = () => {
         const metrics = await getValuationsMetrics();
         // Map database fields to UI labels: draft → pending, submitted → completed
         setStats({
-          pending: metrics.draft,
-          completed: metrics.submitted,
+          pending: metrics.submitted,
           synced: metrics.synced,
           total: metrics.total,
         });
       };
 
       fetchData();
-    }, [])
+    }, []),
   );
 
   // Helper function to format relative time
@@ -181,13 +179,13 @@ const HomeScreen = () => {
               variant="headlineSmall"
               style={{ fontWeight: "bold", color: "white" }}
             >
-              {stats.completed}
+              {stats.synced}
             </Text>
             <Text
               variant="labelMedium"
               style={{ color: "white", opacity: 0.85 }}
             >
-              Completed
+              Synced
             </Text>
           </View>
         </View>
@@ -321,7 +319,7 @@ const HomeScreen = () => {
                     }}
                   >
                     {stats.total > 0
-                      ? Math.round((stats.completed / stats.total) * 100)
+                      ? Math.round((stats.synced / stats.total) * 100)
                       : 0}
                     %
                   </Text>
@@ -368,7 +366,7 @@ const HomeScreen = () => {
                     ]}
                   >
                     <ProgressBar
-                      progress={stats.completed / stats.total}
+                      progress={stats.synced / stats.total}
                       color={theme.colors.primary}
                       style={{ height: 8, borderRadius: 4 }}
                     />
@@ -377,8 +375,7 @@ const HomeScreen = () => {
                     variant="bodySmall"
                     style={{ color: theme.colors.onSurfaceVariant }}
                   >
-                    {stats.completed} of {stats.total} valuations completed
-                    {stats.synced > 0 && ` • ${stats.synced} synced to server`}
+                    {stats.synced} of {stats.total} valuations synced to server
                   </Text>
                 </>
               )}
@@ -433,7 +430,7 @@ const HomeScreen = () => {
               recentValuations.map((item) => {
                 const displayStatus = getStatusDisplay(
                   item.status,
-                  item.sync_status
+                  item.sync_status,
                 );
                 return (
                   <Card
@@ -467,8 +464,8 @@ const HomeScreen = () => {
                               displayStatus === "Pending"
                                 ? "clock-outline"
                                 : displayStatus === "Completed"
-                                ? "check-circle-outline"
-                                : "cloud-check"
+                                  ? "check-circle-outline"
+                                  : "cloud-check"
                             }
                             size={24}
                             color={

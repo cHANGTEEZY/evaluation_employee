@@ -8,11 +8,20 @@ import OrganizationDetails from "../../components/profile/OrganizationDetails";
 import BranchDetails from "../../components/profile/BranchDetails";
 import { SafeAreaView } from "react-native-safe-area-context";
 import PageHeader from "../../components/PageHeader";
+import { router } from "expo-router";
 
 export default function Profile() {
-  const { signOut } = useAuthSession();
+  const { signOut, isAuthenticated } = useAuthSession();
   const theme = useTheme();
   const [isEditing, setIsEditing] = useState(false);
+
+  const handleAuthAction = () => {
+    if (isAuthenticated) {
+      signOut();
+    } else {
+      router.push("/(auth)/login");
+    }
+  };
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={["left"]}>
@@ -21,7 +30,7 @@ export default function Profile() {
         style={[styles.container, { backgroundColor: theme.colors.background }]}
         showsVerticalScrollIndicator={false}
       >
-        {isEditing ? (
+        {isEditing && isAuthenticated ? (
           <EditUserProfileForm onCancel={() => setIsEditing(false)} />
         ) : (
           <UserProfile onEdit={() => setIsEditing(true)} />
@@ -31,10 +40,11 @@ export default function Profile() {
         <View style={styles.signOutButtonContainer}>
           <Button
             mode="contained"
-            onPress={() => signOut()}
+            onPress={handleAuthAction}
             style={styles.button}
+            icon={isAuthenticated ? "logout" : "login"}
           >
-            Sign Out
+            {isAuthenticated ? "Sign Out" : "Sign In"}
           </Button>
         </View>
       </ScrollView>

@@ -27,6 +27,16 @@ const EvaliationFAB = () => {
         icon={open ? "close" : "plus"}
         actions={[
           {
+            icon: "home",
+            label: "Home",
+            onPress: () => router.push("/(tabs)/home"),
+          },
+          {
+            icon: "cog",
+            label: "Settings",
+            onPress: () => router.push("/(pages)/Settings"),
+          },
+          {
             icon: "cloud-sync",
             label: "Sync Data",
             onPress: () => router.push("/(tabs)/sync"),
