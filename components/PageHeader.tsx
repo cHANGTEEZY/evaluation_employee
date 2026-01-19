@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
     paddingBottom: 12,
-    borderBottomWidth: StyleSheet.absoluteFill,
+    borderBottomWidth: 0,
   },
   row: {
     flexDirection: "row",

@@ -46,3 +46,17 @@ node_modules
 .expo
 ios
 android
+
+
+# Android signing keys
+*.keystore
+*.jks
+
+# Expo / EAS credentials
+credentials.json
+
+# Android local signing config
+android/keystores/
+android/app/*.keystore
+android/app/*.jks
+android/app/key.properties
