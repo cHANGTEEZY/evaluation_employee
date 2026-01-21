@@ -1,1 +1,2 @@
-export const BASE_API_URL = "https://novella-cantoral-terrance.ngrok-free.dev";
+export const BASE_API_URL =
+  "https://evaluationbackend-production.up.railway.app";

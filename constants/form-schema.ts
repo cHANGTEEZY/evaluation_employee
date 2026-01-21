@@ -1,69 +1,69 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export const valuationSchema = z.object({
   // ===== Basic Details =====
   ref_no: z.string().optional(),
-  valuation_date: z.date({ message: "Please enter a valid valuation date" }),
-  branch: z.string().min(1, "Branch is required"),
-  client_name: z.string().min(1, "Client name is required"),
+  valuation_date: z.date({ message: 'Please enter a valid valuation date' }),
+  branch: z.string().min(1, 'Branch is required'),
+  client_name: z.string().min(1, 'Client name is required'),
   contact_number: z
     .string()
-    .min(1, "Contact number is required")
-    .regex(/^[0-9+\-\s()]+$/, "Please enter a valid phone number"),
-  client_address_nagrita: z.string().min(1, "Client address is required"),
+    .min(1, 'Contact number is required')
+    .regex(/^[0-9+\-\s()]+$/, 'Please enter a valid phone number'),
+  client_address_nagrita: z.string().min(1, 'Client address is required'),
 
   // ===== Property Ownership & Location =====
-  owner_of_property: z.string().min(1, "Property owner name is required"),
+  owner_of_property: z.string().min(1, 'Property owner name is required'),
   property_address_deed: z
     .string()
-    .min(1, "Property address (deed) is required"),
+    .min(1, 'Property address (deed) is required'),
   plot_no: z.string().optional(),
   present_property_address: z
     .string()
-    .min(1, "Present property address is required"),
-  district: z.string().min(1, "District is required"),
+    .min(1, 'Present property address is required'),
+  district: z.string().min(1, 'District is required'),
 
   // ===== Valuation Purpose =====
   valuation_for: z.enum(
     [
-      "vacant_land",
-      "land_and_building",
-      "ready_made_house",
-      "apartment_duplex",
-      "construction_extension_renovation",
+      'vacant_land',
+      'land_and_building',
+      'ready_made_house',
+      'apartment_duplex',
+      'construction_extension_renovation',
     ],
-    { message: "Please select a valuation purpose" },
+    { message: 'Please select a valuation purpose' },
   ),
 
   // ===== Road & Access =====
-  road_type: z.enum(["black_topped", "gravel", "earthen", "concrete"], {
-    message: "Please select a road type",
+  road_type: z.enum(['black_topped', 'gravel', 'earthen', 'concrete'], {
+    message: 'Please select a road type',
   }),
   road_width: z
-    .number({ message: "Road width must be a number" })
-    .positive("Road width must be greater than 0")
+    .number({ message: 'Road width must be a number' })
+    .positive('Road width must be greater than 0')
     .optional(),
-  access_road_direction: z.enum(["east", "west", "north", "south"], {
-    message: "Please select an access road direction",
+  access_road_direction: z.enum(['east', 'west', 'north', 'south'], {
+    message: 'Please select an access road direction',
   }),
 
   // ===== Property Dimensions =====
   property_area_length: z
-    .number({ message: "Property area length must be a number" })
-    .positive("Property area length must be greater than 0")
+    .number({ message: 'Property area length must be a number' })
+    .positive('Property area length must be greater than 0')
     .optional(),
   property_frontage_direction: z
-    .enum(["east", "west", "north", "south"], {
-      message: "Please select a frontage direction",
+    .enum(['east', 'west', 'north', 'south'], {
+      message: 'Please select a frontage direction',
     })
     .optional(),
   property_narrowest_length: z
-    .number({ message: "Narrowest length must be a number" })
-    .positive("Narrowest length must be greater than 0")
+    .number({ message: 'Narrowest length must be a number' })
+    .positive('Narrowest length must be greater than 0')
     .optional(),
   property_narrowest_direction: z
-    .enum(["east", "west", "north", "south"], {
-      message: "Please select a narrowest direction",
+    .enum(['east', 'west', 'north', 'south'], {
+      message: 'Please select a narrowest direction',
     })
     .optional(),
 
@@ -75,57 +75,57 @@ export const valuationSchema = z.object({
 
   // ===== Property Classification =====
   property_type: z.enum(
-    ["residential", "commercial", "industrial", "agricultural"],
+    ['residential', 'commercial', 'industrial', 'agricultural'],
     {
-      message: "Please select a property type",
+      message: 'Please select a property type',
     },
   ),
   property_ownership_type: z.enum(
-    ["company", "individual_single", "individual_joint"],
+    ['company', 'individual_single', 'individual_joint'],
     {
-      message: "Please select an ownership type",
+      message: 'Please select an ownership type',
     },
   ),
   ownership_transferred_through: z.enum(
-    ["sale", "bakupatra", "family_separation", "habalish"],
-    { message: "Please select a transfer method" },
+    ['sale', 'bakupatra', 'family_separation', 'habalish'],
+    { message: 'Please select a transfer method' },
   ),
-  hold_type: z.enum(["freehold", "leasehold"], {
-    message: "Please select a hold type",
+  hold_type: z.enum(['freehold', 'leasehold'], {
+    message: 'Please select a hold type',
   }),
 
   // ===== Land Rates =====
   commercial_rate_per_anna: z
-    .number({ message: "Commercial rate must be a number" })
-    .nonnegative("Commercial rate cannot be negative")
+    .number({ message: 'Commercial rate must be a number' })
+    .nonnegative('Commercial rate cannot be negative')
     .optional(),
   government_rate_per_anna: z
-    .number({ message: "Government rate must be a number" })
-    .nonnegative("Government rate cannot be negative")
+    .number({ message: 'Government rate must be a number' })
+    .nonnegative('Government rate cannot be negative')
     .optional(),
 
   // ===== Building Details =====
-  building_type: z.enum(["rcc_framed", "steel", "load_bearing", "others"], {
-    message: "Please select a valid building type",
+  building_type: z.enum(['rcc_framed', 'steel', 'load_bearing', 'others'], {
+    message: 'Please select a valid building type',
   }),
-  building_purpose: z.enum(["residential", "commercial", "both"], {
-    message: "Please select a valid building purpose",
+  building_purpose: z.enum(['residential', 'commercial', 'both'], {
+    message: 'Please select a valid building purpose',
   }),
   number_of_storeys: z
-    .number({ message: "Number of storeys must be a number" })
-    .int("Number of storeys must be a whole number")
-    .nonnegative("Number of storeys cannot be negative")
+    .number({ message: 'Number of storeys must be a number' })
+    .int('Number of storeys must be a whole number')
+    .nonnegative('Number of storeys cannot be negative')
     .optional(),
   storey_height: z
-    .number({ message: "Storey height must be a number" })
-    .positive("Storey height must be greater than 0")
+    .number({ message: 'Storey height must be a number' })
+    .positive('Storey height must be greater than 0')
     .optional(),
   building_age_years: z
-    .number({ message: "Building age must be a number" })
-    .int("Building age must be a whole number")
-    .nonnegative("Building age cannot be negative")
+    .number({ message: 'Building age must be a number' })
+    .int('Building age must be a whole number')
+    .nonnegative('Building age cannot be negative')
     .optional(),
-  completion_date: z.date({ message: "Please enter a valid date" }).optional(),
+  completion_date: z.date({ message: 'Please enter a valid date' }).optional(),
 
   // ===== Risk / Area =====
   landslide_prone_area: z.boolean().default(false),
@@ -135,25 +135,25 @@ export const valuationSchema = z.object({
 
   // ===== Site & Topography =====
   site_charge: z
-    .number({ message: "Site charge must be a number" })
-    .nonnegative("Site charge cannot be negative")
+    .number({ message: 'Site charge must be a number' })
+    .nonnegative('Site charge cannot be negative')
     .optional(),
-  high_land_ft: z.number({ message: "High land must be a number" }).optional(),
-  low_land_ft: z.number({ message: "Low land must be a number" }).optional(),
+  high_land_ft: z.number({ message: 'High land must be a number' }).optional(),
+  low_land_ft: z.number({ message: 'Low land must be a number' }).optional(),
   latitude: z
-    .number({ message: "Latitude must be a number" })
-    .min(-90, "Latitude must be between -90 and 90")
-    .max(90, "Latitude must be between -90 and 90")
+    .number({ message: 'Latitude must be a number' })
+    .min(-90, 'Latitude must be between -90 and 90')
+    .max(90, 'Latitude must be between -90 and 90')
     .optional(),
   longitude: z
-    .number({ message: "Longitude must be a number" })
-    .min(-180, "Longitude must be between -180 and 180")
-    .max(180, "Longitude must be between -180 and 180")
+    .number({ message: 'Longitude must be a number' })
+    .min(-180, 'Longitude must be between -180 and 180')
+    .max(180, 'Longitude must be between -180 and 180')
     .optional(),
   slope_degree: z
-    .number({ message: "Slope degree must be a number" })
-    .min(0, "Slope degree must be between 0 and 90")
-    .max(90, "Slope degree must be between 0 and 90")
+    .number({ message: 'Slope degree must be a number' })
+    .min(0, 'Slope degree must be between 0 and 90')
+    .max(90, 'Slope degree must be between 0 and 90')
     .optional(),
 
   // ===== Documents =====
@@ -225,60 +225,60 @@ export const valuationSchema = z.object({
 
 export type ValuationFormValues = z.infer<typeof valuationSchema>;
 
-// Default values for the form (empty for production use)
+// Default values for the form (pre-filled for testing/development)
 export const defaultValuationValues: Partial<ValuationFormValues> = {
   // Basic Details
-  ref_no: "",
-  valuation_date: undefined,
-  branch: "",
-  client_name: "",
-  contact_number: "",
-  client_address_nagrita: "",
+  ref_no: 'VAL-2024-001',
+  valuation_date: new Date(),
+  branch: 'Kathmandu Main Branch',
+  client_name: 'Ram Bahadur Gurung',
+  contact_number: '9841234567',
+  client_address_nagrita: 'Tinkune, Kathmandu-32',
 
   // Property Ownership & Location
-  owner_of_property: "",
-  property_address_deed: "",
-  plot_no: "",
-  present_property_address: "",
-  district: "",
+  owner_of_property: 'Ram Bahadur Gurung',
+  property_address_deed: 'Ward No. 5, Budhanilkantha Municipality',
+  plot_no: '123/456',
+  present_property_address: 'Chapali, Budhanilkantha-5, Kathmandu',
+  district: 'Kathmandu',
 
   // Valuation Purpose
-  valuation_for: undefined,
+  valuation_for: 'land_and_building',
 
   // Road & Access
-  road_type: undefined,
-  road_width: undefined,
-  access_road_direction: undefined,
+  road_type: 'black_topped',
+  road_width: 6,
+  access_road_direction: 'east',
 
   // Property Dimensions
-  property_area_length: undefined,
-  property_frontage_direction: undefined,
-  property_narrowest_length: undefined,
-  property_narrowest_direction: undefined,
+  property_area_length: 50,
+  property_frontage_direction: 'south',
+  property_narrowest_length: 30,
+  property_narrowest_direction: 'north',
 
   // Access & Rights
-  right_of_way: false,
-  motorable_access: false,
-  electricity_available: false,
-  drainage_near_property: false,
+  right_of_way: true,
+  motorable_access: true,
+  electricity_available: true,
+  drainage_near_property: true,
 
   // Property Classification
-  property_type: undefined,
-  property_ownership_type: undefined,
-  ownership_transferred_through: undefined,
-  hold_type: undefined,
+  property_type: 'residential',
+  property_ownership_type: 'individual_single',
+  ownership_transferred_through: 'sale',
+  hold_type: 'freehold',
 
   // Land Rates
-  commercial_rate_per_anna: undefined,
-  government_rate_per_anna: undefined,
+  commercial_rate_per_anna: 1500000,
+  government_rate_per_anna: 800000,
 
   // Building Details
-  building_type: undefined,
-  building_purpose: undefined,
-  number_of_storeys: undefined,
-  storey_height: undefined,
-  building_age_years: undefined,
-  completion_date: undefined,
+  building_type: 'rcc_framed',
+  building_purpose: 'residential',
+  number_of_storeys: 3,
+  storey_height: 9.5,
+  building_age_years: 5,
+  completion_date: new Date(2019, 5, 15),
 
   // Risk / Area
   landslide_prone_area: false,
@@ -287,27 +287,28 @@ export const defaultValuationValues: Partial<ValuationFormValues> = {
   canal_area: false,
 
   // Site & Topography
-  site_charge: undefined,
-  high_land_ft: undefined,
-  low_land_ft: undefined,
-  latitude: undefined,
-  longitude: undefined,
-  slope_degree: undefined,
+  site_charge: 50000,
+  high_land_ft: 2,
+  low_land_ft: 0,
+  latitude: 27.7172,
+  longitude: 85.324,
+  slope_degree: 5,
 
   // Documents
   documents: {
-    citizenship_client: { original: false, photocopy: false },
-    citizenship_owner: { original: false, photocopy: false },
-    lorc: { original: false, photocopy: false },
-    bptm: { original: false, photocopy: false },
-    charkilla: { original: false, photocopy: false },
-    blueprint: { original: false, photocopy: false },
-    plot_utar: { original: false, photocopy: false },
+    citizenship_client: { original: true, photocopy: true },
+    citizenship_owner: { original: true, photocopy: true },
+    lorc: { original: true, photocopy: true },
+    bptm: { original: false, photocopy: true },
+    charkilla: { original: false, photocopy: true },
+    blueprint: { original: true, photocopy: true },
+    plot_utar: { original: false, photocopy: true },
     nirmal_lagat: { original: false, photocopy: false },
     nirmal_sangarna: { original: false, photocopy: false },
-    building_drawing: { original: false, photocopy: false },
+    building_drawing: { original: true, photocopy: true },
   },
 
   // Site Plan
-  site_plan_note: "",
+  site_plan_note:
+    'Property is located in a prime residential area with good road access. The building is well-maintained with modern amenities.',
 };

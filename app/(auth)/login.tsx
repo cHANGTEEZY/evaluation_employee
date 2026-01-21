@@ -10,19 +10,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { authClient } from "../../lib/auth-client";
 import { Link, useRouter } from "expo-router";
-import {
-  Text,
-  TextInput,
-  Snackbar,
-  Portal,
-  useTheme,
-  Button,
-} from "react-native-paper";
+import { Text, TextInput, useTheme, Button } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import AuthLogo from "../../features/auth/components/AuthLogo";
-import Divider from "../../components/Divider";
-import { useAuthSession } from "../../lib/auth-store";
+import { Toast } from "toastify-react-native";
 
 export default function SignIn() {
   const theme = useTheme();
@@ -50,20 +42,16 @@ export default function SignIn() {
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [snackVisible, setSnackVisible] = useState(false);
-  const [snackMessage, setSnackMessage] = useState("");
 
   const handleSignIn = async () => {
     if (!email || !password) {
-      setSnackMessage("Please fill in all fields");
-      setSnackVisible(true);
+      Toast.error("Please fill in all fields");
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setSnackMessage("Please enter a valid email address");
-      setSnackVisible(true);
+      Toast.error("Please enter a valid email address");
       return;
     }
 
@@ -78,8 +66,7 @@ export default function SignIn() {
         },
         {
           onSuccess: async () => {
-            setSnackMessage("Login successful!");
-            setSnackVisible(true);
+            Toast.success("Login successful!");
             router.replace("/(tabs)/home");
           },
           onError: (ctx) => {
@@ -95,10 +82,9 @@ export default function SignIn() {
               errorMessage = "Too many attempts. Please try again later";
             }
 
-            setSnackMessage(errorMessage);
-            setSnackVisible(true);
+            Toast.error(errorMessage);
           },
-        }
+        },
       );
     } catch (error) {
       console.error("SignIn catch error:", error);
@@ -114,8 +100,7 @@ export default function SignIn() {
         errorMessage = error.message;
       }
 
-      setSnackMessage(errorMessage);
-      setSnackVisible(true);
+      Toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -296,15 +281,6 @@ export default function SignIn() {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
-      <Portal>
-        <Snackbar
-          visible={snackVisible}
-          onDismiss={() => setSnackVisible(false)}
-          duration={3000}
-        >
-          <Text style={{ color: "#FFFFFF" }}>{snackMessage}</Text>
-        </Snackbar>
-      </Portal>
     </View>
   );
 }

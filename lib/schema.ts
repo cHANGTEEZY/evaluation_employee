@@ -106,7 +106,7 @@ export async function createValuationTable() {
 
 // Insert a new valuation
 export async function insertValuation(
-  data: ValuationFormValues
+  data: ValuationFormValues,
 ): Promise<string> {
   const db = await getDb();
   const id = generateId();
@@ -182,7 +182,7 @@ export async function insertValuation(
       data.site_plan_note ?? null,
       data.site_plan_drawing ?? null,
       data.property_images ? JSON.stringify(data.property_images) : null,
-    ]
+    ],
   );
 
   return id;
@@ -191,7 +191,7 @@ export async function insertValuation(
 // Update an existing valuation
 export async function updateValuation(
   id: string,
-  data: Partial<ValuationFormValues>
+  data: Partial<ValuationFormValues>,
 ): Promise<void> {
   const db = await getDb();
   const now = new Date().toISOString();
@@ -312,7 +312,7 @@ export async function updateValuation(
       values.push(
         mapping.transform
           ? mapping.transform(value)
-          : (value as string | number | null) ?? null
+          : ((value as string | number | null) ?? null),
       );
     }
   }
@@ -321,18 +321,18 @@ export async function updateValuation(
 
   await db.runAsync(
     `UPDATE valuations SET ${updates.join(", ")} WHERE id = ?`,
-    values
+    values,
   );
 }
 
 // Get a valuation by ID
 export async function getValuationById(
-  id: string
+  id: string,
 ): Promise<ValuationRow | null> {
   const db = await getDb();
   const result = await db.getFirstAsync<ValuationRow>(
     "SELECT * FROM valuations WHERE id = ?",
-    [id]
+    [id],
   );
   return result ?? null;
 }
@@ -341,7 +341,7 @@ export async function getValuationById(
 export async function getAllValuations(): Promise<ValuationRow[]> {
   const db = await getDb();
   const results = await db.getAllAsync<ValuationRow>(
-    "SELECT * FROM valuations ORDER BY created_at DESC"
+    "SELECT * FROM valuations ORDER BY created_at DESC",
   );
   return results;
 }
@@ -350,19 +350,19 @@ export async function getAllValuations(): Promise<ValuationRow[]> {
 export async function getRecentValuations(): Promise<ValuationRow[]> {
   const db = await getDb();
   const results = await db.getAllAsync<ValuationRow>(
-    "SELECT * FROM valuations ORDER BY created_at DESC LIMIT 10"
+    "SELECT * FROM valuations ORDER BY created_at DESC LIMIT 10",
   );
   return results;
 }
 
 // Get valuations by status
 export async function getValuationsByStatus(
-  status: "draft" | "submitted" | "synced"
+  status: "draft" | "submitted" | "synced",
 ): Promise<ValuationRow[]> {
   const db = await getDb();
   const results = await db.getAllAsync<ValuationRow>(
     "SELECT * FROM valuations WHERE status = ? ORDER BY created_at DESC",
-    [status]
+    [status],
   );
   return results;
 }
@@ -379,7 +379,7 @@ export interface ValuationMetrics {
 export async function getValuationsMetrics(): Promise<ValuationMetrics> {
   const db = await getDb();
   const result = await db.getFirstAsync<ValuationMetrics>(
-    "SELECT COUNT(*) AS total, COUNT(CASE WHEN status = 'draft' THEN 1 END) AS draft, COUNT(CASE WHEN status = 'submitted' THEN 1 END) AS submitted, COUNT(CASE WHEN status = 'synced' THEN 1 END) AS synced FROM valuations"
+    "SELECT COUNT(*) AS total, COUNT(CASE WHEN status = 'draft' THEN 1 END) AS draft, COUNT(CASE WHEN status = 'submitted' THEN 1 END) AS submitted, COUNT(CASE WHEN status = 'synced' THEN 1 END) AS synced FROM valuations",
   );
   return result ?? { total: 0, draft: 0, submitted: 0, synced: 0 };
 }
@@ -388,7 +388,7 @@ export async function getValuationsMetrics(): Promise<ValuationMetrics> {
 export async function getPendingSyncValuations(): Promise<ValuationRow[]> {
   const db = await getDb();
   const results = await db.getAllAsync<ValuationRow>(
-    "SELECT * FROM valuations WHERE sync_status = 'pending' ORDER BY created_at ASC"
+    "SELECT * FROM valuations WHERE sync_status = 'pending' ORDER BY created_at ASC",
   );
   return results;
 }
@@ -397,7 +397,7 @@ export async function getPendingSyncValuations(): Promise<ValuationRow[]> {
 export async function getFailedSyncValuations(): Promise<ValuationRow[]> {
   const db = await getDb();
   const results = await db.getAllAsync<ValuationRow>(
-    "SELECT * FROM valuations WHERE sync_status = 'error' ORDER BY created_at ASC"
+    "SELECT * FROM valuations WHERE sync_status = 'error' ORDER BY created_at ASC",
   );
   return results;
 }
@@ -408,7 +408,7 @@ export async function resetFailedSyncValuations(): Promise<void> {
   const now = new Date().toISOString();
   await db.runAsync(
     "UPDATE valuations SET sync_status = 'pending', error_message = NULL, updated_at = ? WHERE sync_status = 'error'",
-    [now]
+    [now],
   );
 }
 
@@ -417,7 +417,7 @@ export async function updateValuationStatus(
   id: string,
   status: "pending" | "synced",
   syncStatus?: "pending" | "syncing" | "synced" | "error",
-  errorMessage?: string
+  errorMessage?: string,
 ): Promise<void> {
   const db = await getDb();
   const now = new Date().toISOString();
@@ -449,7 +449,7 @@ export async function updateValuationStatus(
 
   await db.runAsync(
     `UPDATE valuations SET ${updates.join(", ")} WHERE id = ?`,
-    values
+    values,
   );
 }
 
@@ -527,7 +527,7 @@ export interface ValuationRow {
 
 // Convert database row to form values
 export function rowToFormValues(
-  row: ValuationRow
+  row: ValuationRow,
 ): Partial<ValuationFormValues> {
   return {
     ref_no: row.ref_no ?? undefined,
@@ -664,7 +664,7 @@ export async function insertAuditLog(
   action: string,
   entityType?: string,
   entityId?: string,
-  details?: Record<string, any>
+  details?: Record<string, any>,
 ): Promise<string> {
   const db = await getDb();
   const id = generateId();
@@ -684,7 +684,7 @@ export async function insertAuditLog(
       details ? JSON.stringify(details) : null,
       now,
       0,
-    ]
+    ],
   );
 
   return id;
@@ -728,7 +728,7 @@ export async function deleteAuditLogs(ids: string[]): Promise<void> {
   const placeholders = ids.map(() => "?").join(", ");
   await db.runAsync(
     `DELETE FROM audit_logs WHERE id IN (${placeholders})`,
-    ids
+    ids,
   );
 }
 
@@ -740,6 +740,6 @@ export async function markAuditLogsSynced(ids: string[]): Promise<void> {
   const placeholders = ids.map(() => "?").join(", ");
   await db.runAsync(
     `UPDATE audit_logs SET synced = 1 WHERE id IN (${placeholders})`,
-    ids
+    ids,
   );
 }
