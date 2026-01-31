@@ -2,6 +2,7 @@ import { getDb } from "./db";
 import type { ValuationFormValues } from "../constants/form-schema";
 import "react-native-get-random-values";
 import { v4 as uuidv4 } from "uuid";
+import { requireAuth } from "./auth-guard";
 
 // Generate unique ID
 export function generateId() {
@@ -15,6 +16,7 @@ export async function createValuationTable() {
     -- System Fields
     id TEXT PRIMARY KEY,
     server_id TEXT,
+    employee_id TEXT,
     status TEXT DEFAULT 'draft',
     sync_status TEXT DEFAULT 'pending',
     created_at TEXT,
@@ -90,6 +92,12 @@ export async function createValuationTable() {
     longitude REAL,
     slope_degree REAL,
 
+    -- Payment Details
+    payment_cash REAL,
+    payment_online REAL,
+    payment_online_mode TEXT,
+    payment_pending_due REAL,
+
     -- Documents (stored as JSON)
     documents TEXT,
 
@@ -100,21 +108,32 @@ export async function createValuationTable() {
     site_plan_image TEXT,
 
     -- Property Images (stored as JSON array of URIs)
-    property_images TEXT
+    property_images TEXT,
+
+    -- Bank Details (for folder structure)
+    bank_name TEXT,
+    bank_branch_name TEXT,
+    city TEXT,
+    tole_area TEXT
   )`);
 }
 
 // Insert a new valuation
 export async function insertValuation(
   data: ValuationFormValues,
+  options?: { employeeId?: string },
 ): Promise<string> {
+  // Require authentication before storing evaluation data
+  await requireAuth();
+
   const db = await getDb();
   const id = generateId();
   const now = new Date().toISOString();
+  const employeeId = options?.employeeId ?? null;
 
   await db.runAsync(
     `INSERT INTO valuations (
-      id, created_at, updated_at, status, sync_status,
+      id, employee_id, created_at, updated_at, status, sync_status,
       ref_no, valuation_date, branch, client_name, contact_number, client_address_nagrita,
       owner_of_property, property_address_deed, plot_no, present_property_address, district,
       valuation_for, road_type, road_width, access_road_direction,
@@ -125,10 +144,13 @@ export async function insertValuation(
       building_type, building_purpose, number_of_storeys, storey_height, building_age_years, completion_date,
       landslide_prone_area, river_side, high_tension_area, canal_area,
       site_charge, high_land_ft, low_land_ft, latitude, longitude, slope_degree,
-      documents, site_plan_note, site_plan_image, property_images
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      payment_cash, payment_online, payment_online_mode, payment_pending_due,
+      documents, site_plan_note, site_plan_image, property_images,
+      bank_name, bank_branch_name, city, tole_area
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
+      employeeId,
       now,
       now,
       "draft",
@@ -178,10 +200,18 @@ export async function insertValuation(
       data.latitude ?? null,
       data.longitude ?? null,
       data.slope_degree ?? null,
+      data.payment_cash ?? null,
+      data.payment_online ?? null,
+      data.payment_online_mode ?? null,
+      data.payment_pending_due ?? null,
       data.documents ? JSON.stringify(data.documents) : null,
       data.site_plan_note ?? null,
       data.site_plan_drawing ?? null,
       data.property_images ? JSON.stringify(data.property_images) : null,
+      data.bank_name ?? null,
+      data.bank_branch_name ?? null,
+      data.city ?? null,
+      data.tole_area ?? null,
     ],
   );
 
@@ -193,6 +223,9 @@ export async function updateValuation(
   id: string,
   data: Partial<ValuationFormValues>,
 ): Promise<void> {
+  // Require authentication before updating evaluation data
+  await requireAuth();
+
   const db = await getDb();
   const now = new Date().toISOString();
 
@@ -291,6 +324,10 @@ export async function updateValuation(
     { key: "latitude", column: "latitude" },
     { key: "longitude", column: "longitude" },
     { key: "slope_degree", column: "slope_degree" },
+    { key: "payment_cash", column: "payment_cash" },
+    { key: "payment_online", column: "payment_online" },
+    { key: "payment_online_mode", column: "payment_online_mode" },
+    { key: "payment_pending_due", column: "payment_pending_due" },
     {
       key: "documents",
       column: "documents",
@@ -303,6 +340,10 @@ export async function updateValuation(
       column: "property_images",
       transform: (v) => (v ? JSON.stringify(v) : null),
     },
+    { key: "bank_name", column: "bank_name" },
+    { key: "bank_branch_name", column: "bank_branch_name" },
+    { key: "city", column: "city" },
+    { key: "tole_area", column: "tole_area" },
   ];
 
   for (const mapping of fieldMappings) {
@@ -312,7 +353,7 @@ export async function updateValuation(
       values.push(
         mapping.transform
           ? mapping.transform(value)
-          : ((value as string | number | null) ?? null),
+          : (value as string | number | null) ?? null,
       );
     }
   }
@@ -419,6 +460,9 @@ export async function updateValuationStatus(
   syncStatus?: "pending" | "syncing" | "synced" | "error",
   errorMessage?: string,
 ): Promise<void> {
+  // Require authentication before updating valuation status
+  await requireAuth();
+
   const db = await getDb();
   const now = new Date().toISOString();
 
@@ -467,6 +511,7 @@ export async function deleteValuation(id: string): Promise<void> {
 export interface ValuationRow {
   id: string;
   server_id: string | null;
+  employee_id: string | null;
   status: string;
   sync_status: string;
   created_at: string;
@@ -519,10 +564,18 @@ export interface ValuationRow {
   latitude: number | null;
   longitude: number | null;
   slope_degree: number | null;
+  payment_cash: number | null;
+  payment_online: number | null;
+  payment_online_mode: string | null;
+  payment_pending_due: number | null;
   documents: string | null;
   site_plan_note: string | null;
   site_plan_image: string | null;
   property_images: string | null;
+  bank_name: string | null;
+  bank_branch_name: string | null;
+  city: string | null;
+  tole_area: string | null;
 }
 
 // Convert database row to form values
@@ -585,12 +638,21 @@ export function rowToFormValues(
     latitude: row.latitude ?? undefined,
     longitude: row.longitude ?? undefined,
     slope_degree: row.slope_degree ?? undefined,
+    payment_cash: row.payment_cash ?? undefined,
+    payment_online: row.payment_online ?? undefined,
+    payment_online_mode:
+      row.payment_online_mode as ValuationFormValues["payment_online_mode"],
+    payment_pending_due: row.payment_pending_due ?? undefined,
     documents: row.documents ? JSON.parse(row.documents) : undefined,
     site_plan_note: row.site_plan_note ?? undefined,
     site_plan_drawing: row.site_plan_image ?? undefined,
     property_images: row.property_images
       ? JSON.parse(row.property_images)
       : undefined,
+    bank_name: row.bank_name ?? undefined,
+    bank_branch_name: row.bank_branch_name ?? undefined,
+    city: row.city ?? undefined,
+    tole_area: row.tole_area ?? undefined,
   };
 }
 
@@ -742,4 +804,112 @@ export async function markAuditLogsSynced(ids: string[]): Promise<void> {
     `UPDATE audit_logs SET synced = 1 WHERE id IN (${placeholders})`,
     ids,
   );
+}
+
+// ===== PAYMENTS =====
+
+// Create payments table
+export async function createPaymentsTable() {
+  const db = await getDb();
+  await db.execAsync(`CREATE TABLE IF NOT EXISTS payments (
+    id TEXT PRIMARY KEY,
+    valuation_id TEXT,
+    pdf_uri TEXT,
+    file_name TEXT,
+    sync_status TEXT DEFAULT 'pending',
+    remote_url TEXT,
+    created_at TEXT,
+    uploaded_at TEXT,
+    FOREIGN KEY (valuation_id) REFERENCES valuations(id)
+  )`);
+}
+
+// Payment row type
+export interface PaymentRow {
+  id: string;
+  valuation_id: string;
+  pdf_uri: string | null;
+  file_name: string | null;
+  sync_status: string;
+  remote_url: string | null;
+  created_at: string;
+  uploaded_at: string | null;
+}
+
+// Insert a new payment
+export async function insertPayment(
+  valuationId: string,
+  pdfUri: string,
+  fileName: string,
+): Promise<string> {
+  const db = await getDb();
+  const id = generateId();
+  const now = new Date().toISOString();
+
+  await db.runAsync(
+    `INSERT INTO payments (id, valuation_id, pdf_uri, file_name, sync_status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [id, valuationId, pdfUri, fileName, "pending", now],
+  );
+
+  return id;
+}
+
+// Get payments by valuation ID
+export async function getPaymentsByValuationId(
+  valuationId: string,
+): Promise<PaymentRow[]> {
+  const db = await getDb();
+  const results = await db.getAllAsync<PaymentRow>(
+    "SELECT * FROM payments WHERE valuation_id = ? ORDER BY created_at DESC",
+    [valuationId],
+  );
+  return results;
+}
+
+// Get all pending sync payments
+export async function getPendingSyncPayments(): Promise<PaymentRow[]> {
+  const db = await getDb();
+  const results = await db.getAllAsync<PaymentRow>(
+    "SELECT * FROM payments WHERE sync_status = 'pending' ORDER BY created_at ASC",
+  );
+  return results;
+}
+
+// Update payment sync status
+export async function updatePaymentSyncStatus(
+  id: string,
+  status: "pending" | "syncing" | "synced" | "error",
+  remoteUrl?: string,
+): Promise<void> {
+  const db = await getDb();
+  const now = new Date().toISOString();
+
+  if (remoteUrl) {
+    await db.runAsync(
+      `UPDATE payments SET sync_status = ?, remote_url = ?, uploaded_at = ? WHERE id = ?`,
+      [status, remoteUrl, now, id],
+    );
+  } else {
+    await db.runAsync(`UPDATE payments SET sync_status = ? WHERE id = ?`, [
+      status,
+      id,
+    ]);
+  }
+}
+
+// Delete a payment
+export async function deletePayment(id: string): Promise<void> {
+  const db = await getDb();
+  await db.runAsync("DELETE FROM payments WHERE id = ?", [id]);
+}
+
+// Delete payments by valuation ID
+export async function deletePaymentsByValuationId(
+  valuationId: string,
+): Promise<void> {
+  const db = await getDb();
+  await db.runAsync("DELETE FROM payments WHERE valuation_id = ?", [
+    valuationId,
+  ]);
 }

@@ -6,6 +6,8 @@ import {
   updateValuationStatus,
   getUnsyncedAuditLogs,
   deleteAuditLogs,
+  getPaymentsByValuationId,
+  updatePaymentSyncStatus,
   type ValuationRow,
   type AuditLogEntry,
 } from "../schema";
@@ -23,6 +25,7 @@ const BACKOFF_DELAYS = [1000, 5000, 15000];
 function valuationToPayload(valuation: ValuationRow): Record<string, unknown> {
   return {
     id: valuation.id,
+    employee_id: valuation.employee_id ?? undefined,
     ref_no: valuation.ref_no,
     valuation_date: valuation.valuation_date,
     branch: valuation.branch,
@@ -74,6 +77,11 @@ function valuationToPayload(valuation: ValuationRow): Record<string, unknown> {
     created_at: valuation.created_at,
     updated_at: valuation.updated_at,
     submitted_at: valuation.submitted_at,
+    // Bank/Location for folder structure
+    bank_name: valuation.bank_name,
+    bank_branch_name: valuation.bank_branch_name,
+    city: valuation.city,
+    tole_area: valuation.tole_area,
   };
 }
 
@@ -96,8 +104,13 @@ async function fileToBase64(uri: string): Promise<string | null> {
 // Sync single valuation to server with images
 export async function syncValuation(
   valuation: ValuationRow,
-  authToken?: string
-): Promise<{ success: boolean; error?: string; serverId?: string }> {
+  authToken?: string,
+): Promise<{
+  success: boolean;
+  error?: string;
+  serverId?: string;
+  paymentIds?: string[];
+}> {
   try {
     const payload = valuationToPayload(valuation);
 
@@ -121,6 +134,25 @@ export async function syncValuation(
       }
     }
 
+    // Prepare payment receipts
+    const paymentReceipts: { id: string; content: string; name: string }[] = [];
+    const payments = await getPaymentsByValuationId(valuation.id);
+    const paymentIds: string[] = [];
+
+    for (const payment of payments) {
+      if (payment.pdf_uri) {
+        const base64 = await fileToBase64(payment.pdf_uri);
+        if (base64) {
+          paymentReceipts.push({
+            id: payment.id,
+            content: base64,
+            name: payment.file_name || `receipt_${payment.id}.pdf`,
+          });
+          paymentIds.push(payment.id);
+        }
+      }
+    }
+
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
@@ -135,7 +167,7 @@ export async function syncValuation(
 
     console.log(
       "[SYNC] Sending request to:",
-      `${BASE_API_URL}/api/sync/valuation`
+      `${BASE_API_URL}/api/sync/valuation`,
     );
 
     // Send to sync API endpoint
@@ -146,6 +178,7 @@ export async function syncValuation(
         valuation: payload,
         sitePlanImage,
         propertyImages,
+        paymentReceipts,
       }),
     });
 
@@ -171,7 +204,7 @@ export async function syncValuation(
 
     const data = await response.json();
     console.log("[SYNC] Success!");
-    return { success: true, serverId: data.driveFolderId };
+    return { success: true, serverId: data.driveFolderId, paymentIds };
   } catch (error: any) {
     console.log("[SYNC] Exception:", error);
     return {
@@ -187,7 +220,7 @@ export async function syncValuation(
 export async function addToSyncQueue(
   entityType: "valuation" | "image",
   entityId: string,
-  action: "create" | "update" | "delete"
+  action: "create" | "update" | "delete",
 ): Promise<string> {
   const db = await getDb();
   const id = `sync_${Date.now()}_${Math.random().toString(36).substring(7)}`;
@@ -196,7 +229,7 @@ export async function addToSyncQueue(
   await db.runAsync(
     `INSERT INTO sync_queue (id, entity_type, entity_id, action, attempts, last_attempt_at, status, error_message)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, entityType, entityId, action, 0, now, "pending", null]
+    [id, entityType, entityId, action, 0, now, "pending", null],
   );
 
   return id;
@@ -215,7 +248,7 @@ export async function getSyncQueueItems(): Promise<SyncQueueItem[]> {
     status: string;
     error_message: string | null;
   }>(
-    `SELECT * FROM sync_queue WHERE status != 'completed' ORDER BY last_attempt_at ASC`
+    `SELECT * FROM sync_queue WHERE status != 'completed' ORDER BY last_attempt_at ASC`,
   );
 
   return results.map((row) => ({
@@ -243,7 +276,7 @@ export async function getFailedSyncItems(): Promise<SyncQueueItem[]> {
     status: string;
     error_message: string | null;
   }>(
-    `SELECT * FROM sync_queue WHERE status = 'failed' ORDER BY last_attempt_at ASC`
+    `SELECT * FROM sync_queue WHERE status = 'failed' ORDER BY last_attempt_at ASC`,
   );
 
   return results.map((row) => ({
@@ -262,7 +295,7 @@ export async function getFailedSyncItems(): Promise<SyncQueueItem[]> {
 export async function updateSyncQueueItem(
   id: string,
   status: "pending" | "in_progress" | "completed" | "failed",
-  errorMessage?: string
+  errorMessage?: string,
 ): Promise<void> {
   const db = await getDb();
   const now = new Date().toISOString();
@@ -270,12 +303,12 @@ export async function updateSyncQueueItem(
   if (errorMessage !== undefined) {
     await db.runAsync(
       `UPDATE sync_queue SET status = ?, error_message = ?, last_attempt_at = ?, attempts = attempts + 1 WHERE id = ?`,
-      [status, errorMessage, now, id]
+      [status, errorMessage, now, id],
     );
   } else {
     await db.runAsync(
       `UPDATE sync_queue SET status = ?, last_attempt_at = ? WHERE id = ?`,
-      [status, now, id]
+      [status, now, id],
     );
   }
 }
@@ -291,7 +324,7 @@ export async function resetFailedItems(): Promise<void> {
   const db = await getDb();
   await db.runAsync(
     `UPDATE sync_queue SET status = 'pending', error_message = NULL WHERE status = 'failed' AND attempts < ?`,
-    [MAX_RETRY_ATTEMPTS]
+    [MAX_RETRY_ATTEMPTS],
   );
 }
 
@@ -334,8 +367,8 @@ export async function processQueue(authToken?: string): Promise<{
     // Mark as syncing
     await updateValuationStatus(
       valuation.id,
-      valuation.status as "draft" | "submitted" | "synced",
-      "syncing"
+      valuation.status as "pending" | "synced",
+      "syncing",
     );
 
     // Attempt sync
@@ -344,14 +377,22 @@ export async function processQueue(authToken?: string): Promise<{
     if (result.success) {
       // Mark as synced
       await updateValuationStatus(valuation.id, "synced", "synced");
+
+      // Mark payments as synced
+      if (result.paymentIds) {
+        for (const paymentId of result.paymentIds) {
+          await updatePaymentSyncStatus(paymentId, "synced");
+        }
+      }
+
       synced++;
     } else {
       // Mark as error
       await updateValuationStatus(
         valuation.id,
-        valuation.status as "draft" | "submitted" | "synced",
+        valuation.status as "pending" | "synced",
         "error",
-        result.error
+        result.error,
       );
       failed++;
       errors.push(`${valuation.client_name || "Unknown"}: ${result.error}`);
@@ -387,7 +428,7 @@ export async function retryFailedSync(authToken?: string): Promise<{
 
 // Sync audit logs to Google Sheets and delete after sync
 export async function syncAuditLogs(
-  authToken?: string
+  authToken?: string,
 ): Promise<{ synced: number; error?: string }> {
   try {
     // Get unsynced audit logs
@@ -430,7 +471,7 @@ export async function syncAuditLogs(
     if (data.syncedIds && data.syncedIds.length > 0) {
       await deleteAuditLogs(data.syncedIds);
       console.log(
-        `[AUDIT] Deleted ${data.syncedIds.length} synced logs from local DB`
+        `[AUDIT] Deleted ${data.syncedIds.length} synced logs from local DB`,
       );
     }
 

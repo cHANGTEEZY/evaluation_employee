@@ -4,6 +4,7 @@ import {
   createValuationImagesTable,
   createSyncQueue,
   createAuditLogsTable,
+  createPaymentsTable,
 } from "./schema";
 
 const DB_NAME = "evaluation_db";
@@ -16,6 +17,36 @@ export async function getDb() {
     db = await SQLite.openDatabaseAsync(DB_NAME);
   }
   return db;
+}
+
+// Migration to add new columns for existing databases
+async function runMigrations() {
+  const database = await getDb();
+
+  // List of new columns to add to valuations table
+  const newColumns = [
+    { name: "bank_name", type: "TEXT" },
+    { name: "bank_branch_name", type: "TEXT" },
+    { name: "city", type: "TEXT" },
+    { name: "tole_area", type: "TEXT" },
+    { name: "employee_id", type: "TEXT" },
+  ];
+
+  for (const column of newColumns) {
+    try {
+      await database.execAsync(
+        `ALTER TABLE valuations ADD COLUMN ${column.name} ${column.type}`,
+      );
+      console.log(`Added column ${column.name} to valuations table`);
+    } catch (error: any) {
+      // Column already exists - that's fine, ignore error
+      if (!error.message?.includes("duplicate column name")) {
+        console.log(
+          `Column ${column.name} may already exist or migration skipped`,
+        );
+      }
+    }
+  }
 }
 
 export async function initializeDatabase() {
@@ -34,6 +65,10 @@ export async function initializeDatabase() {
     await createValuationImagesTable();
     await createSyncQueue();
     await createAuditLogsTable();
+    await createPaymentsTable();
+
+    // Run migrations for existing tables
+    await runMigrations();
 
     isInitialized = true;
     console.log("Database initialized successfully");
