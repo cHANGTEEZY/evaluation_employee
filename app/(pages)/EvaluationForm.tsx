@@ -39,6 +39,7 @@ import {
   getValuationById,
   rowToFormValues,
   getPaymentsByValuationId,
+  getRefNosStartingWith,
 } from "../../lib/schema";
 import { AuthenticationError } from "../../lib/auth-guard";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -56,9 +57,10 @@ import Step3 from "../../components/evaluation-form/Step3";
 import Step4 from "../../components/evaluation-form/Step4";
 import Step5 from "../../components/evaluation-form/Step5";
 import { goBack } from "expo-router/build/global-state/routing";
-import { generateRefNumber } from "../../lib/ref-number";
+import {
+  generateClientRefNumber,
+} from "../../lib/ref-number";
 import { useAuthSession } from "../../lib/auth-store";
-import { getValuationsMetrics } from "../../lib/schema";
 
 const TOTAL_STEPS = 6;
 
@@ -166,22 +168,34 @@ const EvaluationForm = () => {
     loadValuation();
   }, [id, isEditMode]);
 
-  // Generate ref_no on new form init
+  // Generate ref_no from ClientName_First3letter_district_PlotNo when client_name, district, plot_no are available
+  const clientName = form.watch("client_name");
+  const district = form.watch("district");
+  const plotNo = form.watch("plot_no");
+
   useEffect(() => {
     const generateRefNo = async () => {
-      if (!isEditMode && user?.name) {
-        try {
-          const metrics = await getValuationsMetrics();
-          const nextSerial = (metrics?.total ?? 0) + 1;
-          const refNo = generateRefNumber(user.name, nextSerial);
-          form.setValue("ref_no", refNo);
-        } catch (error) {
-          console.error("Error generating ref_no:", error);
+      if (isEditMode) return;
+      const name = (clientName ?? "").trim();
+      const dist = (district ?? "").trim();
+      const plot = plotNo != null && plotNo !== "" ? String(plotNo).trim() : "";
+      if (!name || !dist || !plot) return;
+      try {
+        const base = generateClientRefNumber(name, dist, plot);
+        const existing = await getRefNosStartingWith(base, id ?? undefined);
+        let candidate = base;
+        let n = 2;
+        while (existing.includes(candidate)) {
+          candidate = `${base}_${n}`;
+          n += 1;
         }
+        form.setValue("ref_no", candidate);
+      } catch (error) {
+        console.error("Error generating ref_no:", error);
       }
     };
     generateRefNo();
-  }, [isEditMode, user?.name]);
+  }, [isEditMode, clientName, district, plotNo, id]);
 
   const getFieldsForStep = (step: number): FieldPath<ValuationFormValues>[] => {
     switch (step) {

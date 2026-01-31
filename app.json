@@ -16,7 +16,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.changteezy.expo-router-example",
-      "appleTeamId": "XPZVK3T5VQ"
+      "appleTeamId": "XPZVK3T5VQ",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Allow Evaluation to access your location to capture property coordinates.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow Evaluation to access your location to capture property coordinates.",
+        "NSLocationAlwaysUsageDescription": "Allow Evaluation to access your location to capture property coordinates."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -26,7 +31,9 @@
       "package": "com.changteezy.exporouterexample",
       "permissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "web": {
@@ -35,6 +42,18 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#232323",
+          "image": "./assets/splash-icon.png",
+          "dark": {
+            "image": "./assets/splash-icon-dark.png",
+            "backgroundColor": "#000000"
+          },
+          "imageWidth": 200
+        }
+      ],
       [
         "expo-image-picker",
         {
@@ -77,6 +96,14 @@
               "-DSQLITE_ENABLE_DBSTAT_VTAB=1 -DSQLITE_ENABLE_SNAPSHOT=1"
             ]
           }
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Evaluation to use your location for property valuation.",
+          "locationAlwaysPermission": "Allow Evaluation to use your location for property valuation.",
+          "locationWhenInUsePermission": "Allow Evaluation to use your location for property valuation."
         }
       ]
     ],

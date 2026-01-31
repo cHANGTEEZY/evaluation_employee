@@ -37,10 +37,14 @@ const documents = [
   { key: "charkilla", label: "Charkilla", icon: "map-marker-outline" },
   { key: "blueprint", label: "Blueprint", icon: "floor-plan" },
   { key: "plot_utar", label: "Plot Utar", icon: "image-area" },
-  { key: "nirmal_lagat", label: "Nirmal Lagat", icon: "file-document-outline" },
   {
-    key: "nirmal_sangarna",
-    label: "Nirmal Sangarna",
+    key: "nirmarn_lagat",
+    label: "Nirmarn Lagat",
+    icon: "file-document-outline",
+  },
+  {
+    key: "nirmarn_sangarna",
+    label: "Nirmarn Sangarna",
     icon: "file-sign",
   },
   {
@@ -240,14 +244,14 @@ const Step3 = () => {
 
       {/* Site Plan Section */}
       <Text variant="titleMedium" style={styles.sectionTitle}>
-        Additional Notes
+        Remarks
       </Text>
       <FormInput
-        name="site_plan_note"
-        label="Site Plan Note"
+        name="remarks"
+        label="Remarks"
         multiline
         numberOfLines={4}
-        placeholder="Enter any additional notes about the site plan..."
+        placeholder="Enter any additional notes..."
       />
     </ScrollView>
   );

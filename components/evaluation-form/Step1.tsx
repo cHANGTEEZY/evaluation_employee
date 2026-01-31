@@ -26,9 +26,10 @@ const Step1 = () => {
         Basic Details
       </Text>
 
-      <FormInput name="ref_no" label="Ref No. (Optional)" />
+      <FormInput name="ref_no" label="Ref No. (Auto-generated)" disabled />
       <FormDatePicker name="valuation_date" label="Valuation Date" />
-      <FormInput name="branch" label="Branch" />
+      <FormInput name="bank_name" label="Bank Name" />
+      <FormInput name="bank_branch_name" label="Bank Branch Name" />
       <FormInput name="client_name" label="Client Name" />
       <FormInput
         name="contact_number"
@@ -52,6 +53,8 @@ const Step1 = () => {
         label="Present Property Address"
       />
       <FormInput name="district" label="District" />
+      <FormInput name="city" label="City" />
+      <FormInput name="tole_area" label="Tole / Area" />
 
       <Text variant="titleMedium" style={styles.sectionTitle}>
         Valuation Purpose

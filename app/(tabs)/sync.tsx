@@ -399,7 +399,7 @@ export default function SyncScreen() {
         </View>
 
         {/* Last Synced Info */}
-        <View style={styles.lastSyncedContainer}>
+        {/* <View style={styles.lastSyncedContainer}>
           <MaterialCommunityIcons
             name="clock-outline"
             size={16}
@@ -412,7 +412,7 @@ export default function SyncScreen() {
           >
             Last synced: {formatLastSynced(lastSyncedAt)}
           </Text>
-        </View>
+        </View> */}
       </LinearGradient>
 
       <ScrollView

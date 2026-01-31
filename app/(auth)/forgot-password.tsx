@@ -15,10 +15,11 @@ import { Text, Snackbar, Portal, useTheme } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { useMutation } from "@tanstack/react-query";
 
 import ForgotPasswordStep1 from "../../features/auth/components/ForgotPasswordStep1";
 import AuthLogo from "../../features/auth/components/AuthLogo";
-import { BASE_API_URL } from "../../constants";
+import { apiClient } from "../../lib/api-client";
 
 const forgotPasswordSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -50,10 +51,33 @@ const ForgotPassword = () => {
     logoColor: isDark ? "#4B5563" : "#CBD5E1",
   };
 
-  const [submitting, setSubmitting] = useState(false);
   const [snackVisible, setSnackVisible] = useState(false);
   const [snackMessage, setSnackMessage] = useState("");
   const router = useRouter();
+
+  const mutation = useMutation({
+    mutationFn: async (email: string) => {
+      const response = await apiClient.post("/api/auth/request-password-reset", {
+        email,
+        platform: "mobile",
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      setSnackMessage("Password reset email sent. Please check your inbox.");
+      setSnackVisible(true);
+      form.reset();
+    },
+    onError: (error: any) => {
+      const message =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to send reset email. Please try again.";
+      setSnackMessage(message);
+      setSnackVisible(true);
+      console.error(error);
+    },
+  });
 
   const form = useForm<ForgotPasswordSchema>({
     resolver: zodResolver(forgotPasswordSchema),
@@ -66,59 +90,11 @@ const ForgotPassword = () => {
     router.back();
   };
 
-  const onSubmit = async (values: ForgotPasswordSchema) => {
-    setSubmitting(true);
-    try {
-      const baseUrl = BASE_API_URL || process.env.EXPO_BASE_URL;
-
-      if (!baseUrl) {
-        throw new Error("Missing API base URL.");
-      }
-
-      const response = await fetch(
-        `${baseUrl}/api/auth/request-password-reset`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: values.email,
-            platform: "mobile",
-          }),
-        }
-      );
-
-      console.log("response", response);
-
-      if (!response.ok) {
-        let message = "Failed to send reset email. Please try again.";
-
-        try {
-          const data = await response.json();
-          if (data?.message && typeof data.message === "string") {
-            message = data.message;
-          }
-        } catch {
-          // ignore JSON parse errors
-        }
-
-        throw new Error(message);
-      }
-
-      setSnackMessage("Password reset email sent. Please check your inbox.");
-      setSnackVisible(true);
-      form.reset();
-    } catch (error: any) {
-      setSnackMessage(
-        error?.message || "Failed to send reset email. Please try again."
-      );
-      setSnackVisible(true);
-      console.error(error);
-    } finally {
-      setSubmitting(false);
-    }
+  const onSubmit = (values: ForgotPasswordSchema) => {
+    mutation.mutate(values.email);
   };
+
+  const submitting = mutation.isPending;
 
   return (
     <View style={styles.container}>

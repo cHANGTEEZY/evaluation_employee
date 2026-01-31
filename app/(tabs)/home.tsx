@@ -1,4 +1,4 @@
-import { StyleSheet, View, ScrollView } from "react-native";
+import { StyleSheet, View, ScrollView, Alert } from "react-native";
 import React, { useCallback, useState } from "react";
 
 import {
@@ -84,6 +84,25 @@ const HomeScreen = () => {
     if (syncStatus === "synced") return "Synced";
     if (status === "submitted") return "Completed";
     return "Pending";
+  };
+
+  // Handler for creating new evaluation with auth check
+  const handleCreateEvaluation = () => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        "Authentication Required",
+        "You must be logged in to create evaluations. Please sign in first.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Sign In",
+            onPress: () => router.replace("/(auth)/login"),
+          },
+        ],
+      );
+      return;
+    }
+    router.push("/(pages)/EvaluationForm");
   };
 
   return (
@@ -205,7 +224,7 @@ const HomeScreen = () => {
                   styles.quickActionCard,
                   { backgroundColor: theme.colors.primaryContainer },
                 ]}
-                onPress={() => router.push("/(pages)/EvaluationForm")}
+                onPress={handleCreateEvaluation}
               >
                 <Card.Content style={styles.quickActionContent}>
                   <MaterialCommunityIcons

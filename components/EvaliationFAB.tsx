@@ -1,7 +1,9 @@
 import React, { useState } from "react";
+import { Alert } from "react-native";
 import { FAB, Portal } from "react-native-paper";
 import { router, usePathname } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuthSession } from "../lib/auth-store";
 
 const NOT_ALLOWED_SCREEN = [
   "/profile",
@@ -13,6 +15,7 @@ const NOT_ALLOWED_SCREEN = [
 
 const EvaliationFAB = () => {
   const [open, setOpen] = useState(false);
+  const { isAuthenticated } = useAuthSession();
 
   const insets = useSafeAreaInsets();
   const fabBottomPosition = insets.bottom + 60;
@@ -24,6 +27,24 @@ const EvaliationFAB = () => {
   if (NOT_ALLOWED_SCREEN.includes(pathname)) {
     return null;
   }
+
+  const handleNewValuation = () => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        "Authentication Required",
+        "You must be logged in to create evaluations. Please sign in first.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Sign In",
+            onPress: () => router.replace("/(auth)/login"),
+          },
+        ],
+      );
+      return;
+    }
+    router.push("/(pages)/EvaluationForm");
+  };
 
   return (
     <Portal>
@@ -50,7 +71,7 @@ const EvaliationFAB = () => {
           {
             icon: "file-document-edit",
             label: "New Valuation",
-            onPress: () => router.push("/(pages)/EvaluationForm"),
+            onPress: handleNewValuation,
           },
         ]}
         onStateChange={({ open }) => setOpen(open)}

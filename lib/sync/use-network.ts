@@ -2,7 +2,7 @@ import { useEffect, useCallback } from "react";
 import * as Network from "expo-network";
 import { useSyncStore } from "./sync-store";
 
-//* Hook to monitor network connectivity and update sync store
+// check sync store and update newtwork status
 export function useNetwork() {
   const { isOnline, setOnlineStatus } = useSyncStore();
 

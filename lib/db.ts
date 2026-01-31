@@ -30,6 +30,15 @@ async function runMigrations() {
     { name: "city", type: "TEXT" },
     { name: "tole_area", type: "TEXT" },
     { name: "employee_id", type: "TEXT" },
+    { name: "access_road_direction_others", type: "TEXT" },
+    { name: "landslide_prone_area_setback", type: "REAL" },
+    { name: "river_side_setback", type: "REAL" },
+    { name: "high_tension_area_setback", type: "REAL" },
+    { name: "canal_area_setback", type: "REAL" },
+    { name: "watchlist_category", type: "INTEGER DEFAULT 0" },
+    { name: "watchlist_category_setback", type: "REAL" },
+    { name: "heritage_memorial_site", type: "INTEGER DEFAULT 0" },
+    { name: "heritage_memorial_site_setback", type: "REAL" },
   ];
 
   for (const column of newColumns) {

@@ -12,7 +12,7 @@ import {
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
-import { SplashScreen, Stack } from "expo-router";
+import { Stack } from "expo-router";
 import { Provider } from "../components/Provider";
 import { useAuthStore } from "../lib/auth-store";
 import { useSettingsStore } from "../lib/settings-store";
@@ -22,6 +22,8 @@ import { initializeDatabase } from "../lib/db";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import ToastManager from "toastify-react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useAutoSync } from "../lib/sync";
+import * as SplashScreen from "expo-splash-screen";
 
 // Catch any errors thrown by the Layout component.
 export { ErrorBoundary } from "expo-router";
@@ -30,6 +32,11 @@ export { ErrorBoundary } from "expo-router";
 export const unstable_settings = {
   initialRouteName: "(tabs)",
 };
+
+SplashScreen.setOptions({
+  duration: 1000,
+  fade: true,
+});
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -96,6 +103,9 @@ function RootLayoutNav() {
         ? "dark"
         : "light"
       : themeMode;
+
+  // Enable auto-sync when WiFi is connected (if enabled in settings)
+  useAutoSync();
 
   const toastConfig = useMemo(() => {
     const render = (variant: AppToastVariant) => (props: any) => (

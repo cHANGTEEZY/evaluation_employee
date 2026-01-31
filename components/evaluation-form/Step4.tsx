@@ -1,19 +1,38 @@
-import { StyleSheet, View, Alert, Image } from "react-native";
+import { StyleSheet, View, Alert, Image, ScrollView } from "react-native";
 import React, { useState, useRef, useEffect } from "react";
-import { Button, Text, useTheme } from "react-native-paper";
+import {
+  Button,
+  Text,
+  useTheme,
+  Divider,
+  SegmentedButtons,
+} from "react-native-paper";
 import ViewShot from "react-native-view-shot";
 import { File, Paths } from "expo-file-system";
 import { useFormContext } from "react-hook-form";
 import DrawingCanvas, { DrawingCanvasRef } from "../DrawingCanvas";
+import FormInput from "../ui/FormInput";
+import FormSelect from "../ui/FormSelect";
 
 type Step4Props = {
   onDrawingSaved?: (uri: string) => void;
 };
 
+const onlinePaymentModeOptions = [
+  { label: "eSewa", value: "esewa" },
+  { label: "Khalti", value: "khalti" },
+  { label: "Mobile Banking", value: "mobile_banking" },
+  { label: "Bank Transfer", value: "bank_transfer" },
+  { label: "FonePay", value: "fonepay" },
+  { label: "Other", value: "other" },
+];
+
 const Step4 = ({ onDrawingSaved }: Step4Props) => {
   const form = useFormContext();
   const existingDrawing = form.watch("site_plan_drawing");
+  const pendingDue = form.watch("payment_pending_due");
 
+  const [paymentType, setPaymentType] = useState<"cash" | "online">("cash");
   const [drawnPaths, setDrawnPaths] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [savedUri, setSavedUri] = useState<string | null>(
@@ -29,6 +48,18 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
       setSavedUri(existingDrawing);
     }
   }, [existingDrawing]);
+
+  // Handle payment type change
+  const handlePaymentTypeChange = (value: string) => {
+    setPaymentType(value as "cash" | "online");
+    // Clear the other payment field when switching
+    if (value === "cash") {
+      form.setValue("payment_online", undefined);
+      form.setValue("payment_online_mode", undefined);
+    } else {
+      form.setValue("payment_cash", undefined);
+    }
+  };
 
   const getCompletedPath = (paths: any[]) => {
     setDrawnPaths(paths);
@@ -97,7 +128,107 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
   const showSavedPreview = savedUri && drawnPaths.length === 0;
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Payment & Details Section - FIRST */}
+      <Text variant="titleMedium" style={styles.title}>
+        Payment & Details
+      </Text>
+      <Text
+        variant="bodySmall"
+        style={[styles.helper, { color: theme.colors.onSurfaceVariant }]}
+      >
+        Enter payment details. A PDF receipt will be generated upon submission.
+      </Text>
+
+      <FormInput
+        name="site_charge"
+        label="Site Charge (Total Amount)"
+        keyboardType="decimal-pad"
+      />
+
+      {/* Payment Type Selection */}
+      <Text
+        variant="labelMedium"
+        style={[styles.paymentTypeLabel, { color: theme.colors.onSurface }]}
+      >
+        Payment Method
+      </Text>
+      <SegmentedButtons
+        value={paymentType}
+        onValueChange={handlePaymentTypeChange}
+        buttons={[
+          {
+            value: "cash",
+            label: "Cash",
+            icon: "cash",
+          },
+          {
+            value: "online",
+            label: "Online",
+            icon: "cellphone",
+          },
+        ]}
+        style={styles.segmentedButtons}
+      />
+
+      {/* Conditional Payment Fields */}
+      {paymentType === "cash" ? (
+        <FormInput
+          name="payment_cash"
+          label="Cash Payment Amount"
+          keyboardType="decimal-pad"
+        />
+      ) : (
+        <>
+          <FormSelect
+            name="payment_online_mode"
+            label="Online Payment Mode"
+            options={onlinePaymentModeOptions}
+          />
+          <FormInput
+            name="payment_online"
+            label="Online Payment Amount"
+            keyboardType="decimal-pad"
+          />
+        </>
+      )}
+
+      <FormInput
+        name="payment_pending_due"
+        label="Pending Due (if any)"
+        keyboardType="decimal-pad"
+      />
+
+      {/* Pending due notification indicator */}
+      {pendingDue && pendingDue > 0 && (
+        <View
+          style={[
+            styles.pendingNotice,
+            { backgroundColor: theme.colors.errorContainer },
+          ]}
+        >
+          <Text style={{ color: theme.colors.onErrorContainer }}>
+            ⚠️ Admin will be notified about pending due of Rs. {pendingDue}
+          </Text>
+        </View>
+      )}
+
+      {/* Remarks Field */}
+      <FormInput
+        name="site_plan_note"
+        label="Remarks"
+        multiline
+        numberOfLines={3}
+      />
+
+      {/* Divider between Payment and Site Plan */}
+      <Divider style={styles.divider} />
+
+      {/* Site Plan Drawing Section - SECOND */}
       <Text variant="titleMedium" style={styles.title}>
         Draw Site Plan
       </Text>
@@ -171,7 +302,7 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
           {savedUri ? "Resave" : "Save Drawing"}
         </Button>
       </View>
-    </View>
+    </ScrollView>
   );
 };
 
@@ -181,6 +312,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 20,
+  },
   title: {
     fontWeight: "bold",
     marginBottom: 4,
@@ -188,8 +322,15 @@ const styles = StyleSheet.create({
   helper: {
     marginBottom: 12,
   },
+  paymentTypeLabel: {
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  segmentedButtons: {
+    marginBottom: 16,
+  },
   canvasContainer: {
-    flex: 1,
+    height: 300,
     borderRadius: 8,
     overflow: "hidden",
     borderWidth: 1,
@@ -221,5 +362,15 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
+  },
+  divider: {
+    marginVertical: 24,
+  },
+  pendingNotice: {
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+    marginBottom: 8,
+    alignItems: "center",
   },
 });

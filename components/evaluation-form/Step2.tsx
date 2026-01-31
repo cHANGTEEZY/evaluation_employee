@@ -1,9 +1,11 @@
 import React from "react";
-import { ScrollView, StyleSheet } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
+import { useFormContext } from "react-hook-form";
 import FormInput from "../ui/FormInput";
 import FormSelect from "../ui/FormSelect";
 import FormPillToggleGroup from "../ui/FormPillToggleGroup";
+import FormPillToggleWithSetback from "../ui/FormPillToggleWithSetback";
 
 const propertyTypeOptions = [
   { label: "Residential", value: "residential" },
@@ -20,7 +22,7 @@ const ownershipTypeOptions = [
 
 const transferOptions = [
   { label: "Sale", value: "sale" },
-  { label: "Bakupatra", value: "bakupatra" },
+  { label: "Bokupatra", value: "Bokupatra" },
   { label: "Family Separation", value: "family_separation" },
   { label: "Habalish", value: "habalish" },
 ];
@@ -44,8 +46,17 @@ const directionOptions = [
   { label: "South", value: "south" },
 ];
 
-// Access & Rights options with icons
-const accessRightsOptions = [
+// Access Road Direction options (includes Others)
+const accessRoadDirectionOptions = [
+  { label: "East", value: "east" },
+  { label: "West", value: "west" },
+  { label: "North", value: "north" },
+  { label: "South", value: "south" },
+  { label: "Others", value: "others" },
+];
+
+// Road & Access options (moved from Access & Rights)
+const roadAccessOptions = [
   {
     name: "right_of_way",
     label: "Right of Way",
@@ -60,23 +71,50 @@ const accessRightsOptions = [
   { name: "drainage_near_property", label: "Drainage", icon: "water" as const },
 ];
 
-// Risk / Area options with icons
+// Risk / Area options with setback fields
 const riskAreaOptions = [
   {
     name: "landslide_prone_area",
     label: "Landslide",
     icon: "terrain" as const,
+    setbackField: "landslide_prone_area_setback",
   },
-  { name: "river_side", label: "Riverside", icon: "waves" as const },
+  {
+    name: "river_side",
+    label: "Riverside",
+    icon: "waves" as const,
+    setbackField: "river_side_setback",
+  },
   {
     name: "high_tension_area",
     label: "High Tension",
     icon: "transmission-tower" as const,
+    setbackField: "high_tension_area_setback",
   },
-  { name: "canal_area", label: "Canal", icon: "water-outline" as const },
+  {
+    name: "canal_area",
+    label: "Canal",
+    icon: "water-outline" as const,
+    setbackField: "canal_area_setback",
+  },
+  {
+    name: "watchlist_category",
+    label: "Watchlist Category",
+    icon: "alert-circle" as const,
+    setbackField: "watchlist_category_setback",
+  },
+  {
+    name: "heritage_memorial_site",
+    label: "Heritage/Memorial Site",
+    icon: "castle" as const,
+    setbackField: "heritage_memorial_site_setback",
+  },
 ];
 
 const Step2 = () => {
+  const { watch } = useFormContext();
+  const accessRoadDirection = watch("access_road_direction");
+
   return (
     <ScrollView
       contentContainerStyle={styles.container}
@@ -122,8 +160,18 @@ const Step2 = () => {
       <FormSelect
         name="access_road_direction"
         label="Access Road Direction"
-        options={directionOptions}
+        options={accessRoadDirectionOptions}
       />
+      {/* Show text input when "Others" is selected */}
+      {accessRoadDirection === "others" && (
+        <FormInput
+          name="access_road_direction_others"
+          label="Other Direction (specify)"
+        />
+      )}
+
+      {/* Road & Access options - includes Right of Way, Motorable, Electricity, Drainage */}
+      <FormPillToggleGroup options={roadAccessOptions} />
 
       <Text variant="titleMedium" style={styles.sectionTitle}>
         Property Dimensions
@@ -149,11 +197,6 @@ const Step2 = () => {
         options={directionOptions}
       />
 
-      <FormPillToggleGroup
-        options={accessRightsOptions}
-        label="Access & Rights"
-      />
-
       <Text variant="titleMedium" style={styles.sectionTitle}>
         Land Rates
       </Text>
@@ -168,17 +211,16 @@ const Step2 = () => {
         keyboardType="decimal-pad"
       />
 
-      {/* Risk / Area - Pill Toggle Style */}
-      <FormPillToggleGroup options={riskAreaOptions} label="Risk / Area" />
+      {/* Risk / Area - with Setback fields */}
+      <FormPillToggleWithSetback
+        options={riskAreaOptions}
+        label="Risk / Area"
+        setbackLabel="Setback (ft)"
+      />
 
       <Text variant="titleMedium" style={styles.sectionTitle}>
         Site & Topography
       </Text>
-      <FormInput
-        name="site_charge"
-        label="Site Charge"
-        keyboardType="decimal-pad"
-      />
       <FormInput
         name="high_land_ft"
         label="High Land (ft)"

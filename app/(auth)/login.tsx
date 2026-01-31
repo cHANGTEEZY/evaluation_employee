@@ -14,7 +14,8 @@ import { Text, TextInput, useTheme, Button } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import AuthLogo from "../../features/auth/components/AuthLogo";
-import { Toast } from "toastify-react-native";
+
+import { toast } from "burnt";
 
 export default function SignIn() {
   const theme = useTheme();
@@ -45,13 +46,21 @@ export default function SignIn() {
 
   const handleSignIn = async () => {
     if (!email || !password) {
-      Toast.error("Please fill in all fields");
+      toast({
+        title: "Error",
+        message: "Please fill in all fields",
+        preset: "error",
+      });
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      Toast.error("Please enter a valid email address");
+      toast({
+        title: "Error",
+        message: "Please enter a valid email address",
+        preset: "error",
+      });
       return;
     }
 
@@ -66,7 +75,11 @@ export default function SignIn() {
         },
         {
           onSuccess: async () => {
-            Toast.success("Login successful!");
+            toast({
+              title: "Success",
+              message: "Login successful!",
+              preset: "done",
+            });
             router.replace("/(tabs)/home");
           },
           onError: (ctx) => {
@@ -82,7 +95,11 @@ export default function SignIn() {
               errorMessage = "Too many attempts. Please try again later";
             }
 
-            Toast.error(errorMessage);
+            toast({
+              title: "Error",
+              message: errorMessage,
+              preset: "error",
+            });
           },
         },
       );
@@ -100,7 +117,11 @@ export default function SignIn() {
         errorMessage = error.message;
       }
 
-      Toast.error(errorMessage);
+      toast({
+        title: "Error",
+        message: errorMessage,
+        preset: "error",
+      });
     } finally {
       setLoading(false);
     }

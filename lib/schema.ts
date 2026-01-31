@@ -47,6 +47,7 @@ export async function createValuationTable() {
     road_type TEXT,
     road_width REAL,
     access_road_direction TEXT,
+    access_road_direction_others TEXT,
 
     -- Property Dimensions
     property_area_length REAL,
@@ -80,9 +81,17 @@ export async function createValuationTable() {
 
     -- Risk / Area
     landslide_prone_area INTEGER DEFAULT 0,
+    landslide_prone_area_setback REAL,
     river_side INTEGER DEFAULT 0,
+    river_side_setback REAL,
     high_tension_area INTEGER DEFAULT 0,
+    high_tension_area_setback REAL,
     canal_area INTEGER DEFAULT 0,
+    canal_area_setback REAL,
+    watchlist_category INTEGER DEFAULT 0,
+    watchlist_category_setback REAL,
+    heritage_memorial_site INTEGER DEFAULT 0,
+    heritage_memorial_site_setback REAL,
 
     -- Site & Topography
     site_charge REAL,
@@ -136,18 +145,20 @@ export async function insertValuation(
       id, employee_id, created_at, updated_at, status, sync_status,
       ref_no, valuation_date, branch, client_name, contact_number, client_address_nagrita,
       owner_of_property, property_address_deed, plot_no, present_property_address, district,
-      valuation_for, road_type, road_width, access_road_direction,
+      valuation_for, road_type, road_width, access_road_direction, access_road_direction_others,
       property_area_length, property_frontage_direction, property_narrowest_length, property_narrowest_direction,
       right_of_way, motorable_access, electricity_available, drainage_near_property,
       property_type, property_ownership_type, ownership_transferred_through, hold_type,
       commercial_rate_per_anna, government_rate_per_anna,
       building_type, building_purpose, number_of_storeys, storey_height, building_age_years, completion_date,
-      landslide_prone_area, river_side, high_tension_area, canal_area,
+      landslide_prone_area, landslide_prone_area_setback, river_side, river_side_setback,
+      high_tension_area, high_tension_area_setback, canal_area, canal_area_setback,
+      watchlist_category, watchlist_category_setback, heritage_memorial_site, heritage_memorial_site_setback,
       site_charge, high_land_ft, low_land_ft, latitude, longitude, slope_degree,
       payment_cash, payment_online, payment_online_mode, payment_pending_due,
       documents, site_plan_note, site_plan_image, property_images,
       bank_name, bank_branch_name, city, tole_area
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       employeeId,
@@ -170,6 +181,7 @@ export async function insertValuation(
       data.road_type ?? null,
       data.road_width ?? null,
       data.access_road_direction ?? null,
+      data.access_road_direction_others ?? null,
       data.property_area_length ?? null,
       data.property_frontage_direction ?? null,
       data.property_narrowest_length ?? null,
@@ -191,9 +203,17 @@ export async function insertValuation(
       data.building_age_years ?? null,
       data.completion_date?.toISOString() ?? null,
       data.landslide_prone_area ? 1 : 0,
+      data.landslide_prone_area_setback ?? null,
       data.river_side ? 1 : 0,
+      data.river_side_setback ?? null,
       data.high_tension_area ? 1 : 0,
+      data.high_tension_area_setback ?? null,
       data.canal_area ? 1 : 0,
+      data.canal_area_setback ?? null,
+      data.watchlist_category ? 1 : 0,
+      data.watchlist_category_setback ?? null,
+      data.heritage_memorial_site ? 1 : 0,
+      data.heritage_memorial_site_setback ?? null,
       data.site_charge ?? null,
       data.high_land_ft ?? null,
       data.low_land_ft ?? null,
@@ -216,6 +236,36 @@ export async function insertValuation(
   );
 
   return id;
+}
+
+/**
+ * Seed a dummy valuation for testing (uses default form values and generates unique ref no).
+ * Call from dev-only UI (e.g. __DEV__ button).
+ */
+export async function seedDummyValuation(options?: {
+  employeeId?: string;
+}): Promise<string> {
+  const { defaultValuationValues } = await import("../constants/form-schema");
+  const { generateClientRefNumber } = await import("./ref-number");
+  const clientName = (defaultValuationValues.client_name ?? "Test Client").trim();
+  const district = (defaultValuationValues.district ?? "Kathmandu").trim();
+  const plotNo = String(defaultValuationValues.plot_no ?? "1").trim();
+  const base = generateClientRefNumber(clientName, district, plotNo);
+  const existing = await getRefNosStartingWith(base);
+  let refNo = base;
+  let n = 2;
+  while (existing.includes(refNo)) {
+    refNo = `${base}_${n}`;
+    n += 1;
+  }
+  const data = {
+    ...defaultValuationValues,
+    ref_no: refNo,
+    valuation_date: defaultValuationValues.valuation_date ?? new Date(),
+    latitude: defaultValuationValues.latitude ?? 27.7172,
+    longitude: defaultValuationValues.longitude ?? 85.324,
+  } as ValuationFormValues;
+  return insertValuation(data, { employeeId: options?.employeeId });
 }
 
 // Update an existing valuation
@@ -257,6 +307,7 @@ export async function updateValuation(
     { key: "road_type", column: "road_type" },
     { key: "road_width", column: "road_width" },
     { key: "access_road_direction", column: "access_road_direction" },
+    { key: "access_road_direction_others", column: "access_road_direction_others" },
     { key: "property_area_length", column: "property_area_length" },
     {
       key: "property_frontage_direction",
@@ -311,13 +362,29 @@ export async function updateValuation(
       column: "landslide_prone_area",
       transform: (v) => (v ? 1 : 0),
     },
+    { key: "landslide_prone_area_setback", column: "landslide_prone_area_setback" },
     { key: "river_side", column: "river_side", transform: (v) => (v ? 1 : 0) },
+    { key: "river_side_setback", column: "river_side_setback" },
     {
       key: "high_tension_area",
       column: "high_tension_area",
       transform: (v) => (v ? 1 : 0),
     },
+    { key: "high_tension_area_setback", column: "high_tension_area_setback" },
     { key: "canal_area", column: "canal_area", transform: (v) => (v ? 1 : 0) },
+    { key: "canal_area_setback", column: "canal_area_setback" },
+    {
+      key: "watchlist_category",
+      column: "watchlist_category",
+      transform: (v) => (v ? 1 : 0),
+    },
+    { key: "watchlist_category_setback", column: "watchlist_category_setback" },
+    {
+      key: "heritage_memorial_site",
+      column: "heritage_memorial_site",
+      transform: (v) => (v ? 1 : 0),
+    },
+    { key: "heritage_memorial_site_setback", column: "heritage_memorial_site_setback" },
     { key: "site_charge", column: "site_charge" },
     { key: "high_land_ft", column: "high_land_ft" },
     { key: "low_land_ft", column: "low_land_ft" },
@@ -423,6 +490,28 @@ export async function getValuationsMetrics(): Promise<ValuationMetrics> {
     "SELECT COUNT(*) AS total, COUNT(CASE WHEN status = 'draft' THEN 1 END) AS draft, COUNT(CASE WHEN status = 'submitted' THEN 1 END) AS submitted, COUNT(CASE WHEN status = 'synced' THEN 1 END) AS synced FROM valuations",
   );
   return result ?? { total: 0, draft: 0, submitted: 0, synced: 0 };
+}
+
+// Get ref_nos that start with the given prefix (for uniqueness when generating client ref no)
+export async function getRefNosStartingWith(
+  prefix: string,
+  excludeValuationId?: string,
+): Promise<string[]> {
+  const db = await getDb();
+  if (!prefix) return [];
+  const likePattern =
+    prefix.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_") +
+    "%";
+  const rows = excludeValuationId
+    ? await db.getAllAsync<{ ref_no: string | null }>(
+        "SELECT ref_no FROM valuations WHERE ref_no LIKE ? ESCAPE '\\' AND id != ?",
+        [likePattern, excludeValuationId],
+      )
+    : await db.getAllAsync<{ ref_no: string | null }>(
+        "SELECT ref_no FROM valuations WHERE ref_no LIKE ? ESCAPE '\\'",
+        [likePattern],
+      );
+  return rows.map((r) => r.ref_no).filter((r): r is string => r != null);
 }
 
 // Get pending sync valuations
@@ -534,6 +623,7 @@ export interface ValuationRow {
   road_type: string | null;
   road_width: number | null;
   access_road_direction: string | null;
+  access_road_direction_others: string | null;
   property_area_length: number | null;
   property_frontage_direction: string | null;
   property_narrowest_length: number | null;
@@ -555,9 +645,17 @@ export interface ValuationRow {
   building_age_years: number | null;
   completion_date: string | null;
   landslide_prone_area: number;
+  landslide_prone_area_setback: number | null;
   river_side: number;
+  river_side_setback: number | null;
   high_tension_area: number;
+  high_tension_area_setback: number | null;
   canal_area: number;
+  canal_area_setback: number | null;
+  watchlist_category: number;
+  watchlist_category_setback: number | null;
+  heritage_memorial_site: number;
+  heritage_memorial_site_setback: number | null;
   site_charge: number | null;
   high_land_ft: number | null;
   low_land_ft: number | null;
@@ -601,6 +699,7 @@ export function rowToFormValues(
     road_width: row.road_width ?? undefined,
     access_road_direction:
       row.access_road_direction as ValuationFormValues["access_road_direction"],
+    access_road_direction_others: row.access_road_direction_others ?? undefined,
     property_area_length: row.property_area_length ?? undefined,
     property_frontage_direction:
       row.property_frontage_direction as ValuationFormValues["property_frontage_direction"],
@@ -629,9 +728,17 @@ export function rowToFormValues(
       ? new Date(row.completion_date)
       : undefined,
     landslide_prone_area: row.landslide_prone_area === 1,
+    landslide_prone_area_setback: row.landslide_prone_area_setback ?? undefined,
     river_side: row.river_side === 1,
+    river_side_setback: row.river_side_setback ?? undefined,
     high_tension_area: row.high_tension_area === 1,
+    high_tension_area_setback: row.high_tension_area_setback ?? undefined,
     canal_area: row.canal_area === 1,
+    canal_area_setback: row.canal_area_setback ?? undefined,
+    watchlist_category: row.watchlist_category === 1,
+    watchlist_category_setback: row.watchlist_category_setback ?? undefined,
+    heritage_memorial_site: row.heritage_memorial_site === 1,
+    heritage_memorial_site_setback: row.heritage_memorial_site_setback ?? undefined,
     site_charge: row.site_charge ?? undefined,
     high_land_ft: row.high_land_ft ?? undefined,
     low_land_ft: row.low_land_ft ?? undefined,

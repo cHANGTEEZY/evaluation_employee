@@ -12,7 +12,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { IconButton } from "react-native-paper";
-import { getAllValuations, ValuationRow } from "../../lib/schema";
+import {
+  getAllValuations,
+  ValuationRow,
+  seedDummyValuation,
+} from "../../lib/schema";
 
 type Status = "Pending" | "submitted" | "Synced";
 
@@ -33,23 +37,33 @@ export default function EvaluationsScreen() {
   const theme = useTheme();
   const router = useRouter();
 
+  const refetchValuations = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await getAllValuations();
+      setValuations(data);
+    } catch (error) {
+      console.error("Error fetching valuations:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   // Fetch valuations whenever screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      const fetchValuations = async () => {
-        try {
-          setLoading(true);
-          const data = await getAllValuations();
-          setValuations(data);
-        } catch (error) {
-          console.error("Error fetching valuations:", error);
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchValuations();
-    }, [])
+      refetchValuations();
+    }, [refetchValuations])
   );
+
+  const handleSeedDummy = useCallback(async () => {
+    try {
+      await seedDummyValuation();
+      await refetchValuations();
+    } catch (error) {
+      console.error("Seed dummy failed:", error);
+    }
+  }, [refetchValuations]);
 
   // Filter and search valuations
   const filteredData = useMemo(() => {
@@ -109,6 +123,15 @@ export default function EvaluationsScreen() {
               View and manage your evaluations
             </Text>
           </View>
+          {__DEV__ && (
+            <IconButton
+              icon="test-tube"
+              iconColor="white"
+              size={22}
+              onPress={handleSeedDummy}
+              style={{ margin: 0 }}
+            />
+          )}
           <IconButton
             icon="menu"
             iconColor="white"
