@@ -1,20 +1,20 @@
 import { MD3LightTheme, MD3DarkTheme } from "react-native-paper";
 
-// The original theme for Auth pages
+// Auth — classic black & neutrals
 export const AuthLight = {
   ...MD3LightTheme,
   colors: {
     ...MD3LightTheme.colors,
-    primary: "#6C7FF2",
-    secondary: "#7DD3FC",
-    tertiary: "#9AA4C7",
-    background: "#F8FAFC",
+    primary: "#171717",
+    secondary: "#525252",
+    tertiary: "#737373",
+    background: "#FAFAFA",
     surface: "#FFFFFF",
-    surfaceVariant: "#F1F5F9",
-    onSurface: "#0F172A",
-    onSurfaceVariant: "#475569",
-    outline: "#CBD5E1",
-    error: "#EF4444",
+    surfaceVariant: "#F5F5F5",
+    onSurface: "#171717",
+    onSurfaceVariant: "#525252",
+    outline: "#D4D4D4",
+    error: "#B91C1C",
   },
 };
 
@@ -22,48 +22,47 @@ export const AuthDark = {
   ...MD3DarkTheme,
   colors: {
     ...MD3DarkTheme.colors,
-    primary: "#8B9CF5",
-    secondary: "#7DD3FC",
-    tertiary: "#9AA4C7",
-    background: "#0B1220",
-    surface: "#111827",
-    surfaceVariant: "#1F2937",
-    onSurface: "#E5E7EB",
-    onSurfaceVariant: "#9CA3AF",
-    outline: "#2E3A5F",
-    error: "#F87171",
+    primary: "#FAFAFA",
+    secondary: "#A3A3A3",
+    tertiary: "#737373",
+    background: "#0A0A0A",
+    surface: "#171717",
+    surfaceVariant: "#262626",
+    onSurface: "#FAFAFA",
+    onSurfaceVariant: "#A3A3A3",
+    outline: "#404040",
+    error: "#FCA5A5",
   },
 };
 
-// New "Synergy" Theme for the main app
-// Using a popular Deep Blue / Teal scheme that works well in both modes.
+// App — classic black and subtle grays
 export const AppLight = {
   ...MD3LightTheme,
   colors: {
     ...MD3LightTheme.colors,
-    primary: "#0061A4", // Standard Material 3 Blue
+    primary: "#171717",
     onPrimary: "#FFFFFF",
-    primaryContainer: "#D1E4FF",
-    onPrimaryContainer: "#001D36",
+    primaryContainer: "#E5E5E5",
+    onPrimaryContainer: "#171717",
 
-    secondary: "#535F70",
+    secondary: "#404040",
     onSecondary: "#FFFFFF",
-    secondaryContainer: "#D7E3F7",
-    onSecondaryContainer: "#101C2B",
+    secondaryContainer: "#F5F5F5",
+    onSecondaryContainer: "#262626",
 
-    tertiary: "#6B5778",
+    tertiary: "#525252",
     onTertiary: "#FFFFFF",
-    tertiaryContainer: "#F2DAFF",
-    onTertiaryContainer: "#251431",
+    tertiaryContainer: "#EBEBEB",
+    onTertiaryContainer: "#262626",
 
-    background: "#F5F5F7", // Slightly darker neutral off-white
-    surface: "#F5F5F7",
-    surfaceVariant: "#DFE2EB",
-    onSurface: "#1A1C1E",
-    onSurfaceVariant: "#43474E",
+    background: "#FAFAFA",
+    surface: "#FFFFFF",
+    surfaceVariant: "#F0F0F0",
+    onSurface: "#171717",
+    onSurfaceVariant: "#525252",
 
-    outline: "#73777F",
-    error: "#BA1A1A",
+    outline: "#D4D4D4",
+    error: "#B91C1C",
   },
 };
 
@@ -71,28 +70,28 @@ export const AppDark = {
   ...MD3DarkTheme,
   colors: {
     ...MD3DarkTheme.colors,
-    primary: "#9ECAFF", // Lighter blue for dark mode
-    onPrimary: "#003258",
-    primaryContainer: "#00497D",
-    onPrimaryContainer: "#D1E4FF",
+    primary: "#FAFAFA",
+    onPrimary: "#0A0A0A",
+    primaryContainer: "#404040",
+    onPrimaryContainer: "#FAFAFA",
 
-    secondary: "#BBC7DB",
-    onSecondary: "#253140",
-    secondaryContainer: "#3B4858",
-    onSecondaryContainer: "#D7E3F7",
+    secondary: "#A3A3A3",
+    onSecondary: "#0A0A0A",
+    secondaryContainer: "#262626",
+    onSecondaryContainer: "#E5E5E5",
 
-    tertiary: "#D6BEE4",
-    onTertiary: "#3B2948",
-    tertiaryContainer: "#523F5F",
-    onTertiaryContainer: "#F2DAFF",
+    tertiary: "#737373",
+    onTertiary: "#FAFAFA",
+    tertiaryContainer: "#2D2D2D",
+    onTertiaryContainer: "#D4D4D4",
 
-    background: "#1A1C1E", // Neutral dark gray (not blueish)
-    surface: "#1A1C1E",
-    surfaceVariant: "#43474E",
-    onSurface: "#E2E2E6",
-    onSurfaceVariant: "#C3C7CF",
+    background: "#0A0A0A",
+    surface: "#171717",
+    surfaceVariant: "#262626",
+    onSurface: "#FAFAFA",
+    onSurfaceVariant: "#A3A3A3",
 
-    outline: "#8D9199",
-    error: "#FFB4AB",
+    outline: "#404040",
+    error: "#FCA5A5",
   },
 };

@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   useColorScheme,
   View,
@@ -24,6 +24,7 @@ import ToastManager from "toastify-react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAutoSync } from "../lib/sync";
 import * as SplashScreen from "expo-splash-screen";
+import AnimatedSplashScreen from "../components/AnimatedSplashScreen";
 
 // Catch any errors thrown by the Layout component.
 export { ErrorBoundary } from "expo-router";
@@ -34,19 +35,20 @@ export const unstable_settings = {
 };
 
 SplashScreen.setOptions({
-  duration: 1000,
+  duration: 800,
   fade: true,
 });
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
+// Prevent the splash screen from auto-hiding so we can show animated splash first.
 SplashScreen.preventAutoHideAsync();
 
-const SPLASH_TIMEOUT = 3000; // Max 3 seconds for splash screen
+const ANIMATED_SPLASH_MIN_TIME = 2200;
+const NATIVE_SPLASH_HIDE_DELAY_MS = 80;
+const SPLASH_SAFETY_TIMEOUT_MS = 4500;
 
 export default function RootLayout() {
   const initAuth = useAuthStore((s) => s.init);
-  const isPending = useAuthStore((s) => s.isPending);
-  const initialized = useAuthStore((s) => s.initialized);
+  const [showAnimatedSplash, setShowAnimatedSplash] = useState(true);
   const splashHidden = useRef(false);
 
   useEffect(() => {
@@ -61,30 +63,51 @@ export default function RootLayout() {
     initialize();
   }, [initAuth]);
 
+  // Hide native splash shortly after mount so our animated overlay is visible
   useEffect(() => {
-    // Hide splash when auth is ready
-    if (initialized && !isPending && !splashHidden.current) {
-      splashHidden.current = true;
-      SplashScreen.hideAsync();
-    }
-  }, [initialized, isPending]);
-
-  useEffect(() => {
-    // Fallback: hide splash after timeout even if auth is still pending
-    const timeout = setTimeout(() => {
+    const t = setTimeout(() => {
       if (!splashHidden.current) {
         splashHidden.current = true;
         SplashScreen.hideAsync();
       }
-    }, SPLASH_TIMEOUT);
-
-    return () => clearTimeout(timeout);
+    }, NATIVE_SPLASH_HIDE_DELAY_MS);
+    return () => clearTimeout(t);
   }, []);
 
+  const handleAnimatedSplashFinish = () => {
+    if (!splashHidden.current) {
+      splashHidden.current = true;
+      SplashScreen.hideAsync();
+    }
+    setShowAnimatedSplash(false);
+  };
+
+  // Safety: ensure splash is dismissed even if animation fails
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (showAnimatedSplash) {
+        setShowAnimatedSplash(false);
+        if (!splashHidden.current) {
+          splashHidden.current = true;
+          SplashScreen.hideAsync();
+        }
+      }
+    }, SPLASH_SAFETY_TIMEOUT_MS);
+    return () => clearTimeout(timeout);
+  }, [showAnimatedSplash]);
+
   return (
-    <Providers>
-      <RootLayoutNav />
-    </Providers>
+    <>
+      <Providers>
+        <RootLayoutNav />
+      </Providers>
+      {showAnimatedSplash && (
+        <AnimatedSplashScreen
+          onFinish={handleAnimatedSplashFinish}
+          minDisplayTime={ANIMATED_SPLASH_MIN_TIME}
+        />
+      )}
+    </>
   );
 }
 

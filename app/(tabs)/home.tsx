@@ -69,11 +69,13 @@ const HomeScreen = () => {
           try {
             const res = await getPresence();
             if (res.success && res.presenceStatus) {
-              const label = PRESENCE_LABELS[res.presenceStatus] ?? res.presenceStatus;
+              const label =
+                PRESENCE_LABELS[res.presenceStatus] ?? res.presenceStatus;
               setPresenceLabel(
-                res.presenceStatus === "on_site" && res.presenceClientName?.trim()
+                res.presenceStatus === "on_site" &&
+                  res.presenceClientName?.trim()
                   ? `${label} (${res.presenceClientName.trim()})`
-                  : label
+                  : label,
               );
             } else {
               setPresenceLabel(null);
@@ -87,7 +89,7 @@ const HomeScreen = () => {
       };
 
       fetchData();
-    }, [user?.id, isAuthenticated])
+    }, [user?.id, isAuthenticated]),
   );
 
   // Helper function to format relative time
@@ -126,7 +128,7 @@ const HomeScreen = () => {
             text: "Sign In",
             onPress: () => router.replace("/(auth)/login"),
           },
-        ]
+        ],
       );
       return;
     }
@@ -146,27 +148,39 @@ const HomeScreen = () => {
         colors={[theme.colors.primaryContainer, theme.colors.primary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.gradientHeader, { paddingTop: insets.top + 10 }]}
+        style={[styles.gradientHeader, { paddingTop: insets.top + 12 }]}
       >
         <View style={styles.headerTopRow}>
-          <View style={{ flex: 1, marginLeft: 8 }}>
-            <Text variant="titleLarge" style={{ color: "white", opacity: 0.9 }}>
+          <View style={{ flex: 1, marginLeft: 4 }}>
+            <Text
+              variant="labelLarge"
+              style={{
+                color: "rgba(255,255,255,0.9)",
+                letterSpacing: 0.5,
+                textTransform: "uppercase",
+              }}
+            >
               {greeting()}
             </Text>
             <Text
-              variant="headlineLarge"
+              variant="headlineMedium"
               style={{
-                fontWeight: "bold",
+                fontWeight: "700",
                 color: "white",
-                marginTop: 4,
+                marginTop: 6,
                 textTransform: "capitalize",
+                letterSpacing: -0.3,
               }}
             >
               {userName}
             </Text>
             <Text
-              variant="bodyMedium"
-              style={{ color: "white", opacity: 0.85, marginTop: 4 }}
+              variant="bodySmall"
+              style={{
+                color: "rgba(255,255,255,0.88)",
+                marginTop: 4,
+                letterSpacing: 0.2,
+              }}
             >
               {new Date().toLocaleDateString("en-US", {
                 weekday: "long",
@@ -495,7 +509,7 @@ const HomeScreen = () => {
               recentValuations.map((item) => {
                 const displayStatus = getStatusDisplay(
                   item.status,
-                  item.sync_status
+                  item.sync_status,
                 );
                 return (
                   <Card
@@ -529,8 +543,8 @@ const HomeScreen = () => {
                               displayStatus === "Pending"
                                 ? "clock-outline"
                                 : displayStatus === "Completed"
-                                ? "check-circle-outline"
-                                : "cloud-check"
+                                  ? "check-circle-outline"
+                                  : "cloud-check"
                             }
                             size={24}
                             color={
@@ -621,10 +635,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   gradientHeader: {
-    paddingHorizontal: 20,
-    paddingBottom: 30,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    paddingHorizontal: 24,
+    paddingBottom: 28,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 4,
   },
 
   headerTopRow: {
@@ -651,14 +670,15 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.3)",
   },
   scrollContent: {
-    padding: 20,
+    padding: 24,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 28,
   },
   sectionTitle: {
-    fontWeight: "bold",
+    fontWeight: "700",
     marginBottom: 16,
+    letterSpacing: -0.2,
   },
   statsGrid: {
     flexDirection: "row",
@@ -691,16 +711,23 @@ const styles = StyleSheet.create({
   },
   quickActionCard: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: 20,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   quickActionContent: {
     alignItems: "center",
-    paddingVertical: 16,
+    paddingVertical: 18,
   },
   insightsCard: {
     marginBottom: 24,
     backgroundColor: "transparent",
-    borderRadius: 16,
+    borderRadius: 20,
+    overflow: "hidden",
   },
   insightsHeader: {
     flexDirection: "row",
@@ -727,24 +754,29 @@ const styles = StyleSheet.create({
   // Updated Styles for Recent Activity
   activityCard: {
     marginBottom: 12,
-    borderRadius: 16,
-    overflow: "hidden", // Ensures the ripple effect is clipped to the card corners
+    borderRadius: 20,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   activityContent: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16, // Padding moved inside the TouchableRipple
+    padding: 18,
   },
   iconBox: {
     width: 48,
     height: 48,
-    borderRadius: 12,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 10,
   },
 });

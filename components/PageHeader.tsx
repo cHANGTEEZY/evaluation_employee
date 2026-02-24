@@ -29,9 +29,11 @@ const PageHeader = ({
       style={[
         styles.container,
         {
-          paddingTop: insets.top + 12,
+          paddingTop: insets.top + 14,
+          paddingBottom: 14,
+          backgroundColor: theme.colors.surface,
+          borderBottomWidth: StyleSheet.hairlineWidth,
           borderBottomColor: theme.colors.outline,
-          backgroundColor: theme.colors.background,
         },
       ]}
     >
@@ -40,20 +42,25 @@ const PageHeader = ({
           <View style={styles.left}>
             <Pressable
               onPress={onBackPress}
-              hitSlop={10}
-              style={styles.iconButton}
+              hitSlop={12}
+              style={({ pressed }) => [
+                styles.iconButton,
+                pressed && { opacity: 0.7 },
+              ]}
             >
               <MaterialCommunityIcons
                 name="arrow-left"
                 size={24}
-                color={theme.colors.onBackground}
+                color={theme.colors.onSurface}
               />
             </Pressable>
           </View>
         )}
 
         <View style={styles.center}>
-          <Text style={styles.title}>{title}</Text>
+          <Text style={[styles.title, { color: theme.colors.onSurface }]}>
+            {title}
+          </Text>
           {subtitle && (
             <Text
               style={[
@@ -70,8 +77,11 @@ const PageHeader = ({
           {rightIcon && (
             <Pressable
               onPress={onRightPress}
-              hitSlop={10}
-              style={styles.iconButton}
+              hitSlop={12}
+              style={({ pressed }) => [
+                styles.iconButton,
+                pressed && { opacity: 0.7 },
+              ]}
             >
               <MaterialCommunityIcons
                 name={rightIcon as any}
@@ -90,35 +100,37 @@ export default PageHeader;
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 0,
+    paddingHorizontal: 20,
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
   },
   left: {
-    width: 40,
+    width: 44,
     alignItems: "flex-start",
   },
   center: {
     flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   right: {
-    width: 40,
+    width: 44,
     alignItems: "flex-end",
   },
   iconButton: {
-    padding: 6,
+    padding: 8,
+    borderRadius: 12,
   },
   title: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 12,
     marginTop: 2,
+    letterSpacing: 0.2,
   },
 });

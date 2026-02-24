@@ -45,20 +45,19 @@ const ResetPassword = () => {
     error: string;
   }>();
 
-  // Dynamic colors based on theme
   const colors = {
-    background: isDark ? "#0B1023" : "#F8FAFC",
-    backgroundEnd: isDark ? "#1A1F35" : "#E2E8F0",
-    inputBg: isDark ? "#1E2642" : "#FFFFFF",
-    inputText: isDark ? "#FFFFFF" : "#1F2937",
-    inputPlaceholder: isDark ? "#6B7280" : "#9CA3AF",
-    labelText: isDark ? "#9CA3AF" : "#64748B",
-    titleText: isDark ? "#FFFFFF" : "#1F2937",
-    iconColor: isDark ? "#6B7280" : "#9CA3AF",
+    background: theme.colors.background,
+    backgroundEnd: theme.colors.surfaceVariant,
+    inputBg: theme.colors.surface,
+    inputText: theme.colors.onSurface,
+    inputPlaceholder: theme.colors.onSurfaceVariant,
+    labelText: theme.colors.onSurfaceVariant,
+    titleText: theme.colors.onSurface,
+    iconColor: theme.colors.onSurfaceVariant,
     linkText: theme.colors.primary,
     errorText: theme.colors.error,
-    borderColor: isDark ? "#374151" : "#E5E7EB",
-    logoColor: isDark ? "#4B5563" : "#CBD5E1",
+    borderColor: theme.colors.outline,
+    logoColor: theme.colors.onSurfaceVariant,
   };
 
   const [submitting, setSubmitting] = useState(false);

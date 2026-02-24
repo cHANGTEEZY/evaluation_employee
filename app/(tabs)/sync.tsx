@@ -334,22 +334,33 @@ export default function SyncScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <LinearGradient
-        colors={["#1E293B", "#334155", "#475569"]}
+        colors={[
+          theme.colors.primaryContainer,
+          theme.colors.primary,
+        ]}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.gradientHeader, { paddingTop: insets.top + 10 }]}
+        end={{ x: 1, y: 0.5 }}
+        style={[styles.gradientHeader, { paddingTop: insets.top + 12 }]}
       >
         <View style={styles.headerContent}>
           <View style={{ flex: 1 }}>
-            <Text variant="titleLarge" style={{ color: "white", opacity: 0.9 }}>
+            <Text
+              variant="labelLarge"
+              style={{
+                color: "rgba(255,255,255,0.9)",
+                letterSpacing: 0.5,
+                textTransform: "uppercase",
+              }}
+            >
               Sync Manager
             </Text>
             <Text
-              variant="headlineMedium"
+              variant="headlineSmall"
               style={{
-                fontWeight: "bold",
+                fontWeight: "700",
                 color: "white",
-                marginTop: 4,
+                marginTop: 6,
+                letterSpacing: -0.3,
               }}
             >
               Data Synchronization
@@ -594,14 +605,14 @@ export default function SyncScreen() {
                 disabled={
                   !isOnline || isSyncing || isEmployeeWithoutBranch
                 }
+                textColor={theme.colors.error}
                 style={{
                   flex: 1,
                   marginRight: 12,
-                  backgroundColor: "white",
-                  borderRadius: 12,
+                  borderRadius: 14,
                 }}
                 contentStyle={{ height: 48 }}
-                labelStyle={{ fontWeight: "600", color: "#DC2626" }}
+                labelStyle={{ fontWeight: "600" }}
                 icon="refresh"
               >
                 Retry Failed
@@ -620,8 +631,7 @@ export default function SyncScreen() {
               loading={isSyncing}
               style={{
                 flex: 1,
-                backgroundColor: "#6366F1",
-                borderRadius: 12,
+                borderRadius: 14,
               }}
               contentStyle={{ height: 48 }}
               labelStyle={{ fontWeight: "700", fontSize: 15 }}
@@ -662,10 +672,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   gradientHeader: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingBottom: 24,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 4,
   },
   headerContent: {
     flexDirection: "row",
@@ -673,11 +688,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   statusDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 3,
-    borderColor: "rgba(255,255,255,0.3)",
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2.5,
+    borderColor: "rgba(255,255,255,0.4)",
   },
   headerStats: {
     flexDirection: "row",
@@ -707,7 +722,7 @@ const styles = StyleSheet.create({
   },
   progressCard: {
     padding: 20,
-    borderRadius: 16,
+    borderRadius: 20,
     marginBottom: 16,
   },
   progressHeader: {
@@ -721,7 +736,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   resultBanner: {
-    borderRadius: 16,
+    borderRadius: 20,
     marginBottom: 16,
     overflow: "hidden",
   },
@@ -736,17 +751,22 @@ const styles = StyleSheet.create({
   },
   itemCard: {
     marginBottom: 12,
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   itemContent: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
+    padding: 18,
   },
   iconBox: {
-    width: 56,
-    height: 56,
+    width: 52,
+    height: 52,
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",

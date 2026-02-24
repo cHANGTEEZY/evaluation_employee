@@ -4,7 +4,7 @@ import { useAuthSession } from "../../lib/auth-store";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 type UserProfileProps = {
-  onEdit: () => void;
+  onEdit?: () => void;
 };
 
 const SECTION_LABEL = {
@@ -77,18 +77,6 @@ export default function UserProfile({ onEdit }: UserProfileProps) {
       <Row icon="account-outline" label="Full Name" value={displayUser.name} />
       <Row icon="email-outline" label="Email" value={displayUser.email} />
       <Row icon="shield-account-outline" label="Role" value={displayUser.role} />
-
-      {isAuthenticated && (
-        <Button
-          mode="contained"
-          onPress={onEdit}
-          icon="pencil"
-          style={styles.editButton}
-          contentStyle={{ height: 46 }}
-        >
-          Edit Profile
-        </Button>
-      )}
     </View>
   );
 }
@@ -135,9 +123,5 @@ const styles = StyleSheet.create({
   },
   label: {
     marginBottom: 2,
-  },
-  editButton: {
-    marginTop: 20,
-    borderRadius: 12,
   },
 });

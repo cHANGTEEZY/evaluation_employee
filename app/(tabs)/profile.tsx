@@ -3,14 +3,16 @@ import { ScrollView, StyleSheet, View, Pressable } from "react-native";
 import { Button, Text, useTheme } from "react-native-paper";
 import { useAuthSession } from "../../lib/auth-store";
 import UserProfile from "../../components/profile/UserProfile";
-import EditUserProfileForm from "../../components/profile/EditUserProfileForm";
 import PresenceSection from "../../components/profile/PresenceSection";
 import OrganizationDetails from "../../components/profile/OrganizationDetails";
 import BranchDetails from "../../components/profile/BranchDetails";
+import ChangePasswordModal from "../../components/profile/ChangePasswordModal";
 import { SafeAreaView } from "react-native-safe-area-context";
 import PageHeader from "../../components/PageHeader";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { toast } from "../../lib/toast";
+import { clearBiometricCredentials } from "../../lib/biometric-credentials";
 
 const SECTION_LABEL = {
   fontSize: 11,
@@ -21,7 +23,7 @@ const SECTION_LABEL = {
 export default function Profile() {
   const { signOut, isAuthenticated } = useAuthSession();
   const theme = useTheme();
-  const [isEditing, setIsEditing] = useState(false);
+  const [changePasswordVisible, setChangePasswordVisible] = useState(false);
 
   const handleAuthAction = () => {
     if (isAuthenticated) {
@@ -48,11 +50,7 @@ export default function Profile() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {isEditing && isAuthenticated ? (
-          <EditUserProfileForm onCancel={() => setIsEditing(false)} />
-        ) : (
-          <UserProfile onEdit={() => setIsEditing(true)} />
-        )}
+        <UserProfile />
 
         {/* Settings entry */}
         <View style={[styles.settingsSection, { borderTopColor: theme.colors.outlineVariant }]}>
@@ -84,6 +82,20 @@ export default function Profile() {
         <PresenceSection />
         <OrganizationDetails />
         <BranchDetails />
+
+        {isAuthenticated && (
+          <View style={styles.changePasswordWrap}>
+            <Button
+              mode="outlined"
+              onPress={() => setChangePasswordVisible(true)}
+              style={styles.button}
+              icon="lock-reset"
+            >
+              Change Password
+            </Button>
+          </View>
+        )}
+
         <View style={styles.signOutWrap}>
           <Button
             mode="contained"
@@ -95,6 +107,19 @@ export default function Profile() {
           </Button>
         </View>
       </ScrollView>
+
+      <ChangePasswordModal
+        visible={changePasswordVisible}
+        onDismiss={() => setChangePasswordVisible(false)}
+        onSuccess={() => {
+          clearBiometricCredentials().catch(() => {});
+          toast({
+            title: "Password changed",
+            message: "Your password has been updated. Sign in again to use biometric login.",
+            preset: "done",
+          });
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -107,11 +132,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingBottom: 120,
   },
   settingsSection: {
-    paddingVertical: 20,
+    paddingVertical: 24,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   sectionTitle: {
@@ -121,13 +146,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 14,
-    paddingHorizontal: 4,
-    borderRadius: 12,
+    paddingHorizontal: 8,
+    borderRadius: 16,
   },
   settingsIconWrap: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 14,
@@ -135,11 +160,15 @@ const styles = StyleSheet.create({
   settingsRowText: {
     flex: 1,
   },
-  signOutWrap: {
+  changePasswordWrap: {
     marginTop: 8,
+    marginBottom: 8,
+  },
+  signOutWrap: {
+    marginTop: 12,
     marginBottom: 24,
   },
   button: {
-    borderRadius: 12,
+    borderRadius: 14,
   },
 });

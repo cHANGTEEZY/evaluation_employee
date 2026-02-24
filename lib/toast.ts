@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import { toast as burntToast } from "burnt";
 
 const MAX_MESSAGE_LENGTH = 80;
@@ -21,5 +22,32 @@ export function toast(options: ToastOptions) {
     message,
     preset,
   } as any);
+}
+
+/** "Welcome back" toast with user name and a face icon (Burnt). */
+export function welcomeBackToast(userName: string) {
+  const displayName =
+    userName && userName.trim() ? userName.trim() : "User";
+  if (Platform.OS === "ios") {
+    burntToast({
+      title: "Welcome back",
+      message: displayName,
+      preset: "custom",
+      icon: {
+        ios: {
+          name: "face.smiling.fill",
+          color: "#FFFFFF",
+        },
+      },
+      duration: 4,
+    } as any);
+  } else {
+    burntToast({
+      title: "Welcome back",
+      message: displayName,
+      preset: "done",
+      duration: 4,
+    });
+  }
 }
 

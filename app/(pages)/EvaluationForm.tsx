@@ -72,6 +72,7 @@ import { useAuthSession } from "../../lib/auth-store";
 import { saveDraft, loadDraft, clearDraft } from "../../lib/valuation-drafts";
 import { toast } from "../../lib/toast";
 import { processQueue } from "../../lib/sync";
+import { useNetwork } from "../../lib/sync/use-network";
 
 // Full-screen overlay with centered loader when submitting
 function SubmitOverlay({ visible }: { visible: boolean }) {
@@ -83,7 +84,7 @@ function SubmitOverlay({ visible }: { visible: boolean }) {
     rotation.value = 0;
     rotation.value = withRepeat(
       withTiming(360, { duration: 1200, easing: Easing.linear }),
-      -1
+      -1,
     );
   }, [visible]);
 
@@ -94,7 +95,12 @@ function SubmitOverlay({ visible }: { visible: boolean }) {
   if (!visible) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => {}}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={() => {}}
+    >
       <View style={styles.overlay}>
         <View
           style={[
@@ -116,7 +122,12 @@ function SubmitOverlay({ visible }: { visible: boolean }) {
                 },
               ]}
             />
-            <View style={[styles.loaderInner, { backgroundColor: theme.colors.surface }]}>
+            <View
+              style={[
+                styles.loaderInner,
+                { backgroundColor: theme.colors.surface },
+              ]}
+            >
               <ActivityIndicator size="large" color={theme.colors.primary} />
             </View>
           </View>
@@ -186,6 +197,7 @@ const EvaluationForm = () => {
   const { id, mode } = useLocalSearchParams<{ id?: string; mode?: string }>();
   const isEditMode = mode === "edit" && id;
   const { user, sessionInfo } = useAuthSession();
+  const { isOnline } = useNetwork();
 
   const [currentStep, setCurrentStep] = useState(0);
   const [isValidating, setIsValidating] = useState(false);
@@ -201,7 +213,7 @@ const EvaluationForm = () => {
   const inset = useSafeAreaInsets();
   const router = useRouter();
 
-  const USE_DEMO_DEFAULTS = true;
+  const USE_DEMO_DEFAULTS = false;
 
   const form = useForm<ValuationFormValues>({
     resolver: zodResolver(valuationSchema) as Resolver<ValuationFormValues>,
@@ -508,13 +520,13 @@ const EvaluationForm = () => {
         }
       }
 
-      // Sync to backend (includes receipt if we just generated it)
+      // Sync to Drive only when online; valuation is always saved locally first
       let syncResult: {
         synced: number;
         failed: number;
         errors: string[];
       } | null = null;
-      if (sessionInfo?.token && user?.id) {
+      if (sessionInfo?.token && user?.id && isOnline) {
         try {
           syncResult = await processQueue(sessionInfo.token, user.id);
           if (syncResult.synced > 0) {
@@ -538,6 +550,12 @@ const EvaluationForm = () => {
             preset: "error",
           });
         }
+      } else if (sessionInfo?.token && user?.id && !isOnline) {
+        toast({
+          title: "Saved locally",
+          message: "Will sync when you're back online.",
+          preset: "done",
+        });
       }
 
       // Close form immediately; show toast (no blocking alert)
@@ -718,7 +736,7 @@ const EvaluationForm = () => {
         <View
           style={[
             styles.buttonContainer,
-            { borderTopColor: theme.colors.outlineVariant },
+            { borderTopColor: theme.colors.outline },
           ]}
         >
           <Button
@@ -828,36 +846,38 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   header: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
   },
   title: {
-    fontSize: 20,
-    fontWeight: "bold",
+    fontSize: 18,
+    fontWeight: "700",
+    letterSpacing: -0.3,
   },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 14,
   },
   headerSubmit: {
     marginRight: 4,
+    borderRadius: 12,
   },
   headerSubmitContent: {
-    height: 36,
+    height: 38,
   },
   stepIndicator: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 10,
   },
   stepText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
   },
   stepTitle: {
-    fontSize: 14,
+    fontSize: 13,
   },
   progressBar: {
     height: 6,
@@ -868,19 +888,20 @@ const styles = StyleSheet.create({
   },
   formContent: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
   },
   buttonContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 45,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     gap: 12,
   },
   button: {
     flex: 1,
+    borderRadius: 14,
   },
   buttonContent: {
     flexDirection: "row-reverse",

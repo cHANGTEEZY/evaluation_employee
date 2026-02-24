@@ -57,6 +57,7 @@ type AuthStoreState = {
 let unsubscribeSession: null | (() => void) = null;
 
 const AUTH_TIMEOUT = 5000; // 5 seconds max to wait for session
+const PERSISTED_SESSION_KEY = "evaluationapp_persisted_session";
 
 export const useAuthStore = create<AuthStoreState>((set, get) => ({
   session: null as SessionData,
@@ -70,6 +71,20 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
 
     set({ initialized: true });
 
+    // Try to restore last known session from SecureStore so we can stay
+    // \"signed in\" when offline or before the first network request completes.
+    try {
+      const raw = await SecureStore.getItemAsync(PERSISTED_SESSION_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as SessionData;
+        if (parsed && !get().session) {
+          set({ session: parsed });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to restore persisted auth session", e);
+    }
+
     // Set a timeout to stop pending state if auth takes too long
     const timeout = setTimeout(() => {
       if (get().isPending) {
@@ -80,12 +95,47 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     // Subscribe once; nanostores will start fetching session automatically.
     unsubscribeSession = authClient.useSession.subscribe((value: any) => {
       clearTimeout(timeout);
+
+      const isPending = !!value?.isPending;
+      let nextSession: SessionData = get().session;
+
+      // When we get fresh data, always trust it and persist it.
+      if (value?.data) {
+        nextSession = value.data as SessionData;
+      } else if (!isPending) {
+        // Only treat \"no data\" as a real sign-out once the request finished.
+        if (!value?.error || (value.error as any)?.status === 401) {
+          // No error (clean unauthenticated) or explicit 401 -> clear session.
+          nextSession = null as SessionData;
+        } else {
+          // Network / other errors after the request finished:
+          // keep whatever session we already have so the user stays signed in
+          // when offline.
+        }
+      }
+
       set({
-        session: value?.data ?? null,
-        isPending: !!value?.isPending,
+        session: nextSession,
+        isPending,
         isRefetching: !!value?.isRefetching,
         error: value?.error ?? null,
       });
+
+      // Persist or clear the session asynchronously
+      (async () => {
+        try {
+          if (nextSession) {
+            await SecureStore.setItemAsync(
+              PERSISTED_SESSION_KEY,
+              JSON.stringify(nextSession),
+            );
+          } else if (!isPending && (!value?.error || (value.error as any)?.status === 401)) {
+            await SecureStore.deleteItemAsync(PERSISTED_SESSION_KEY);
+          }
+        } catch (err) {
+          console.error("Failed to update persisted auth session", err);
+        }
+      })();
     });
   },
 
@@ -99,6 +149,13 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       await authClient.signOut();
     } catch (e) {
       console.error("Sign out failed", e);
+    }
+    // Clear in-memory and persisted session immediately on sign-out
+    set({ session: null as SessionData });
+    try {
+      await SecureStore.deleteItemAsync(PERSISTED_SESSION_KEY);
+    } catch (e) {
+      console.error("Failed to clear persisted auth session", e);
     }
   },
 }));

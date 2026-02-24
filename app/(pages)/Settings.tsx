@@ -1,4 +1,4 @@
-import { StyleSheet, View, ScrollView } from "react-native";
+import { StyleSheet, View, ScrollView, Pressable } from "react-native";
 import React from "react";
 import {
   SafeAreaView,
@@ -55,29 +55,41 @@ const Settings = () => {
       >
         {/* Header */}
         <LinearGradient
-          colors={[theme.colors.primaryContainer, theme.colors.primary]}
+          colors={[theme.colors.primary, theme.colors.primaryContainer]}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.header, { paddingTop: insets.top + 12 }]}
+          end={{ x: 1, y: 0.5 }}
+          style={[styles.header, { paddingTop: insets.top + 14 }]}
         >
           <View style={styles.headerContent}>
-            <MaterialCommunityIcons
-              name="arrow-left"
-              size={24}
-              color="white"
+            <Pressable
               onPress={() => router.back()}
-              style={{ marginRight: 16 }}
-            />
-            <View>
+              hitSlop={12}
+              style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+            >
+              <MaterialCommunityIcons
+                name="arrow-left"
+                size={24}
+                color="white"
+              />
+            </Pressable>
+            <View style={{ flex: 1, marginLeft: 16 }}>
               <Text
                 variant="headlineSmall"
-                style={{ color: "white", fontWeight: "bold" }}
+                style={{
+                  color: "white",
+                  fontWeight: "700",
+                  letterSpacing: -0.3,
+                }}
               >
                 Settings
               </Text>
               <Text
-                variant="bodyMedium"
-                style={{ color: "white", opacity: 0.85 }}
+                variant="bodySmall"
+                style={{
+                  color: "rgba(255,255,255,0.9)",
+                  marginTop: 4,
+                  letterSpacing: 0.2,
+                }}
               >
                 Customize your app experience
               </Text>
@@ -370,10 +382,15 @@ export default Settings;
 
 const styles = StyleSheet.create({
   header: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 4,
   },
   headerContent: {
     flexDirection: "row",
@@ -381,21 +398,21 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    padding: 16,
+    padding: 24,
   },
   sectionCard: {
-    marginBottom: 16,
-    borderRadius: 16,
+    marginBottom: 20,
+    borderRadius: 20,
     overflow: "hidden",
   },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
-    paddingBottom: 8,
+    padding: 18,
+    paddingBottom: 10,
   },
   sectionTitle: {
-    fontWeight: "bold",
+    fontWeight: "700",
     marginLeft: 12,
   },
   radioRow: {
@@ -425,6 +442,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   resetButton: {
-    borderRadius: 12,
+    borderRadius: 14,
   },
 });

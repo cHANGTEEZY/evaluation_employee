@@ -182,12 +182,12 @@ const EvaluationDetail = () => {
       edges={["left"]}
     >
       <LinearGradient
-        colors={[theme.colors.primaryContainer, theme.colors.primary]}
+        colors={[theme.colors.primary, theme.colors.primaryContainer]}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        end={{ x: 1, y: 0.5 }}
         style={styles.header}
       >
-        <View style={[styles.headerContent, { paddingTop: inset.top }]}>
+        <View style={[styles.headerContent, { paddingTop: inset.top + 8 }]}>
           <IconButton
             icon="arrow-left"
             iconColor="white"
@@ -197,13 +197,17 @@ const EvaluationDetail = () => {
           <View style={{ flex: 1, marginLeft: 8 }}>
             <Text
               variant="titleLarge"
-              style={{ color: "white", fontWeight: "bold" }}
+              style={{
+                color: "white",
+                fontWeight: "700",
+                letterSpacing: -0.3,
+              }}
             >
               {valuation.client_name || "Unnamed Valuation"}
             </Text>
             <Text
-              variant="bodyMedium"
-              style={{ color: "rgba(255,255,255,0.9)" }}
+              variant="bodySmall"
+              style={{ color: "rgba(255,255,255,0.9)", marginTop: 2 }}
             >
               {valuation.ref_no || "No Reference"}
             </Text>
@@ -619,11 +623,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   header: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: 24,
     paddingBottom: 24,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 4,
   },
   headerContent: {
     flexDirection: "row",
@@ -631,25 +639,28 @@ const styles = StyleSheet.create({
   },
   headerChips: {
     flexDirection: "row",
-    gap: 8,
-    marginTop: 12,
+    gap: 10,
+    marginTop: 14,
     marginLeft: 8,
   },
   scrollView: {
     flex: 1,
   },
   card: {
-    margin: 16,
-    marginBottom: 0,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    borderRadius: 20,
+    overflow: "hidden",
   },
   infoRow: {
     flexDirection: "row",
-    paddingVertical: 8,
+    paddingVertical: 10,
     gap: 16,
   },
   fab: {
     position: "absolute",
-    right: 16,
-    bottom: 16,
+    right: 20,
+    bottom: 24,
+    borderRadius: 16,
   },
 });

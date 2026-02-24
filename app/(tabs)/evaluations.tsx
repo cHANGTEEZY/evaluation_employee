@@ -105,22 +105,30 @@ export default function EvaluationsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.surface }}>
       <LinearGradient
-        colors={[theme.colors.tertiaryContainer, theme.colors.tertiary]}
+        colors={[theme.colors.secondaryContainer, theme.colors.primary]}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.gradientHeader, { paddingTop: insets.top + 10 }]}
+        end={{ x: 1, y: 0.5 }}
+        style={[styles.gradientHeader, { paddingTop: insets.top + 12 }]}
       >
         <View style={styles.headerContent}>
           <View style={{ flex: 1 }}>
             <Text
-              variant="titleLarge"
-              style={{ color: "white", fontWeight: "bold" }}
+              variant="headlineSmall"
+              style={{
+                color: "white",
+                fontWeight: "700",
+                letterSpacing: -0.3,
+              }}
             >
               Evaluations
             </Text>
             <Text
-              variant="bodyMedium"
-              style={{ color: "white", opacity: 0.8, marginTop: 4 }}
+              variant="bodySmall"
+              style={{
+                color: "rgba(255,255,255,0.9)",
+                marginTop: 4,
+                letterSpacing: 0.2,
+              }}
             >
               View and manage your evaluations
             </Text>
@@ -148,10 +156,16 @@ export default function EvaluationsScreen() {
           value={searchText}
           onChangeText={(text) => setSearchText(text)}
           iconColor={theme.colors.onSurfaceVariant}
-          inputStyle={{ color: theme.colors.onSurface }}
+          inputStyle={{ color: theme.colors.onSurface, fontSize: 15 }}
           traileringIcon={searchText ? "close" : ""}
           onTraileringIconPress={() => setSearchText("")}
-          style={styles.searchBar}
+          style={[
+            styles.searchBar,
+            {
+              backgroundColor: theme.colors.surface,
+              borderRadius: 16,
+            },
+          ]}
           elevation={0}
         />
       </LinearGradient>
@@ -234,11 +248,16 @@ export default function EvaluationsScreen() {
               padding: 24,
             }}
           >
-            <View style={styles.emptyStateIcon}>
+            <View
+              style={[
+                styles.emptyStateIcon,
+                { backgroundColor: theme.colors.surfaceVariant },
+              ]}
+            >
               <MaterialCommunityIcons
                 name="clipboard-text-search-outline"
                 size={48}
-                color={theme.colors.outline}
+                color={theme.colors.onSurfaceVariant}
               />
             </View>
             <Text
@@ -392,10 +411,15 @@ export default function EvaluationsScreen() {
 
 const styles = StyleSheet.create({
   gradientHeader: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingBottom: 24,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 4,
   },
   headerContent: {
     flexDirection: "row",
@@ -404,39 +428,41 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   searchBar: {
-    borderRadius: 16,
-    backgroundColor: "white",
-    height: 50,
+    height: 48,
   },
   cardItem: {
-    marginHorizontal: 16,
+    marginHorizontal: 20,
     marginBottom: 12,
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   cardContent: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
+    padding: 18,
   },
   iconBox: {
     width: 48,
     height: 48,
-    borderRadius: 12,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 16,
   },
   statusBadge: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 10,
   },
   emptyStateIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#F1F5F9",
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     justifyContent: "center",
     alignItems: "center",
   },

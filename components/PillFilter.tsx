@@ -21,11 +21,11 @@ const PillFilter = ({ filters }: { filters: Filter[] }) => {
       >
         {filters.map((filter) => {
           const backgroundColor = filter.selected
-            ? theme.colors.onBackground
-            : undefined;
+            ? theme.colors.primaryContainer
+            : theme.colors.surfaceVariant;
 
           const contentColor = filter.selected
-            ? theme.colors.onPrimary
+            ? theme.colors.onPrimaryContainer
             : theme.colors.onSurfaceVariant;
 
           return (
@@ -36,7 +36,13 @@ const PillFilter = ({ filters }: { filters: Filter[] }) => {
               selected={filter.selected}
               showSelectedOverlay
               selectedColor={contentColor}
-              style={[styles.chip, { backgroundColor: backgroundColor }]}
+              style={[
+                styles.chip,
+                {
+                  backgroundColor,
+                  borderRadius: 14,
+                },
+              ]}
             >
               {filter.name}
             </Chip>
@@ -51,14 +57,11 @@ export default PillFilter;
 
 const styles = StyleSheet.create({
   filterContainer: {
-    marginVertical: 8,
+    marginVertical: 10,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    gap: 8,
+    paddingHorizontal: 20,
+    gap: 10,
   },
-  chip: {
-    // marginRight is handled by 'gap' in scrollContent, so this is optional
-    // marginRight: 4,
-  },
+  chip: {},
 });

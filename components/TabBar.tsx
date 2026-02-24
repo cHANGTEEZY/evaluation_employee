@@ -65,33 +65,40 @@ export default function TabBar({ state, descriptors, navigation }: any) {
               testID={options.tabBarTestID}
               onPress={onPress}
               onLongPress={onLongPress}
-              style={styles.tabItem}
+              style={({ pressed }) => [
+                styles.tabItem,
+                pressed && { opacity: 0.8 },
+              ]}
             >
               <View
                 style={[
                   styles.iconContainer,
                   isFocused && {
-                    backgroundColor: theme.colors.secondaryContainer,
+                    backgroundColor: theme.colors.primaryContainer,
                   },
                 ]}
               >
                 <MaterialCommunityIcons
                   name={iconName}
-                  size={24}
+                  size={22}
                   color={
                     isFocused
-                      ? theme.colors.onSecondaryContainer
+                      ? theme.colors.primary
                       : theme.colors.onSurfaceVariant
                   }
                 />
               </View>
-
               <Text
                 variant="labelSmall"
-                style={{
-                  color: theme.colors.onSecondaryContainer,
-                  marginLeft: 4,
-                }}
+                style={[
+                  styles.tabLabel,
+                  {
+                    color: isFocused
+                      ? theme.colors.primary
+                      : theme.colors.onSurfaceVariant,
+                    fontWeight: isFocused ? "600" : "500",
+                  },
+                ]}
               >
                 {label as string}
               </Text>
@@ -115,27 +122,30 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 30,
-    width: "80%",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 28,
+    width: "88%",
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 8,
   },
   tabItem: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "column",
+    gap: 4,
   },
   iconContainer: {
-    padding: 8,
-    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+  },
+  tabLabel: {
+    fontSize: 11,
+    letterSpacing: 0.2,
   },
 });

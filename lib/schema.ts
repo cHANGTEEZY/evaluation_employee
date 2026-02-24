@@ -2,7 +2,6 @@ import { getDb } from "./db";
 import type { ValuationFormValues } from "../constants/form-schema";
 import "react-native-get-random-values";
 import { v4 as uuidv4 } from "uuid";
-import { requireAuth } from "./auth-guard";
 
 // Generate unique ID
 export function generateId() {
@@ -176,9 +175,6 @@ export async function insertValuation(
   data: ValuationFormValues,
   options?: { employeeId?: string },
 ): Promise<string> {
-  // Require authentication before storing evaluation data
-  await requireAuth();
-
   const db = await getDb();
   const id = generateId();
   const now = new Date().toISOString();
@@ -323,9 +319,6 @@ export async function updateValuation(
   id: string,
   data: Partial<ValuationFormValues>,
 ): Promise<void> {
-  // Require authentication before updating evaluation data
-  await requireAuth();
-
   const db = await getDb();
   const now = new Date().toISOString();
 
@@ -630,9 +623,6 @@ export async function updateValuationStatus(
   syncStatus?: "pending" | "syncing" | "synced" | "error",
   errorMessage?: string,
 ): Promise<void> {
-  // Require authentication before updating valuation status
-  await requireAuth();
-
   const db = await getDb();
   const now = new Date().toISOString();
 

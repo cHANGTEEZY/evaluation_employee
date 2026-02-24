@@ -29,10 +29,9 @@ const AuthLogo = ({ size = 120, color = "#4B5563" }: Props) => {
             strokeLinejoin="round"
             fill="none"
           />
-          {/* Subtle accent line */}
           <Path
             d="M50 50 L65 65"
-            stroke="#6B7280"
+            stroke={color}
             strokeWidth={6}
             strokeLinecap="round"
             opacity={0.6}

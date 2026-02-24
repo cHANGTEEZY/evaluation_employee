@@ -11,13 +11,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as WebBrowser from "expo-web-browser";
 import { authClient } from "../../lib/auth-client";
+import { useAuthStore } from "../../lib/auth-store";
 import { Link, useRouter } from "expo-router";
 import { Text, TextInput, useTheme, Button } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import AuthLogo from "../../features/auth/components/AuthLogo";
 
-import { toast } from "../../lib/toast";
+import { toast, welcomeBackToast } from "../../lib/toast";
 import { HapticPressable } from "../../components/ui/HapticPressable";
 import { authenticateWithBiometrics } from "../../lib/biometrics";
 import {
@@ -32,22 +33,23 @@ export default function SignIn() {
   const router = useRouter();
   const isDark = theme.dark;
 
-  const colors = useMemo(() => {
-    return {
-      background: isDark ? "#0B1023" : "#F8FAFC",
-      backgroundEnd: isDark ? "#1A1F35" : "#E2E8F0",
-      inputBg: isDark ? "#1E2642" : "#FFFFFF",
-      inputText: isDark ? "#FFFFFF" : "#1F2937",
-      inputPlaceholder: isDark ? "#6B7280" : "#9CA3AF",
-      labelText: isDark ? "#9CA3AF" : "#64748B",
-      titleText: isDark ? "#FFFFFF" : "#1F2937",
-      iconColor: isDark ? "#6B7280" : "#9CA3AF",
+  const colors = useMemo(
+    () => ({
+      background: theme.colors.background,
+      backgroundEnd: theme.colors.surfaceVariant,
+      inputBg: theme.colors.surface,
+      inputText: theme.colors.onSurface,
+      inputPlaceholder: theme.colors.onSurfaceVariant,
+      labelText: theme.colors.onSurfaceVariant,
+      titleText: theme.colors.onSurface,
+      iconColor: theme.colors.onSurfaceVariant,
       linkText: theme.colors.primary,
-      borderColor: isDark ? "#374151" : "#E5E7EB",
-      logoColor: isDark ? "#4B5563" : "#CBD5E1",
-      divider: !isDark ? "#374151" : "#E5E7EB",
-    };
-  }, []);
+      borderColor: theme.colors.outline,
+      logoColor: theme.colors.onSurfaceVariant,
+      divider: theme.colors.outline,
+    }),
+    [theme]
+  );
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -109,11 +111,12 @@ export default function SignIn() {
         {
           onSuccess: async () => {
             dismissAuthBrowser();
-            toast({
-              title: "Success",
-              message: "Login successful!",
-              preset: "done",
-            });
+            // Session may update shortly after sign-in; show welcome with name once available
+            const name =
+              useAuthStore.getState().session?.user?.name ??
+              (authClient as any).useSession?.get?.()?.data?.user?.name ??
+              "User";
+            welcomeBackToast(name);
 
             // Offer to save credentials for biometric login (only on first manual login)
             if (!opts?.skipBiometricPrompt) {
@@ -429,23 +432,23 @@ export default function SignIn() {
                 <HapticPressable onPress={handleSignIn} disabled={loading}>
                   <Button
                     mode="contained"
-                    contentStyle={{ height: 46 }}
-                    style={{ borderRadius: 12, backgroundColor: "transparent" }}
+                    contentStyle={{ height: 52 }}
+                    style={{ borderRadius: 16, backgroundColor: "transparent" }}
                     labelStyle={styles.buttonText}
                   >
                     {loading ? "Signing in..." : "Login"}
                   </Button>
                 </HapticPressable>
               </LinearGradient>
-              <HapticPressable
+                <HapticPressable
                 style={{
                   marginRight: 10,
                   borderWidth: 1,
-                  padding: 5,
+                  padding: 8,
                   borderColor: hasSavedBiometric
                     ? theme.colors.primary
                     : colors.borderColor,
-                  borderRadius: 10,
+                  borderRadius: 14,
                   opacity: loading || biometricLoading ? 0.5 : 1,
                 }}
                 disabled={loading || biometricLoading}
@@ -490,35 +493,35 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   headerSection: {
-    marginTop: 32,
-    marginBottom: 32,
+    marginTop: 36,
+    marginBottom: 36,
   },
   labelText: {
-    fontSize: 13,
-    fontWeight: "500",
-    letterSpacing: 2,
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 1.5,
     marginBottom: 8,
   },
   titleText: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "700",
     letterSpacing: -0.5,
   },
   formSection: {
-    gap: 20,
+    gap: 22,
   },
   inputContainer: {
     gap: 8,
   },
   inputLabel: {
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    borderRadius: 16,
+    paddingHorizontal: 18,
     height: 56,
   },
   inputIcon: {
@@ -536,14 +539,14 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   buttonSection: {
-    marginTop: 32,
+    marginTop: 36,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     gap: 20,
   },
   signInButton: {
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: "hidden",
   },
   signInButtonPressed: {
@@ -556,10 +559,10 @@ const styles = StyleSheet.create({
     height: 56,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 12,
+    borderRadius: 16,
   },
   buttonText: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "600",
     color: "#FFFFFF",
   },
