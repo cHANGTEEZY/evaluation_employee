@@ -97,3 +97,8 @@ yarn-error.*
 *.tsbuildinfo
 
 # @end expo-cli
+
+# Build outputs (do not commit APKs)
+*.apk
+*.aab
+android/app/build/
