@@ -163,3 +163,14 @@ export function generateClientRefNumber(
   const plot = sanitizeForRefNo(String(plotNo ?? "")) || "0";
   return `${client}_${dist}_${plot}`;
 }
+
+/**
+ * Generate a short unique id for appending to ref numbers (e.g. for Google Sheets uniqueness).
+ * Returns 8 alphanumeric characters so refs stay unique across devices and syncs.
+ */
+export function generateShortId(): string {
+  return (
+    Date.now().toString(36) +
+    Math.random().toString(36).replace(".", "").slice(2, 6)
+  ).slice(-8);
+}

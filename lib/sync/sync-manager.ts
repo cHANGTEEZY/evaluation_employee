@@ -8,12 +8,16 @@ import {
   deleteAuditLogs,
   getPaymentsByValuationId,
   updatePaymentSyncStatus,
+  updateSyncedImageHashes,
+  updateValuationServerId,
   type ValuationRow,
   type AuditLogEntry,
 } from "../schema";
 import { useSyncStore, type SyncQueueItem } from "./sync-store";
-import { BASE_API_URL } from "../../constants";
+import { BASE_API_URL, ADMIN_SESSION_COOKIE_NAME } from "../../constants";
 import { File } from "expo-file-system";
+import * as FileSystemLegacy from "expo-file-system/legacy";
+import { sha256Hex, parseSyncedImageHashes, imageHashesMatch, type SyncedImageHashes } from "../hash";
 
 // Maximum retry attempts
 const MAX_RETRY_ATTEMPTS = 3;
@@ -39,6 +43,7 @@ function valuationToPayload(valuation: ValuationRow): Record<string, unknown> {
     district: valuation.district,
     valuation_for: valuation.valuation_for,
     road_type: valuation.road_type,
+    road_type_others: valuation.road_type_others ?? undefined,
     road_width: valuation.road_width,
     access_road_direction: valuation.access_road_direction,
     access_road_direction_others: valuation.access_road_direction_others ?? undefined,
@@ -47,6 +52,7 @@ function valuationToPayload(valuation: ValuationRow): Record<string, unknown> {
     property_narrowest_length: valuation.property_narrowest_length,
     property_narrowest_direction: valuation.property_narrowest_direction,
     right_of_way: valuation.right_of_way === 1,
+    right_of_way_width_ft: valuation.right_of_way_width_ft ?? undefined,
     motorable_access: valuation.motorable_access === 1,
     electricity_available: valuation.electricity_available === 1,
     drainage_near_property: valuation.drainage_near_property === 1,
@@ -95,21 +101,30 @@ function valuationToPayload(valuation: ValuationRow): Record<string, unknown> {
     payment_online: valuation.payment_online ?? undefined,
     payment_online_mode: valuation.payment_online_mode ?? undefined,
     payment_pending_due: valuation.payment_pending_due ?? undefined,
+    document_photos: valuation.document_photos
+      ? JSON.parse(valuation.document_photos)
+      : undefined,
   };
 }
 
-// Helper to read file as base64
+// Helper to read file as base64 (images and PDFs). Uses legacy API as fallback so PDFs from documentDirectory paths are read correctly.
 async function fileToBase64(uri: string): Promise<string | null> {
   try {
     const file = new File(uri);
-    if (!file.exists) {
-      console.warn(`File not found: ${uri}`);
-      return null;
+    if (file.exists) {
+      const base64 = await file.base64();
+      if (base64) return base64;
     }
-    const base64 = await file.base64();
-    return base64;
+  } catch (e) {
+    console.warn(`File API read failed for ${uri}, trying legacy:`, e);
+  }
+  try {
+    const base64 = await FileSystemLegacy.readAsStringAsync(uri, {
+      encoding: FileSystemLegacy.EncodingType.Base64,
+    });
+    return base64 || null;
   } catch (error) {
-    console.error(`Error reading file ${uri}:`, error);
+    console.error(`Error reading file as base64 ${uri}:`, error);
     return null;
   }
 }
@@ -127,25 +142,42 @@ export async function syncValuation(
   try {
     const payload = valuationToPayload(valuation);
 
-    // Prepare images
+    // Read all images and compute hashes for change detection
     let sitePlanImage: string | null = null;
     const propertyImages: string[] = [];
+    const documentImages: string[] = [];
 
-    // Read site plan image if exists
     if (valuation.site_plan_image) {
       sitePlanImage = await fileToBase64(valuation.site_plan_image);
     }
-
-    // Read property images if exist
     if (valuation.property_images) {
       const imageUris = JSON.parse(valuation.property_images) as string[];
       for (const uri of imageUris) {
         const base64 = await fileToBase64(uri);
-        if (base64) {
-          propertyImages.push(base64);
-        }
+        if (base64) propertyImages.push(base64);
       }
     }
+    if (valuation.document_photos) {
+      const docUris = JSON.parse(valuation.document_photos) as string[];
+      for (const uri of docUris) {
+        const base64 = await fileToBase64(uri);
+        if (base64) documentImages.push(base64);
+      }
+    }
+
+    // Compute hashes (same order as payload) for comparison with last sync
+    const currentHashes: SyncedImageHashes = {
+      propertyImages: await Promise.all(propertyImages.map((b) => sha256Hex(b))),
+      sitePlan: sitePlanImage ? await sha256Hex(sitePlanImage) : null,
+      documentPhotos: await Promise.all(documentImages.map((b) => sha256Hex(b))),
+    };
+    const storedHashes = parseSyncedImageHashes(valuation.synced_image_hashes ?? null);
+    const imagesUnchanged = imageHashesMatch(storedHashes, currentHashes);
+
+    // When images unchanged, send empty image payloads to save bandwidth; backend will skip upload
+    const bodySitePlanImage = imagesUnchanged ? null : sitePlanImage;
+    const bodyPropertyImages = imagesUnchanged ? [] : propertyImages;
+    const bodyDocumentImages = imagesUnchanged ? [] : documentImages;
 
     // Prepare payment receipts
     const paymentReceipts: { id: string; content: string; name: string }[] = [];
@@ -170,9 +202,8 @@ export async function syncValuation(
       "Content-Type": "application/json",
     };
 
-    // Send auth token as cookie for better-auth compatibility
     if (authToken) {
-      headers["Cookie"] = `better-auth.session_token=${authToken}`;
+      headers["Cookie"] = `${ADMIN_SESSION_COOKIE_NAME}=${authToken}`;
       console.log("[SYNC] Auth token present, length:", authToken.length);
     } else {
       console.log("[SYNC] WARNING: No auth token provided!");
@@ -181,17 +212,19 @@ export async function syncValuation(
     console.log(
       "[SYNC] Sending request to:",
       `${BASE_API_URL}/api/sync/valuation`,
+      imagesUnchanged ? "(images unchanged, skipping upload)" : ""
     );
 
-    // Send to sync API endpoint
     const response = await fetch(`${BASE_API_URL}/api/sync/valuation`, {
       method: "POST",
       headers,
       body: JSON.stringify({
         valuation: payload,
-        sitePlanImage,
-        propertyImages,
+        sitePlanImage: bodySitePlanImage,
+        propertyImages: bodyPropertyImages,
+        documentImages: bodyDocumentImages,
         paymentReceipts,
+        imagesUnchanged,
       }),
     });
 
@@ -217,7 +250,17 @@ export async function syncValuation(
 
     const data = await response.json();
     console.log("[SYNC] Success!");
-    return { success: true, serverId: data.driveFolderId, paymentIds };
+
+    // Persist server metadata and image hashes after successful sync
+    const serverId = data.evaluationFolderId ?? data.driveFolderId ?? null;
+    if (serverId) {
+      await updateValuationServerId(valuation.id, serverId);
+    }
+    if (!imagesUnchanged) {
+      await updateSyncedImageHashes(valuation.id, currentHashes);
+    }
+
+    return { success: true, serverId, paymentIds };
   } catch (error: any) {
     console.log("[SYNC] Exception:", error);
     return {
@@ -341,8 +384,11 @@ export async function resetFailedItems(): Promise<void> {
   );
 }
 
-//* Process the entire sync queue
-export async function processQueue(authToken?: string): Promise<{
+//* Process the entire sync queue (only current user's pending valuations when userId provided)
+export async function processQueue(
+  authToken?: string,
+  userId?: string | null,
+): Promise<{
   synced: number;
   failed: number;
   errors: string[];
@@ -357,8 +403,8 @@ export async function processQueue(authToken?: string): Promise<{
     return { synced: 0, failed: 0, errors: ["No network connection"] };
   }
 
-  // Get pending valuations
-  const pendingValuations = await getPendingSyncValuations();
+  // Get pending valuations for the current user only
+  const pendingValuations = await getPendingSyncValuations(userId ?? null);
 
   if (pendingValuations.length === 0) {
     return { synced: 0, failed: 0, errors: [] };
@@ -423,18 +469,21 @@ export async function processQueue(authToken?: string): Promise<{
   return { synced, failed, errors };
 }
 
-//* Retry all failed sync valuations
-export async function retryFailedSync(authToken?: string): Promise<{
+//* Retry all failed sync valuations (only current user's when userId provided)
+export async function retryFailedSync(
+  authToken?: string,
+  userId?: string | null,
+): Promise<{
   synced: number;
   failed: number;
   errors: string[];
 }> {
-  // Reset all failed valuations to pending
-  await resetFailedSyncValuations();
+  // Reset only this user's failed valuations to pending
+  await resetFailedSyncValuations(userId ?? null);
   // Also reset failed items in sync queue
   await resetFailedItems();
   // Process the queue
-  return processQueue(authToken);
+  return processQueue(authToken, userId);
 }
 
 // ===== AUDIT LOG SYNC =====
@@ -459,7 +508,7 @@ export async function syncAuditLogs(
     };
 
     if (authToken) {
-      headers["Cookie"] = `better-auth.session_token=${authToken}`;
+      headers["Cookie"] = `${ADMIN_SESSION_COOKIE_NAME}=${authToken}`;
     }
 
     const response = await fetch(`${BASE_API_URL}/api/sync/audit`, {

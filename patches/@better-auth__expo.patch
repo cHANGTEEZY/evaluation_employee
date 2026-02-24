@@ -1,0 +1,13 @@
+diff --git a/dist/client.mjs b/dist/client.mjs
+index 1d9716326a8b9d670377b0d101ca9d0fe8387d5b..9f85de443f3cff9ece08920f28aea87aa76038b1 100644
+--- a/dist/client.mjs
++++ b/dist/client.mjs
+@@ -267,6 +267,8 @@ const expoClient = (opts) => {
+ 					storage.setItem(localCacheName, JSON.stringify(data));
+ 				}
+ 				if (context.data?.redirect && (context.request.url.toString().includes("/sign-in") || context.request.url.toString().includes("/link-social")) && !context.request?.body.includes("idToken")) {
++					const setCookieHeader = context.response.headers.get("set-cookie");
++					if (setCookieHeader && hasBetterAuthCookies(setCookieHeader, cookiePrefix)) return;
+ 					const to = JSON.parse(context.request.body)?.callbackURL;
+ 					const signInURL = context.data?.url;
+ 					let Browser = void 0;

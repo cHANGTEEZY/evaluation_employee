@@ -1,16 +1,24 @@
 import {
   StyleSheet,
-  Text,
+  Text as RNText,
   View,
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Modal,
 } from "react-native";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
 
 import {
   Button,
@@ -18,6 +26,7 @@ import {
   useTheme,
   ActivityIndicator,
   IconButton,
+  Text,
 } from "react-native-paper";
 import {
   FormProvider,
@@ -31,6 +40,7 @@ import {
   valuationSchema,
   ValuationFormValues,
   defaultValuationValues,
+  cleanValuationValues,
 } from "../../constants/form-schema";
 import {
   insertValuation,
@@ -57,10 +67,70 @@ import Step3 from "../../components/evaluation-form/Step3";
 import Step4 from "../../components/evaluation-form/Step4";
 import Step5 from "../../components/evaluation-form/Step5";
 import { goBack } from "expo-router/build/global-state/routing";
-import {
-  generateClientRefNumber,
-} from "../../lib/ref-number";
+import { generateClientRefNumber, generateShortId } from "../../lib/ref-number";
 import { useAuthSession } from "../../lib/auth-store";
+import { saveDraft, loadDraft, clearDraft } from "../../lib/valuation-drafts";
+import { toast } from "../../lib/toast";
+import { processQueue } from "../../lib/sync";
+
+// Full-screen overlay with centered loader when submitting
+function SubmitOverlay({ visible }: { visible: boolean }) {
+  const theme = useTheme();
+  const rotation = useSharedValue(0);
+
+  useEffect(() => {
+    if (!visible) return;
+    rotation.value = 0;
+    rotation.value = withRepeat(
+      withTiming(360, { duration: 1200, easing: Easing.linear }),
+      -1
+    );
+  }, [visible]);
+
+  const ringStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.value}deg` }],
+  }));
+
+  if (!visible) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => {}}>
+      <View style={styles.overlay}>
+        <View
+          style={[
+            styles.loaderCard,
+            {
+              backgroundColor: theme.colors.surface,
+              shadowColor: theme.colors.onSurface,
+            },
+          ]}
+        >
+          <View style={styles.loaderWrap}>
+            <Animated.View
+              style={[
+                styles.ring,
+                ringStyle,
+                {
+                  borderTopColor: theme.colors.primary,
+                  borderRightColor: theme.colors.primary + "40",
+                },
+              ]}
+            />
+            <View style={[styles.loaderInner, { backgroundColor: theme.colors.surface }]}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+            </View>
+          </View>
+          <Text
+            variant="titleMedium"
+            style={[styles.submitText, { color: theme.colors.onSurface }]}
+          >
+            Submitting…
+          </Text>
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 const TOTAL_STEPS = 6;
 
@@ -73,18 +143,15 @@ const stepTitles: Record<number, string> = {
   5: "Property Images",
 };
 
-// Fields to validate for each step
 const step0Fields: FieldPath<ValuationFormValues>[] = ["latitude", "longitude"];
 
-// Fields to validate for each step (matching actual schema fields)
 const step1Fields: FieldPath<ValuationFormValues>[] = [
   "valuation_date",
   "branch",
   "client_name",
   "contact_number",
-  "client_address_nagrita",
   "owner_of_property",
-  "property_address_deed",
+  "plot_no",
   "present_property_address",
   "district",
   "valuation_for",
@@ -92,11 +159,15 @@ const step1Fields: FieldPath<ValuationFormValues>[] = [
 
 const step2Fields: FieldPath<ValuationFormValues>[] = [
   "property_type",
-  "property_ownership_type",
-  "ownership_transferred_through",
   "hold_type",
   "road_type",
   "access_road_direction",
+  "landslide_prone_area",
+  "river_side",
+  "high_tension_area",
+  "canal_area",
+  "watchlist_category",
+  "heritage_memorial_site",
 ];
 
 const step3Fields: FieldPath<ValuationFormValues>[] = [
@@ -114,7 +185,7 @@ const step5Fields: FieldPath<ValuationFormValues>[] = [];
 const EvaluationForm = () => {
   const { id, mode } = useLocalSearchParams<{ id?: string; mode?: string }>();
   const isEditMode = mode === "edit" && id;
-  const { user } = useAuthSession();
+  const { user, sessionInfo } = useAuthSession();
 
   const [currentStep, setCurrentStep] = useState(0);
   const [isValidating, setIsValidating] = useState(false);
@@ -123,19 +194,55 @@ const EvaluationForm = () => {
   const [propertyImages, setPropertyImages] = useState<string[]>([]);
   const [drawingSaved, setDrawingSaved] = useState(false);
   const [receiptUri, setReceiptUri] = useState<string | null>(null);
+  /** When user saves a draft (new form), we create/update a DB row and keep its id so they can come back to it from the evaluations list. */
+  const [draftValuationId, setDraftValuationId] = useState<string | null>(null);
 
   const theme = useTheme();
   const inset = useSafeAreaInsets();
   const router = useRouter();
 
+  const USE_DEMO_DEFAULTS = true;
+
   const form = useForm<ValuationFormValues>({
-    // Type assertion needed due to Zod v4 + @hookform/resolvers compatibility
     resolver: zodResolver(valuationSchema) as Resolver<ValuationFormValues>,
-    defaultValues: defaultValuationValues,
+    defaultValues: USE_DEMO_DEFAULTS
+      ? defaultValuationValues
+      : cleanValuationValues,
     mode: "onTouched",
   });
 
-  // Load existing valuation data in edit mode
+  useEffect(() => {
+    const maybeLoadDraft = async () => {
+      if (isEditMode) return;
+      const draft = await loadDraft();
+      if (!draft) return;
+
+      // Alert.alert(
+      //   "Restore draft?",
+      //   "A saved draft was found for this valuation. Do you want to restore it?",
+      //   [
+      //     {
+      //       text: "Discard",
+      //       style: "destructive",
+      //       onPress: () => {
+      //         clearDraft().catch(() => {});
+      //       },
+      //     },
+      //     {
+      //       text: "Restore",
+      //       onPress: () => {
+      //         form.reset(draft.values);
+      //         setCurrentStep(draft.currentStep ?? 0);
+      //         if (draft.valuationId) setDraftValuationId(draft.valuationId);
+      //       },
+      //     },
+      //   ],
+      // );
+    };
+
+    void maybeLoadDraft();
+  }, [isEditMode]);
+
   useEffect(() => {
     const loadValuation = async () => {
       if (isEditMode && id) {
@@ -146,7 +253,9 @@ const EvaluationForm = () => {
             const formValues = rowToFormValues(data);
             form.reset(formValues as ValuationFormValues);
 
-            // Load payment receipt only if the file still exists (app files folder)
+            const images = formValues?.property_images;
+            setPropertyImages(Array.isArray(images) ? images : []);
+
             const payments = await getPaymentsByValuationId(id);
             if (
               payments &&
@@ -168,7 +277,6 @@ const EvaluationForm = () => {
     loadValuation();
   }, [id, isEditMode]);
 
-  // Generate ref_no from ClientName_First3letter_district_PlotNo when client_name, district, plot_no are available
   const clientName = form.watch("client_name");
   const district = form.watch("district");
   const plotNo = form.watch("plot_no");
@@ -180,8 +288,11 @@ const EvaluationForm = () => {
       const dist = (district ?? "").trim();
       const plot = plotNo != null && plotNo !== "" ? String(plotNo).trim() : "";
       if (!name || !dist || !plot) return;
+      const currentRef = form.getValues("ref_no") ?? "";
+      const base = generateClientRefNumber(name, dist, plot);
+      // If we already have a ref for this base (e.g. from a previous run), keep it to avoid changing ref on every re-render
+      if (currentRef && currentRef.startsWith(base)) return;
       try {
-        const base = generateClientRefNumber(name, dist, plot);
         const existing = await getRefNosStartingWith(base, id ?? undefined);
         let candidate = base;
         let n = 2;
@@ -189,6 +300,8 @@ const EvaluationForm = () => {
           candidate = `${base}_${n}`;
           n += 1;
         }
+        // Append unique suffix so ref is unique in Google Sheets (same client/district/plot on different devices/syncs)
+        candidate = `${candidate}_${generateShortId()}`;
         form.setValue("ref_no", candidate);
       } catch (error) {
         console.error("Error generating ref_no:", error);
@@ -216,6 +329,42 @@ const EvaluationForm = () => {
     }
   };
 
+  const getStepForField = (field: FieldPath<ValuationFormValues>): number => {
+    for (let step = 0; step < TOTAL_STEPS; step++) {
+      if (getFieldsForStep(step).includes(field)) return step;
+    }
+    return 0;
+  };
+
+  // Form values watched so we can compute if submit is allowed (same criteria as bottom Submit)
+  const formValues = form.watch();
+  const canSubmit = useMemo(() => {
+    const parsed = valuationSchema.safeParse(formValues);
+    return parsed.success && propertyImages.length >= 4;
+  }, [formValues, propertyImages.length]);
+
+  const handleSubmitWithValidation = () => {
+    form.handleSubmit(onSubmit, (errors) => {
+      const firstErrorKey = Object.keys(errors)[0] as
+        | FieldPath<ValuationFormValues>
+        | undefined;
+      const firstErrorObj = firstErrorKey
+        ? (errors as Record<string, { message?: string }>)[firstErrorKey]
+        : undefined;
+      const firstError =
+        firstErrorObj?.message ?? "Please complete required fields.";
+      const stepWithError = firstErrorKey
+        ? getStepForField(firstErrorKey)
+        : currentStep;
+      setCurrentStep(stepWithError);
+      toast({
+        title: "Cannot submit",
+        message: firstError,
+        preset: "error",
+      });
+    })();
+  };
+
   const handleNext = async () => {
     const fieldsToValidate = getFieldsForStep(currentStep);
 
@@ -230,13 +379,59 @@ const EvaluationForm = () => {
     }
 
     if (currentStep < TOTAL_STEPS - 1) {
-      setCurrentStep((prevStep) => prevStep + 1);
+      const nextStep = currentStep + 1;
+      setCurrentStep(nextStep);
+      // Save draft on step change
+      const values = form.getValues();
+      saveDraft(values, nextStep).catch(() => {});
     }
   };
 
   const handleBack = () => {
     if (currentStep > 0) {
       setCurrentStep((prevStep) => prevStep - 1);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    try {
+      const values = form.getValues();
+      let savedId: string;
+
+      if (isEditMode && id) {
+        await updateValuation(id, values);
+        savedId = id;
+      } else if (draftValuationId) {
+        await updateValuation(draftValuationId, values);
+        savedId = draftValuationId;
+      } else {
+        savedId = await insertValuation(values, {
+          employeeId: user?.id ?? undefined,
+        });
+        setDraftValuationId(savedId);
+      }
+
+      await saveDraft(values, currentStep, savedId);
+      toast({
+        title: "Draft saved",
+        message: "You can continue later from Evaluations → Drafts.",
+        preset: "done",
+      });
+    } catch (error) {
+      console.error("Error saving draft:", error);
+      if (error instanceof AuthenticationError) {
+        Alert.alert(
+          "Authentication Required",
+          "You must be logged in to save drafts. Please sign in and try again.",
+          [{ text: "OK", onPress: () => router.replace("/(auth)/login") }],
+        );
+      } else {
+        toast({
+          title: "Draft save failed",
+          message: "Please try again.",
+          preset: "error",
+        });
+      }
     }
   };
 
@@ -271,6 +466,12 @@ const EvaluationForm = () => {
         await updateValuationStatus(id, "pending", "pending");
         valuationId = id;
         console.log("Valuation updated with ID:", id);
+      } else if (draftValuationId) {
+        // Submit from a previously saved draft: update that row and mark pending
+        await updateValuation(draftValuationId, data);
+        await updateValuationStatus(draftValuationId, "pending", "pending");
+        valuationId = draftValuationId;
+        console.log("Valuation submitted from draft ID:", draftValuationId);
       } else {
         // Create new valuation (include employee ID so we know who synced to Google)
         valuationId = await insertValuation(data, {
@@ -282,7 +483,12 @@ const EvaluationForm = () => {
         await updateValuationStatus(valuationId, "pending", "pending");
       }
 
-      // Generate PDF receipt if site_charge is provided
+      // Clear any saved draft after a successful save
+      await clearDraft().catch(() => {});
+      setDraftValuationId(null);
+
+      // Generate PDF receipt *before* sync so the payment row exists when we sync to Drive
+      let pdfUri: string | null = null;
       if (data.site_charge && data.site_charge > 0) {
         try {
           const receiptData: PaymentReceiptData = {
@@ -295,62 +501,67 @@ const EvaluationForm = () => {
             onlinePaymentMode: data.payment_online_mode,
             pendingDue: data.payment_pending_due || 0,
           };
-
-          const pdfUri = await generatePaymentReceipt(valuationId, receiptData);
+          pdfUri = await generatePaymentReceipt(valuationId, receiptData);
           console.log("PDF receipt generated:", pdfUri);
-
-          // Receipt is saved in app files (visible in Edit). Offer to open/share so user can also "Save to Files" if they want a copy on device.
-          Alert.alert(
-            "Success",
-            isEditMode
-              ? "Valuation updated. Receipt saved in app – open it from Edit, or share to save a copy to Files."
-              : "Valuation saved. Receipt saved in app – open it from Edit, or share to save a copy to Files.",
-            [
-              {
-                text: "Open / Save Receipt",
-                onPress: async () => {
-                  try {
-                    await sharePaymentReceipt(pdfUri);
-                  } catch (shareError) {
-                    console.error("Error sharing receipt:", shareError);
-                  }
-                  router.back();
-                },
-              },
-              {
-                text: "Done",
-                onPress: () => router.back(),
-              },
-            ],
-          );
         } catch (pdfError) {
           console.error("Error generating PDF:", pdfError);
-          // Still show success for the valuation save
-          Alert.alert(
-            "Partial Success",
-            "Valuation saved but receipt generation failed.",
-            [
-              {
-                text: "OK",
-                onPress: () => router.back(),
-              },
-            ],
-          );
         }
-      } else {
-        Alert.alert(
-          "Success",
-          isEditMode
-            ? "Valuation has been updated successfully!"
-            : "Valuation has been saved successfully!",
-          [
-            {
-              text: "OK",
-              onPress: () => router.back(),
-            },
-          ],
-        );
       }
+
+      // Sync to backend (includes receipt if we just generated it)
+      let syncResult: {
+        synced: number;
+        failed: number;
+        errors: string[];
+      } | null = null;
+      if (sessionInfo?.token && user?.id) {
+        try {
+          syncResult = await processQueue(sessionInfo.token, user.id);
+          if (syncResult.synced > 0) {
+            toast({
+              title: "Synced to server",
+              message: "Valuation saved and sent to the server.",
+              preset: "done",
+            });
+          } else if (syncResult.failed > 0 && syncResult.errors.length > 0) {
+            toast({
+              title: "Saved locally",
+              message: `Sync failed: ${syncResult.errors[0]}. Use Sync tab to retry.`,
+              preset: "error",
+            });
+          }
+        } catch (syncErr) {
+          console.error("Sync after submit failed:", syncErr);
+          toast({
+            title: "Saved locally",
+            message: "Sync to server failed. Use Sync tab to retry.",
+            preset: "error",
+          });
+        }
+      }
+
+      // Close form immediately; show toast (no blocking alert)
+      if (pdfUri) {
+        toast({
+          title: "Saved",
+          message:
+            "Receipt saved. Open it from Evaluations → valuation → View receipt.",
+          preset: "done",
+        });
+      } else if (data.site_charge && data.site_charge > 0) {
+        toast({
+          title: "Saved",
+          message: "Valuation saved (receipt generation failed).",
+          preset: "done",
+        });
+      } else {
+        toast({
+          title: "Saved",
+          message: isEditMode ? "Valuation updated." : "Valuation saved.",
+          preset: "done",
+        });
+      }
+      router.back();
     } catch (error) {
       console.error("Error saving valuation:", error);
 
@@ -433,6 +644,7 @@ const EvaluationForm = () => {
       edges={["left"]}
       style={[styles.safeArea, { backgroundColor: theme.colors.surface }]}
     >
+      <SubmitOverlay visible={isSubmitting} />
       <View style={[styles.container, { paddingTop: inset.top + 10 }]}>
         <View style={styles.header}>
           {/* Header Row with Back Button and Title */}
@@ -449,6 +661,17 @@ const EvaluationForm = () => {
             >
               {isEditMode ? "Edit Valuation" : "Property Valuation Form"}
             </Text>
+            <Button
+              mode="contained"
+              onPress={handleSubmitWithValidation}
+              compact
+              loading={isSubmitting}
+              disabled={!canSubmit || isSubmitting}
+              style={styles.headerSubmit}
+              contentStyle={styles.headerSubmitContent}
+            >
+              Submit
+            </Button>
             {receiptUri && (
               <IconButton
                 icon="file-document-outline"
@@ -508,6 +731,15 @@ const EvaluationForm = () => {
             Back
           </Button>
 
+          <Button
+            mode="outlined"
+            onPress={handleSaveDraft}
+            style={styles.button}
+            icon="content-save"
+          >
+            Save Draft
+          </Button>
+
           {currentStep < TOTAL_STEPS - 1 ? (
             <Button
               mode="contained"
@@ -523,12 +755,12 @@ const EvaluationForm = () => {
           ) : (
             <Button
               mode="contained"
-              onPress={form.handleSubmit(onSubmit)}
+              onPress={handleSubmitWithValidation}
               style={styles.button}
               icon="check"
               contentStyle={styles.buttonContent}
               loading={isSubmitting}
-              disabled={isSubmitting || propertyImages.length < 5}
+              disabled={isSubmitting || propertyImages.length < 4}
             >
               Submit
             </Button>
@@ -548,6 +780,53 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loaderCard: {
+    borderRadius: 24,
+    paddingVertical: 32,
+    paddingHorizontal: 40,
+    alignItems: "center",
+    minWidth: 200,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  loaderWrap: {
+    position: "relative",
+    width: 64,
+    height: 64,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  ring: {
+    position: "absolute",
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 3,
+    borderLeftColor: "transparent",
+    borderBottomColor: "transparent",
+  },
+  loaderInner: {
+    position: "absolute",
+    left: 8,
+    top: 8,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  submitText: {
+    marginTop: 20,
+    fontWeight: "600",
+  },
   header: {
     paddingHorizontal: 16,
     paddingBottom: 12,
@@ -560,6 +839,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 12,
+  },
+  headerSubmit: {
+    marginRight: 4,
+  },
+  headerSubmitContent: {
+    height: 36,
   },
   stepIndicator: {
     flexDirection: "row",

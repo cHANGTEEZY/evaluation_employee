@@ -18,7 +18,7 @@ const MIN_AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
  * when WiFi is connected (if enabled in settings)
  */
 export function useAutoSync() {
-  const { sessionInfo, isAuthenticated } = useAuthSession();
+  const { sessionInfo, isAuthenticated, user } = useAuthSession();
   const { isSyncing, setOnlineStatus } = useSyncStore();
   const { autoSyncEnabled, autoSyncOnWifiOnly } = useSettingsStore();
 
@@ -56,8 +56,9 @@ export function useAutoSync() {
         return;
       }
 
-      // Check if there are pending items
-      const pendingValuations = await getPendingSyncValuations();
+      // Check if there are pending items (current user only)
+      const userId = user?.id ?? null;
+      const pendingValuations = await getPendingSyncValuations(userId);
       if (pendingValuations.length === 0) {
         console.log("[AutoSync] No pending items to sync");
         return;
@@ -76,8 +77,8 @@ export function useAutoSync() {
         preset: "none",
       });
 
-      // Run sync
-      const result = await processQueue(sessionInfo.token);
+      // Run sync (current user's items only)
+      const result = await processQueue(sessionInfo.token, userId);
 
       if (!isMountedRef.current) return;
 

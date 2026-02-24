@@ -1,210 +1,104 @@
 import { View, StyleSheet } from "react-native";
-import { Card, Text, Divider, Avatar, useTheme } from "react-native-paper";
+import { Text, useTheme } from "react-native-paper";
 import { useAuthSession } from "../../lib/auth-store";
-import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+
+const SECTION_LABEL = {
+  fontSize: 11,
+  textTransform: "uppercase" as const,
+  letterSpacing: 0.8,
+};
 
 export default function BranchDetails() {
   const { branch, isAuthenticated } = useAuthSession();
   const theme = useTheme();
 
+  const Row = ({
+    icon,
+    label,
+    value,
+  }: {
+    icon: string;
+    label: string;
+    value: string;
+  }) => (
+    <View style={styles.row}>
+      <View style={[styles.iconWrap, { backgroundColor: theme.colors.surfaceVariant }]}>
+        <MaterialCommunityIcons name={icon as any} size={20} color={theme.colors.tertiary} />
+      </View>
+      <View style={styles.rowText}>
+        <Text variant="labelMedium" style={[styles.label, { color: theme.colors.onSurfaceVariant }]}>
+          {label}
+        </Text>
+        <Text variant="bodyLarge" style={{ color: theme.colors.onSurface }} numberOfLines={2}>
+          {value}
+        </Text>
+      </View>
+    </View>
+  );
+
   if (!branch) {
     return (
-      <Card style={styles.card} mode="elevated" elevation={2}>
-        <LinearGradient
-          colors={[theme.colors.tertiaryContainer, theme.colors.tertiary]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.gradientHeader}
-        >
-          <View style={styles.headerContent}>
-            <Avatar.Icon
-              size={56}
-              icon="store"
-              style={styles.avatar}
-              color="white"
-            />
-            <Text variant="headlineSmall" style={styles.headerTitle}>
-              Branch Details
-            </Text>
-          </View>
-        </LinearGradient>
-        <Card.Content
-          style={[
-            styles.content,
-            { alignItems: "center", paddingVertical: 24 },
-          ]}
-        >
+      <View style={[styles.wrapper, { borderTopColor: theme.colors.outlineVariant }]}>
+        <Text style={[styles.sectionTitle, SECTION_LABEL, { color: theme.colors.onSurfaceVariant }]}>
+          Branch
+        </Text>
+        <View style={styles.empty}>
           <MaterialCommunityIcons
-            name="account-lock-outline"
-            size={48}
+            name="store-outline"
+            size={40}
             color={theme.colors.onSurfaceVariant}
           />
-          <Text
-            variant="bodyMedium"
-            style={{
-              color: theme.colors.onSurfaceVariant,
-              marginTop: 12,
-              textAlign: "center",
-            }}
-          >
-            {isAuthenticated
-              ? "No branch assigned"
-              : "Sign in to view branch details"}
+          <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginTop: 8, textAlign: "center" }}>
+            {isAuthenticated ? "No branch assigned" : "Sign in to view branch details"}
           </Text>
-        </Card.Content>
-      </Card>
+        </View>
+      </View>
     );
   }
 
   return (
-    <Card style={styles.card} mode="elevated" elevation={2}>
-      <LinearGradient
-        colors={[theme.colors.tertiaryContainer, theme.colors.tertiary]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.gradientHeader}
-      >
-        <View style={styles.headerContent}>
-          <Avatar.Icon
-            size={56}
-            icon="store"
-            style={styles.avatar}
-            color="white"
-          />
-          <Text variant="headlineSmall" style={styles.headerTitle}>
-            Branch Details
-          </Text>
-        </View>
-      </LinearGradient>
-
-      <Card.Content style={styles.content}>
-        <View style={styles.infoRow}>
-          <View style={styles.iconContainer}>
-            <MaterialCommunityIcons
-              name="store-outline"
-              size={24}
-              color={theme.colors.tertiary}
-            />
-          </View>
-          <View style={styles.infoTextContainer}>
-            <Text
-              variant="labelMedium"
-              style={[styles.label, { color: theme.colors.onSurfaceVariant }]}
-            >
-              Branch Name
-            </Text>
-            <Text variant="bodyLarge" style={styles.value}>
-              {branch.name}
-            </Text>
-          </View>
-        </View>
-
-        <Divider style={styles.divider} />
-
-        <View style={styles.infoRow}>
-          <View style={styles.iconContainer}>
-            <MaterialCommunityIcons
-              name="map-marker-outline"
-              size={24}
-              color={theme.colors.tertiary}
-            />
-          </View>
-          <View style={styles.infoTextContainer}>
-            <Text
-              variant="labelMedium"
-              style={[styles.label, { color: theme.colors.onSurfaceVariant }]}
-            >
-              Branch Address
-            </Text>
-            <Text variant="bodyLarge" style={styles.value}>
-              {branch.address || "N/A"}
-            </Text>
-          </View>
-        </View>
-
-        <Divider style={styles.divider} />
-
-        <View style={styles.infoRow}>
-          <View style={styles.iconContainer}>
-            <MaterialCommunityIcons
-              name="phone-outline"
-              size={24}
-              color={theme.colors.tertiary}
-            />
-          </View>
-          <View style={styles.infoTextContainer}>
-            <Text
-              variant="labelMedium"
-              style={[styles.label, { color: theme.colors.onSurfaceVariant }]}
-            >
-              Contact Number
-            </Text>
-            <Text variant="bodyLarge" style={styles.value}>
-              {branch.contactNumber || "N/A"}
-            </Text>
-          </View>
-        </View>
-      </Card.Content>
-    </Card>
+    <View style={[styles.wrapper, { borderTopColor: theme.colors.outlineVariant }]}>
+      <Text style={[styles.sectionTitle, SECTION_LABEL, { color: theme.colors.onSurfaceVariant }]}>
+        Branch
+      </Text>
+      <Row icon="store-outline" label="Branch Name" value={branch.name} />
+      <Row icon="map-marker-outline" label="Address" value={branch.address || "N/A"} />
+      <Row icon="phone-outline" label="Contact" value={branch.contactNumber || "N/A"} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    marginVertical: 8,
-    borderRadius: 16,
-    overflow: "hidden",
+  wrapper: {
+    paddingVertical: 20,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(0,0,0,0.08)",
   },
-  gradientHeader: {
-    paddingTop: 20,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+  sectionTitle: {
+    marginBottom: 12,
   },
-  headerContent: {
+  row: {
     flexDirection: "row",
     alignItems: "center",
+    paddingVertical: 10,
   },
-  avatar: {
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
-    marginRight: 16,
-  },
-  headerTitle: {
-    fontWeight: "bold",
-    color: "white",
-    flex: 1,
-  },
-  content: {
-    paddingTop: 20,
-    paddingBottom: 12,
-  },
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    paddingVertical: 12,
-  },
-  iconContainer: {
+  iconWrap: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(127, 61, 255, 0.1)",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 16,
+    marginRight: 14,
   },
-  infoTextContainer: {
+  rowText: {
     flex: 1,
   },
   label: {
-    fontSize: 12,
-    marginBottom: 4,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+    marginBottom: 2,
   },
-  value: {
-    fontWeight: "500",
-  },
-  divider: {
-    marginVertical: 4,
+  empty: {
+    alignItems: "center",
+    paddingVertical: 24,
   },
 });

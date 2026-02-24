@@ -23,11 +23,12 @@ import {
   getValuationsMetrics,
   ValuationRow,
 } from "../../lib/schema";
+import { getPresence } from "../../lib/presence-api";
 
 const HomeScreen = () => {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const theme = useTheme();
-  const { session, isAuthenticated } = useAuthSession();
+  const { session, isAuthenticated, user } = useAuthSession();
   const userName =
     isAuthenticated && session?.user?.name ? session.user.name : "Guest";
 
@@ -39,27 +40,54 @@ const HomeScreen = () => {
     synced: 0,
     total: 0,
   });
+  const [presenceLabel, setPresenceLabel] = useState<string | null>(null);
 
-  // Fetch data whenever screen comes into focus
+  const PRESENCE_LABELS: Record<string, string> = {
+    on_site: "On-site",
+    office: "Office",
+    leave: "Leave",
+    others: "Others",
+  };
+
   useFocusEffect(
     useCallback(() => {
       const fetchData = async () => {
-        // Fetch recent valuations
-        const valuations = await getRecentValuations();
+        const userId = user?.id ?? null;
+
+        const valuations = await getRecentValuations(userId);
         setRecentValuations(valuations);
 
-        // Fetch stats
-        const metrics = await getValuationsMetrics();
-        // Map database fields to UI labels: draft → pending, submitted → completed
+        const metrics = await getValuationsMetrics(userId);
+
         setStats({
           pending: metrics.submitted,
           synced: metrics.synced,
           total: metrics.total,
         });
+
+        if (isAuthenticated) {
+          try {
+            const res = await getPresence();
+            if (res.success && res.presenceStatus) {
+              const label = PRESENCE_LABELS[res.presenceStatus] ?? res.presenceStatus;
+              setPresenceLabel(
+                res.presenceStatus === "on_site" && res.presenceClientName?.trim()
+                  ? `${label} (${res.presenceClientName.trim()})`
+                  : label
+              );
+            } else {
+              setPresenceLabel(null);
+            }
+          } catch {
+            setPresenceLabel(null);
+          }
+        } else {
+          setPresenceLabel(null);
+        }
       };
 
       fetchData();
-    }, []),
+    }, [user?.id, isAuthenticated])
   );
 
   // Helper function to format relative time
@@ -98,7 +126,7 @@ const HomeScreen = () => {
             text: "Sign In",
             onPress: () => router.replace("/(auth)/login"),
           },
-        ],
+        ]
       );
       return;
     }
@@ -146,6 +174,25 @@ const HomeScreen = () => {
                 day: "numeric",
               })}
             </Text>
+            {isAuthenticated && presenceLabel && (
+              <View
+                style={{
+                  marginTop: 10,
+                  alignSelf: "flex-start",
+                  backgroundColor: "rgba(255,255,255,0.25)",
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 16,
+                }}
+              >
+                <Text
+                  variant="labelMedium"
+                  style={{ color: "white", fontWeight: "600" }}
+                >
+                  {presenceLabel}
+                </Text>
+              </View>
+            )}
           </View>
 
           <IconButton
@@ -157,7 +204,6 @@ const HomeScreen = () => {
           />
         </View>
 
-        {/* Quick Stats Summary in Header */}
         <View style={styles.headerStatsRow}>
           <View style={styles.headerStatItem}>
             <Text
@@ -449,7 +495,7 @@ const HomeScreen = () => {
               recentValuations.map((item) => {
                 const displayStatus = getStatusDisplay(
                   item.status,
-                  item.sync_status,
+                  item.sync_status
                 );
                 return (
                   <Card
@@ -483,8 +529,8 @@ const HomeScreen = () => {
                               displayStatus === "Pending"
                                 ? "clock-outline"
                                 : displayStatus === "Completed"
-                                  ? "check-circle-outline"
-                                  : "cloud-check"
+                                ? "check-circle-outline"
+                                : "cloud-check"
                             }
                             size={24}
                             color={
@@ -580,6 +626,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
   },
+
   headerTopRow: {
     flexDirection: "row",
     alignItems: "center",

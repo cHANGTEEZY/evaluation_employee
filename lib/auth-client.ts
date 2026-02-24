@@ -14,7 +14,7 @@ export const authClient = createAuthClient({
     onRequest: (ctx) => {
       // Debug: Log outgoing requests
       console.log("[Auth Client] Request URL:", ctx.url);
-      // Accessing method and headers safely via casting if needed for debug
+
       const options = (ctx as any).options;
       if (options) {
         console.log("[Auth Client] Request Method:", options.method);

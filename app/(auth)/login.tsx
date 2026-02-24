@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -8,6 +9,7 @@ import {
   Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as WebBrowser from "expo-web-browser";
 import { authClient } from "../../lib/auth-client";
 import { Link, useRouter } from "expo-router";
 import { Text, TextInput, useTheme, Button } from "react-native-paper";
@@ -15,7 +17,15 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import AuthLogo from "../../features/auth/components/AuthLogo";
 
-import { toast } from "burnt";
+import { toast } from "../../lib/toast";
+import { HapticPressable } from "../../components/ui/HapticPressable";
+import { authenticateWithBiometrics } from "../../lib/biometrics";
+import {
+  hasBiometricCredentials,
+  saveBiometricCredentials,
+  getBiometricCredentials,
+  clearBiometricCredentials,
+} from "../../lib/biometric-credentials";
 
 export default function SignIn() {
   const theme = useTheme();
@@ -43,43 +53,77 @@ export default function SignIn() {
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [biometricLoading, setBiometricLoading] = useState(false);
+  const [hasSavedBiometric, setHasSavedBiometric] = useState(false);
 
-  const handleSignIn = async () => {
-    if (!email || !password) {
-      toast({
-        title: "Error",
-        message: "Please fill in all fields",
-        preset: "error",
-      });
-      return;
+  // Dismiss any auth browser (e.g. redirect to backend URL) when login screen is shown
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    try {
+      WebBrowser.maybeCompleteAuthSession();
+    } catch {
+      // Ignore if there is no auth session to complete
     }
+  }, []);
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      toast({
-        title: "Error",
-        message: "Please enter a valid email address",
-        preset: "error",
-      });
-      return;
+  // Check if biometric credentials are saved from a previous login
+  useEffect(() => {
+    hasBiometricCredentials()
+      .then(setHasSavedBiometric)
+      .catch(() => {});
+  }, []);
+
+  const dismissAuthBrowser = () => {
+    if (Platform.OS === "web") return;
+    try {
+      WebBrowser.maybeCompleteAuthSession();
+    } catch {
+      // Safe guard: nothing to dismiss / already handled
     }
+    if (typeof WebBrowser.dismissBrowser === "function") {
+      try {
+        // Some platforms may throw if there is no browser to dismiss
+        // Wrap in try/catch so it never crash the app.
+        WebBrowser.dismissBrowser();
+      } catch {
+        // Ignore – there was simply no browser to dismiss
+      }
+    }
+  };
 
+  //core sign-in helper
+  const performSignIn = async (
+    loginEmail: string,
+    loginPassword: string,
+    opts?: { skipBiometricPrompt?: boolean },
+  ) => {
     setLoading(true);
 
     try {
       await authClient.signIn.email(
         {
-          email: email.trim(),
-          password,
+          email: loginEmail.trim(),
+          password: loginPassword,
           callbackURL: "/(tabs)",
         },
         {
           onSuccess: async () => {
+            dismissAuthBrowser();
             toast({
               title: "Success",
               message: "Login successful!",
               preset: "done",
             });
+
+            // Offer to save credentials for biometric login (only on first manual login)
+            if (!opts?.skipBiometricPrompt) {
+              const alreadySaved = await hasBiometricCredentials();
+              if (!alreadySaved) {
+                promptEnableBiometric(loginEmail, loginPassword);
+                return; // navigation happens inside the prompt callback
+              }
+            }
+
             router.replace("/(tabs)/home");
           },
           onError: (ctx) => {
@@ -124,6 +168,109 @@ export default function SignIn() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  /** Show a native alert asking the user to enable biometric login. */
+  const promptEnableBiometric = (loginEmail: string, loginPassword: string) => {
+    Alert.alert(
+      "Enable Biometric Login",
+      "Use Face ID / fingerprint to log in next time?",
+      [
+        {
+          text: "Not Now",
+          style: "cancel",
+          onPress: () => router.replace("/(tabs)/home"),
+        },
+        {
+          text: "Enable",
+          onPress: async () => {
+            try {
+              await saveBiometricCredentials(loginEmail, loginPassword);
+              setHasSavedBiometric(true);
+              toast({
+                title: "Biometric login enabled",
+                preset: "done",
+              });
+            } catch {
+              // Non-critical — just skip
+            }
+            router.replace("/(tabs)/home");
+          },
+        },
+      ],
+    );
+  };
+
+  /** Manual form sign-in (validates typed fields, then calls performSignIn). */
+  const handleSignIn = async () => {
+    if (!email || !password) {
+      toast({
+        title: "Error",
+        message: "Please fill in all fields",
+        preset: "error",
+      });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast({
+        title: "Error",
+        message: "Please enter a valid email address",
+        preset: "error",
+      });
+      return;
+    }
+
+    await performSignIn(email, password);
+  };
+
+  /** Biometric login — retrieves saved credentials after a successful OS prompt. */
+  const handleBiometricLogin: () => Promise<void> = async () => {
+    if (loading || biometricLoading) return;
+
+    if (!hasSavedBiometric) {
+      toast({
+        title: "Biometric login",
+        message: "Log in manually first to enable biometric login.",
+        preset: "error",
+      });
+      return;
+    }
+
+    setBiometricLoading(true);
+    try {
+      const ok = await authenticateWithBiometrics();
+      if (!ok) return;
+
+      const creds = await getBiometricCredentials();
+      if (!creds) {
+        toast({
+          title: "Biometric login",
+          message: "Saved credentials not found. Please log in manually.",
+          preset: "error",
+        });
+        setHasSavedBiometric(false);
+        return;
+      }
+
+      await performSignIn(creds.email, creds.password, {
+        skipBiometricPrompt: true,
+      });
+    } catch (error) {
+      console.error("Biometric login error:", error);
+      // If the sign-in itself failed (e.g. password changed on server),
+      // clear the stale credentials so the user isn't stuck.
+      await clearBiometricCredentials();
+      setHasSavedBiometric(false);
+      toast({
+        title: "Biometric login failed",
+        message: "Please log in with your email and password.",
+        preset: "error",
+      });
+    } finally {
+      setBiometricLoading(false);
     }
   };
 
@@ -277,19 +424,41 @@ export default function SignIn() {
                 ]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={{ borderRadius: 12 }}
+                style={{ borderRadius: 12, flex: 1 }}
               >
-                <Button
-                  mode="contained"
-                  onPress={handleSignIn}
-                  disabled={loading}
-                  contentStyle={{ height: 46 }}
-                  style={{ borderRadius: 12, backgroundColor: "transparent" }}
-                  labelStyle={styles.buttonText}
-                >
-                  {loading ? "Signing in..." : "Login"}
-                </Button>
+                <HapticPressable onPress={handleSignIn} disabled={loading}>
+                  <Button
+                    mode="contained"
+                    contentStyle={{ height: 46 }}
+                    style={{ borderRadius: 12, backgroundColor: "transparent" }}
+                    labelStyle={styles.buttonText}
+                  >
+                    {loading ? "Signing in..." : "Login"}
+                  </Button>
+                </HapticPressable>
               </LinearGradient>
+              <HapticPressable
+                style={{
+                  marginRight: 10,
+                  borderWidth: 1,
+                  padding: 5,
+                  borderColor: hasSavedBiometric
+                    ? theme.colors.primary
+                    : colors.borderColor,
+                  borderRadius: 10,
+                  opacity: loading || biometricLoading ? 0.5 : 1,
+                }}
+                disabled={loading || biometricLoading}
+                onPress={handleBiometricLogin}
+              >
+                <MaterialCommunityIcons
+                  name="face-recognition"
+                  size={40}
+                  color={
+                    hasSavedBiometric ? theme.colors.primary : colors.iconColor
+                  }
+                />
+              </HapticPressable>
             </View>
 
             {/* <Divider
@@ -368,6 +537,10 @@ const styles = StyleSheet.create({
   },
   buttonSection: {
     marginTop: 32,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 20,
   },
   signInButton: {
     borderRadius: 12,

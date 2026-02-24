@@ -35,6 +35,8 @@ const MenuDrawer = ({ visible, onDismiss }: MenuDrawerProps) => {
   const handleAuthAction = () => {
     onDismiss();
     if (isAuthenticated) {
+      // Do NOT clear biometric credentials here — they should survive
+      // sign-outs so the user can biometric-login back in.
       signOut();
     } else {
       router.push("/(auth)/login");

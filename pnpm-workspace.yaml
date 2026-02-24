@@ -1,2 +1,5 @@
 onlyBuiltDependencies:
   - '@shopify/react-native-skia'
+
+patchedDependencies:
+  '@better-auth/expo': patches/@better-auth__expo.patch

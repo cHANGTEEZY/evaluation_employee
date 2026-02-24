@@ -1,30 +1,29 @@
 import React from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
-import { useFormContext } from "react-hook-form";
+import { Controller, useFormContext } from "react-hook-form";
+import { Dropdown } from "react-native-paper-dropdown";
 import FormInput from "../ui/FormInput";
 import FormSelect from "../ui/FormSelect";
 import FormPillToggleGroup from "../ui/FormPillToggleGroup";
-import FormPillToggleWithSetback from "../ui/FormPillToggleWithSetback";
+import RiskYesNoWithSetback from "../ui/RiskYesNoWithSetback";
+
+const RIGHT_OF_WAY_OPTIONS = [
+  { label: "None", value: "" },
+  { label: "3 m", value: "3" },
+  { label: "4 m", value: "4" },
+  { label: "6 m", value: "6" },
+  { label: "8 m", value: "8" },
+  { label: "22 m", value: "22" },
+  { label: "50 m", value: "50" },
+  { label: "Other", value: "other" },
+];
 
 const propertyTypeOptions = [
   { label: "Residential", value: "residential" },
   { label: "Commercial", value: "commercial" },
   { label: "Industrial", value: "industrial" },
   { label: "Agricultural", value: "agricultural" },
-];
-
-const ownershipTypeOptions = [
-  { label: "Company", value: "company" },
-  { label: "Individual (Single)", value: "individual_single" },
-  { label: "Individual (Joint)", value: "individual_joint" },
-];
-
-const transferOptions = [
-  { label: "Sale", value: "sale" },
-  { label: "Bokupatra", value: "Bokupatra" },
-  { label: "Family Separation", value: "family_separation" },
-  { label: "Habalish", value: "habalish" },
 ];
 
 const holdTypeOptions = [
@@ -37,6 +36,7 @@ const roadTypeOptions = [
   { label: "Gravel", value: "gravel" },
   { label: "Earthen", value: "earthen" },
   { label: "Concrete", value: "concrete" },
+  { label: "Others", value: "others" },
 ];
 
 const directionOptions = [
@@ -55,13 +55,8 @@ const accessRoadDirectionOptions = [
   { label: "Others", value: "others" },
 ];
 
-// Road & Access options (moved from Access & Rights)
+// Road & Access options (Right of Way is now a separate dropdown in meters)
 const roadAccessOptions = [
-  {
-    name: "right_of_way",
-    label: "Right of Way",
-    icon: "road-variant" as const,
-  },
   { name: "motorable_access", label: "Motorable", icon: "car" as const },
   {
     name: "electricity_available",
@@ -112,8 +107,34 @@ const riskAreaOptions = [
 ];
 
 const Step2 = () => {
-  const { watch } = useFormContext();
+  const { watch, setValue, control } = useFormContext();
   const accessRoadDirection = watch("access_road_direction");
+  const roadType = watch("road_type");
+  const rightOfWayWidthFt = watch("right_of_way_width_ft");
+
+  // Derive display value for Right of Way (m) select from stored number
+  const rightOfWaySelectValue =
+    rightOfWayWidthFt == null || rightOfWayWidthFt === undefined
+      ? ""
+      : [3, 4, 6, 8, 22, 50].includes(rightOfWayWidthFt)
+        ? String(rightOfWayWidthFt)
+        : "other";
+
+  const handleRightOfWaySelect = (value: string) => {
+    setValue("right_of_way_m", value);
+    if (value === "") {
+      setValue("right_of_way_width_ft", undefined);
+      setValue("right_of_way", false);
+    } else if (value === "other") {
+      setValue("right_of_way", true);
+    } else {
+      const num = Number(value);
+      if (!Number.isNaN(num)) {
+        setValue("right_of_way_width_ft", num);
+        setValue("right_of_way", true);
+      }
+    }
+  };
 
   return (
     <ScrollView
@@ -129,16 +150,6 @@ const Step2 = () => {
         options={propertyTypeOptions}
       />
       <FormSelect
-        name="property_ownership_type"
-        label="Ownership Type"
-        options={ownershipTypeOptions}
-      />
-      <FormSelect
-        name="ownership_transferred_through"
-        label="Transferred Through"
-        options={transferOptions}
-      />
-      <FormSelect
         name="hold_type"
         label="Hold Type"
         options={holdTypeOptions}
@@ -152,6 +163,12 @@ const Step2 = () => {
         label="Road Type"
         options={roadTypeOptions}
       />
+      {roadType === "others" && (
+        <FormInput
+          name="road_type_others"
+          label="Other road type (specify)"
+        />
+      )}
       <FormInput
         name="road_width"
         label="Road Width (ft)"
@@ -170,7 +187,34 @@ const Step2 = () => {
         />
       )}
 
-      {/* Road & Access options - includes Right of Way, Motorable, Electricity, Drainage */}
+      {/* Right of Way (m) – same style as Road Type */}
+      <Controller
+        control={control}
+        name="right_of_way_m"
+        render={({ field: { onChange } }) => (
+          <View style={styles.selectContainer}>
+            <Dropdown
+              label="Right of Way (m)"
+              options={RIGHT_OF_WAY_OPTIONS}
+              value={rightOfWaySelectValue}
+              onSelect={(v) => {
+                handleRightOfWaySelect(v);
+                onChange(v);
+              }}
+              mode="outlined"
+            />
+          </View>
+        )}
+      />
+      {rightOfWaySelectValue === "other" && (
+        <FormInput
+          name="right_of_way_width_ft"
+          label="Right of Way (m) – specify"
+          keyboardType="decimal-pad"
+        />
+      )}
+
+      {/* Road & Access options – Motorable, Electricity, Drainage */}
       <FormPillToggleGroup options={roadAccessOptions} />
 
       <Text variant="titleMedium" style={styles.sectionTitle}>
@@ -205,14 +249,9 @@ const Step2 = () => {
         label="Commercial Rate (per Anna)"
         keyboardType="decimal-pad"
       />
-      <FormInput
-        name="government_rate_per_anna"
-        label="Government Rate (per Anna)"
-        keyboardType="decimal-pad"
-      />
 
-      {/* Risk / Area - with Setback fields */}
-      <FormPillToggleWithSetback
+      {/* Risk / Area - explicit Yes/No with setback when Yes */}
+      <RiskYesNoWithSetback
         options={riskAreaOptions}
         label="Risk / Area"
         setbackLabel="Setback (ft)"
@@ -254,6 +293,9 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 8,
     fontWeight: "bold",
+  },
+  selectContainer: {
+    marginBottom: 12,
   },
 });
 

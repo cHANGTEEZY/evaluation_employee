@@ -44,7 +44,7 @@ interface SyncItem {
 
 export default function SyncScreen() {
   const theme = useTheme();
-  const { sessionInfo, isAuthenticated } = useAuthSession();
+  const { sessionInfo, isAuthenticated, user, branch } = useAuthSession();
   const { isOnline, checkConnection } = useNetwork();
   const insets = useSafeAreaInsets();
   const {
@@ -65,11 +65,18 @@ export default function SyncScreen() {
     errors: string[];
   } | null>(null);
 
-  // Load pending and failed valuations
+  // Employee without branch cannot sync (proactive check when session has role/branch)
+  const isEmployeeWithoutBranch =
+    isAuthenticated &&
+    (user as { role?: string } | null)?.role === "user" &&
+    !branch;
+
+  // Load pending and failed valuations (current user only; empty when logged out)
   const loadSyncItems = useCallback(async () => {
     try {
-      const pendingValuations = await getPendingSyncValuations();
-      const failedValuations = await getFailedSyncValuations();
+      const userId = user?.id ?? null;
+      const pendingValuations = await getPendingSyncValuations(userId);
+      const failedValuations = await getFailedSyncValuations(userId);
 
       // Combine pending and failed valuations
       const allValuations = [...pendingValuations, ...failedValuations];
@@ -97,7 +104,7 @@ export default function SyncScreen() {
     } catch (error) {
       console.error("Failed to load sync items:", error);
     }
-  }, [setPendingItems, setFailedItems]);
+  }, [setPendingItems, setFailedItems, user?.id]);
 
   // Refresh on focus
   useFocusEffect(
@@ -121,11 +128,18 @@ export default function SyncScreen() {
       router.push("/(auth)/login");
       return;
     }
+    if (isEmployeeWithoutBranch) return;
     setSyncResult(null);
-    const result = await processQueue(sessionInfo?.token);
+    const result = await processQueue(sessionInfo?.token, user?.id);
     setSyncResult(result);
     await loadSyncItems();
-  }, [sessionInfo?.token, loadSyncItems, isAuthenticated]);
+  }, [
+    sessionInfo?.token,
+    loadSyncItems,
+    isAuthenticated,
+    isEmployeeWithoutBranch,
+    user?.id,
+  ]);
 
   // Handle retry
   const handleRetry = useCallback(async () => {
@@ -134,11 +148,18 @@ export default function SyncScreen() {
       router.push("/(auth)/login");
       return;
     }
+    if (isEmployeeWithoutBranch) return;
     setSyncResult(null);
-    const result = await retryFailedSync(sessionInfo?.token);
+    const result = await retryFailedSync(sessionInfo?.token, user?.id);
     setSyncResult(result);
     await loadSyncItems();
-  }, [sessionInfo?.token, loadSyncItems, isAuthenticated]);
+  }, [
+    sessionInfo?.token,
+    loadSyncItems,
+    isAuthenticated,
+    isEmployeeWithoutBranch,
+    user?.id,
+  ]);
 
   // Format last synced time (helper)
   const formatTimeAgo = (timestamp: number) => {
@@ -423,6 +444,31 @@ export default function SyncScreen() {
         }
       >
         <View style={styles.content}>
+          {isEmployeeWithoutBranch && (
+            <Card
+              style={[styles.resultBanner, { backgroundColor: "#FEF3C7" }]}
+              mode="elevated"
+              elevation={0}
+            >
+              <Card.Content style={{ paddingVertical: 12 }}>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <MaterialCommunityIcons
+                    name="alert-circle-outline"
+                    size={24}
+                    color="#92400E"
+                    style={{ marginRight: 12 }}
+                  />
+                  <Text
+                    variant="bodyMedium"
+                    style={{ color: "#92400E", flex: 1 }}
+                  >
+                    Ask your admin to assign you to a branch to sync valuations.
+                  </Text>
+                </View>
+              </Card.Content>
+            </Card>
+          )}
+
           {isSyncing && (
             <Surface style={styles.progressCard} elevation={1}>
               <View style={styles.progressHeader}>
@@ -545,7 +591,9 @@ export default function SyncScreen() {
               <Button
                 mode="elevated"
                 onPress={handleRetry}
-                disabled={!isOnline || isSyncing}
+                disabled={
+                  !isOnline || isSyncing || isEmployeeWithoutBranch
+                }
                 style={{
                   flex: 1,
                   marginRight: 12,
@@ -563,7 +611,12 @@ export default function SyncScreen() {
               mode="contained"
               icon={isSyncing ? undefined : "cloud-sync"}
               onPress={handleSync}
-              disabled={!isOnline || isSyncing || pendingCount === 0}
+              disabled={
+                !isOnline ||
+                isSyncing ||
+                pendingCount === 0 ||
+                isEmployeeWithoutBranch
+              }
               loading={isSyncing}
               style={{
                 flex: 1,

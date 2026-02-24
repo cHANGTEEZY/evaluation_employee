@@ -1,5 +1,5 @@
 import axios from "axios";
-import { BASE_API_URL } from "../constants";
+import { BASE_API_URL, ADMIN_SESSION_COOKIE_NAME } from "../constants";
 import { useAuthStore } from "./auth-store";
 
 export const apiClient = axios.create({
@@ -20,7 +20,7 @@ apiClient.interceptors.request.use(
     if (token) {
       // Better-auth compatibility: send token as a cookie
       // Some backends might also accept Authorization: Bearer <token>
-      config.headers["Cookie"] = `better-auth.session_token=${token}`;
+      config.headers["Cookie"] = `${ADMIN_SESSION_COOKIE_NAME}=${token}`;
 
       // Also add Authorization header just in case the backend supports it
       config.headers["Authorization"] = `Bearer ${token}`;

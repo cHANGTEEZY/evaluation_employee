@@ -27,17 +27,20 @@ import {
   updateValuation,
 } from "../../lib/schema";
 import { ValuationFormValues } from "../../constants/form-schema";
+import { useAuthSession } from "../../lib/auth-store";
 
 const EvaluationDetail = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
   const router = useRouter();
+  const { user, isAuthenticated } = useAuthSession();
 
   const [valuation, setValuation] = useState<ValuationRow | null>(null);
   const [formValues, setFormValues] =
     useState<Partial<ValuationFormValues> | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
 
   const inset = useSafeAreaInsets();
 
@@ -48,11 +51,24 @@ const EvaluationDetail = () => {
   const loadValuation = async () => {
     try {
       setLoading(true);
+      setAccessDenied(false);
       const data = await getValuationById(id);
-      if (data) {
-        setValuation(data);
-        setFormValues(rowToFormValues(data));
+      if (!data) return;
+      // Only the creator can access this valuation; when logged out, no access
+      if (!isAuthenticated || !user) {
+        setAccessDenied(true);
+        setValuation(null);
+        setFormValues(null);
+        return;
       }
+      if (data.employee_id !== user.id) {
+        setAccessDenied(true);
+        setValuation(null);
+        setFormValues(null);
+        return;
+      }
+      setValuation(data);
+      setFormValues(rowToFormValues(data));
     } catch (error) {
       console.error("Error loading valuation:", error);
       Alert.alert("Error", "Failed to load valuation details");
@@ -122,7 +138,7 @@ const EvaluationDetail = () => {
     );
   }
 
-  if (!valuation || !formValues) {
+  if (accessDenied || !valuation || !formValues) {
     return (
       <SafeAreaView
         style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -133,8 +149,15 @@ const EvaluationDetail = () => {
             size={64}
             color={theme.colors.error}
           />
-          <Text variant="titleMedium" style={{ marginTop: 16 }}>
-            Valuation not found
+          <Text
+            variant="titleMedium"
+            style={{ marginTop: 16, textAlign: "center" }}
+          >
+            {accessDenied
+              ? !isAuthenticated
+                ? "Log in to see your valuations"
+                : "You don't have access to this valuation"
+              : "Valuation not found"}
           </Text>
           <Button
             mode="contained"
@@ -219,45 +242,81 @@ const EvaluationDetail = () => {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
-        {/* Basic Information */}
+        {/* 0. Property Location (matches form Step 0) */}
+        {(valuation.latitude != null || valuation.longitude != null) && (
+          <Card style={styles.card}>
+            <Card.Title
+              title="Property Location"
+              left={(props) => (
+                <List.Icon {...props} icon="map-marker-outline" />
+              )}
+            />
+            <Card.Content>
+              <InfoRow
+                label="Latitude"
+                value={valuation.latitude?.toString()}
+              />
+              <InfoRow
+                label="Longitude"
+                value={valuation.longitude?.toString()}
+              />
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* 1. Basic Details (matches form Step 1) */}
         <Card style={styles.card}>
           <Card.Title
-            title="Basic Information"
+            title="Basic Details"
             left={(props) => (
               <List.Icon {...props} icon="information-outline" />
             )}
           />
           <Card.Content>
+            <InfoRow label="Ref No." value={valuation.ref_no} />
+            <InfoRow
+              label="Valuation Date"
+              value={formatDate(valuation.valuation_date)}
+            />
             <InfoRow label="Branch" value={valuation.branch} />
+            <InfoRow label="Bank Name" value={valuation.bank_name} />
+            <InfoRow
+              label="Bank Branch Name"
+              value={valuation.bank_branch_name}
+            />
             <InfoRow label="Client Name" value={valuation.client_name} />
             <InfoRow label="Contact Number" value={valuation.contact_number} />
             <InfoRow
-              label="Client Address"
+              label="Client Address (Nagrita)"
               value={valuation.client_address_nagrita}
             />
+            <InfoRow
+              label="Owner of Property"
+              value={valuation.owner_of_property}
+            />
+            <InfoRow
+              label="Property Address (Deed)"
+              value={valuation.property_address_deed}
+            />
+            <InfoRow label="Plot No." value={valuation.plot_no} />
+            <InfoRow
+              label="Present Property Address"
+              value={valuation.present_property_address}
+            />
             <InfoRow label="District" value={valuation.district} />
+            <InfoRow label="City" value={valuation.city} />
+            <InfoRow label="Tole / Area" value={valuation.tole_area} />
             <InfoRow label="Valuation For" value={valuation.valuation_for} />
           </Card.Content>
         </Card>
 
-        {/* Property Details */}
+        {/* 2. Property Details (matches form Step 2) */}
         <Card style={styles.card}>
           <Card.Title
             title="Property Details"
             left={(props) => <List.Icon {...props} icon="home-outline" />}
           />
           <Card.Content>
-            <InfoRow label="Owner" value={valuation.owner_of_property} />
-            <InfoRow
-              label="Property Address (Deed)"
-              value={valuation.property_address_deed}
-            />
-            <InfoRow
-              label="Present Address"
-              value={valuation.present_property_address}
-            />
-            <InfoRow label="Plot No." value={valuation.plot_no} />
-            <Divider style={{ marginVertical: 12 }} />
             <InfoRow label="Property Type" value={valuation.property_type} />
             <InfoRow
               label="Ownership Type"
@@ -268,30 +327,24 @@ const EvaluationDetail = () => {
               value={valuation.ownership_transferred_through}
             />
             <InfoRow label="Hold Type" value={valuation.hold_type} />
-          </Card.Content>
-        </Card>
-
-        {/* Location & Access */}
-        <Card style={styles.card}>
-          <Card.Title
-            title="Location & Access"
-            left={(props) => <List.Icon {...props} icon="map-marker-outline" />}
-          />
-          <Card.Content>
+            <Divider style={{ marginVertical: 12 }} />
             <InfoRow label="Road Type" value={valuation.road_type} />
             <InfoRow
               label="Road Width"
-              value={valuation.road_width ? `${valuation.road_width} ft` : null}
+              value={
+                valuation.road_width != null
+                  ? `${valuation.road_width} ft`
+                  : null
+              }
             />
             <InfoRow
-              label="Access Direction"
+              label="Access Road Direction"
               value={valuation.access_road_direction}
             />
-            <Divider style={{ marginVertical: 12 }} />
             <InfoRow
-              label="Property Area"
+              label="Property Area Length"
               value={
-                valuation.property_area_length
+                valuation.property_area_length != null
                   ? `${valuation.property_area_length} sq ft`
                   : null
               }
@@ -305,142 +358,48 @@ const EvaluationDetail = () => {
               value={formatBoolean(valuation.motorable_access)}
             />
             <InfoRow
-              label="Electricity"
+              label="Electricity Available"
               value={formatBoolean(valuation.electricity_available)}
             />
             <InfoRow
-              label="Drainage"
+              label="Drainage Near Property"
               value={formatBoolean(valuation.drainage_near_property)}
             />
-          </Card.Content>
-        </Card>
-
-        {/* Building Information */}
-        {valuation.building_type && (
-          <Card style={styles.card}>
-            <Card.Title
-              title="Building Information"
-              left={(props) => (
-                <List.Icon {...props} icon="office-building-outline" />
-              )}
-            />
-            <Card.Content>
-              <InfoRow label="Building Type" value={valuation.building_type} />
-              <InfoRow
-                label="Building Purpose"
-                value={valuation.building_purpose}
-              />
-              <InfoRow
-                label="Number of Storeys"
-                value={valuation.number_of_storeys?.toString()}
-              />
-              <InfoRow
-                label="Storey Height"
-                value={
-                  valuation.storey_height
-                    ? `${valuation.storey_height} ft`
-                    : null
-                }
-              />
-              <InfoRow
-                label="Building Age"
-                value={
-                  valuation.building_age_years
-                    ? `${valuation.building_age_years} years`
-                    : null
-                }
-              />
-              <InfoRow
-                label="Completion Date"
-                value={formatDate(valuation.completion_date)}
-              />
-            </Card.Content>
-          </Card>
-        )}
-
-        {/* Land Rates */}
-        <Card style={styles.card}>
-          <Card.Title
-            title="Land Rates"
-            left={(props) => <List.Icon {...props} icon="currency-usd" />}
-          />
-          <Card.Content>
+            <Divider style={{ marginVertical: 12 }} />
             <InfoRow
-              label="Commercial Rate"
+              label="Commercial Rate (per anna)"
               value={
-                valuation.commercial_rate_per_anna
-                  ? `NPR ${valuation.commercial_rate_per_anna.toLocaleString()}/anna`
+                valuation.commercial_rate_per_anna != null
+                  ? `NPR ${valuation.commercial_rate_per_anna.toLocaleString()}`
                   : null
               }
             />
             <InfoRow
-              label="Government Rate"
+              label="Government Rate (per anna)"
               value={
-                valuation.government_rate_per_anna
-                  ? `NPR ${valuation.government_rate_per_anna.toLocaleString()}/anna`
+                valuation.government_rate_per_anna != null
+                  ? `NPR ${valuation.government_rate_per_anna.toLocaleString()}`
                   : null
               }
             />
             <InfoRow
-              label="Site Charge"
+              label="High Land (ft)"
+              value={valuation.high_land_ft?.toString()}
+            />
+            <InfoRow
+              label="Low Land (ft)"
+              value={valuation.low_land_ft?.toString()}
+            />
+            <InfoRow
+              label="Slope (degrees)"
               value={
-                valuation.site_charge
-                  ? `NPR ${valuation.site_charge.toLocaleString()}`
+                valuation.slope_degree != null
+                  ? `${valuation.slope_degree}°`
                   : null
               }
             />
-          </Card.Content>
-        </Card>
-
-        {/* Topography */}
-        {(valuation.latitude ||
-          valuation.longitude ||
-          valuation.slope_degree) && (
-          <Card style={styles.card}>
-            <Card.Title
-              title="Topography"
-              left={(props) => <List.Icon {...props} icon="terrain" />}
-            />
-            <Card.Content>
-              <InfoRow
-                label="Latitude"
-                value={valuation.latitude?.toString()}
-              />
-              <InfoRow
-                label="Longitude"
-                value={valuation.longitude?.toString()}
-              />
-              <InfoRow
-                label="Slope"
-                value={
-                  valuation.slope_degree ? `${valuation.slope_degree}°` : null
-                }
-              />
-              <InfoRow
-                label="High Land"
-                value={
-                  valuation.high_land_ft ? `${valuation.high_land_ft} ft` : null
-                }
-              />
-              <InfoRow
-                label="Low Land"
-                value={
-                  valuation.low_land_ft ? `${valuation.low_land_ft} ft` : null
-                }
-              />
-            </Card.Content>
-          </Card>
-        )}
-
-        {/* Risk Areas */}
-        <Card style={styles.card}>
-          <Card.Title
-            title="Risk Assessment"
-            left={(props) => <List.Icon {...props} icon="alert-outline" />}
-          />
-          <Card.Content>
             <InfoRow
-              label="Landslide Prone"
+              label="Landslide Prone Area"
               value={formatBoolean(valuation.landslide_prone_area)}
             />
             <InfoRow
@@ -458,20 +417,126 @@ const EvaluationDetail = () => {
           </Card.Content>
         </Card>
 
-        {/* Site Notes */}
-        {valuation.site_plan_note && (
-          <Card style={styles.card}>
-            <Card.Title
-              title="Site Notes"
-              left={(props) => (
-                <List.Icon {...props} icon="note-text-outline" />
-              )}
+        {/* 3. Building & Documents (matches form Step 3) */}
+        <Card style={styles.card}>
+          <Card.Title
+            title="Building & Documents"
+            left={(props) => (
+              <List.Icon {...props} icon="office-building-outline" />
+            )}
+          />
+          <Card.Content>
+            <InfoRow label="Building Type" value={valuation.building_type} />
+            <InfoRow
+              label="Building Purpose"
+              value={valuation.building_purpose}
             />
-            <Card.Content>
-              <Text variant="bodyMedium">{valuation.site_plan_note}</Text>
-            </Card.Content>
-          </Card>
-        )}
+            <InfoRow
+              label="Number of Storeys"
+              value={valuation.number_of_storeys?.toString()}
+            />
+            <InfoRow
+              label="Storey Height"
+              value={
+                valuation.storey_height != null
+                  ? `${valuation.storey_height} ft`
+                  : null
+              }
+            />
+            <InfoRow
+              label="Building Age (years)"
+              value={valuation.building_age_years?.toString()}
+            />
+            <InfoRow
+              label="Completion Date"
+              value={formatDate(valuation.completion_date)}
+            />
+          </Card.Content>
+        </Card>
+
+        {/* 4. Site Plan & Payment (matches form Step 4) */}
+        <Card style={styles.card}>
+          <Card.Title
+            title="Site Plan & Payment"
+            left={(props) => <List.Icon {...props} icon="currency-usd" />}
+          />
+          <Card.Content>
+            {valuation.site_plan_note ? (
+              <>
+                <InfoRow
+                  label="Site Plan Note"
+                  value={valuation.site_plan_note}
+                />
+                <Divider style={{ marginVertical: 12 }} />
+              </>
+            ) : null}
+            <InfoRow
+              label="Site Charge"
+              value={
+                valuation.site_charge != null
+                  ? `NPR ${valuation.site_charge.toLocaleString()}`
+                  : null
+              }
+            />
+            <InfoRow
+              label="Payment (Cash)"
+              value={
+                valuation.payment_cash != null
+                  ? `NPR ${valuation.payment_cash.toLocaleString()}`
+                  : null
+              }
+            />
+            <InfoRow
+              label="Payment (Online)"
+              value={
+                valuation.payment_online != null
+                  ? `NPR ${valuation.payment_online.toLocaleString()}`
+                  : null
+              }
+            />
+            <InfoRow
+              label="Payment Online Mode"
+              value={valuation.payment_online_mode}
+            />
+            <InfoRow
+              label="Payment Pending Due"
+              value={
+                valuation.payment_pending_due != null
+                  ? `NPR ${valuation.payment_pending_due.toLocaleString()}`
+                  : null
+              }
+            />
+          </Card.Content>
+        </Card>
+
+        {/* 5. Property Images (matches form Step 5) */}
+        {valuation.property_images &&
+          (() => {
+            try {
+              const images = JSON.parse(valuation.property_images) as string[];
+              if (Array.isArray(images) && images.length > 0) {
+                return (
+                  <Card style={styles.card}>
+                    <Card.Title
+                      title="Property Images"
+                      left={(props) => (
+                        <List.Icon {...props} icon="image-multiple-outline" />
+                      )}
+                    />
+                    <Card.Content>
+                      <Text variant="bodyMedium">
+                        {images.length} image{images.length !== 1 ? "s" : ""}{" "}
+                        attached
+                      </Text>
+                    </Card.Content>
+                  </Card>
+                );
+              }
+            } catch {
+              // ignore
+            }
+            return null;
+          })()}
 
         {/* Metadata */}
         <Card style={[styles.card, { marginBottom: 100 }]}>

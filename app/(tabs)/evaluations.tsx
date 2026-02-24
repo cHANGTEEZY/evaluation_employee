@@ -18,10 +18,11 @@ import {
   seedDummyValuation,
 } from "../../lib/schema";
 
-type Status = "Pending" | "submitted" | "Synced";
+type Status = "Draft" | "Pending" | "submitted" | "Synced";
 
 // Helper function to get status display
 const getStatusDisplay = (status: string, syncStatus: string): Status => {
+  if (status === "draft") return "Draft";
   if (syncStatus === "synced") return "Synced";
   if (status === "submitted") return "submitted";
   return "Pending";
@@ -36,18 +37,19 @@ export default function EvaluationsScreen() {
 
   const theme = useTheme();
   const router = useRouter();
+  const { user, isAuthenticated } = useAuthSession();
 
   const refetchValuations = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getAllValuations();
+      const data = await getAllValuations(user?.id ?? null);
       setValuations(data);
     } catch (error) {
       console.error("Error fetching valuations:", error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   // Fetch valuations whenever screen comes into focus
   useFocusEffect(
@@ -58,18 +60,18 @@ export default function EvaluationsScreen() {
 
   const handleSeedDummy = useCallback(async () => {
     try {
-      await seedDummyValuation();
+      await seedDummyValuation({ employeeId: user?.id });
       await refetchValuations();
     } catch (error) {
       console.error("Seed dummy failed:", error);
     }
-  }, [refetchValuations]);
+  }, [refetchValuations, user?.id]);
 
   // Filter and search valuations
   const filteredData = useMemo(() => {
     let filtered = valuations;
 
-    // Filter by status
+    // Filter by status (Draft = status 'draft'; others by display status)
     if (selectedFilter !== "All") {
       filtered = filtered.filter((item) => {
         const displayStatus = getStatusDisplay(item.status, item.sync_status);
@@ -169,6 +171,12 @@ export default function EvaluationsScreen() {
               selected: selectedFilter === "All",
             },
             {
+              icon: "file-document-edit-outline",
+              name: "Draft",
+              onPress: () => setSelectedFilter("Draft"),
+              selected: selectedFilter === "Draft",
+            },
+            {
               icon: "clock-outline",
               name: "Pending",
               onPress: () => setSelectedFilter("Pending"),
@@ -251,9 +259,11 @@ export default function EvaluationsScreen() {
                 marginTop: 8,
               }}
             >
-              {searchText
-                ? `No results matching "${searchText}"`
-                : `You don't have any ${selectedFilter.toLowerCase()} valuations yet.`}
+              {!isAuthenticated
+                ? "Log in to see your valuations"
+                : searchText
+                  ? `No results matching "${searchText}"`
+                  : `You don't have any ${selectedFilter.toLowerCase()} valuations yet.`}
             </Text>
           </View>
         ) : (
@@ -284,7 +294,9 @@ export default function EvaluationsScreen() {
                         styles.iconBox,
                         {
                           backgroundColor:
-                            displayStatus === "Pending"
+                            displayStatus === "Draft"
+                              ? theme.colors.surfaceVariant
+                              : displayStatus === "Pending"
                               ? theme.colors.errorContainer
                               : displayStatus === "submitted"
                               ? theme.colors.primaryContainer
@@ -294,7 +306,9 @@ export default function EvaluationsScreen() {
                     >
                       <MaterialCommunityIcons
                         name={
-                          displayStatus === "Pending"
+                          displayStatus === "Draft"
+                            ? "file-document-edit-outline"
+                            : displayStatus === "Pending"
                             ? "clock-outline"
                             : displayStatus === "submitted"
                             ? "check-circle-outline"
@@ -302,7 +316,9 @@ export default function EvaluationsScreen() {
                         }
                         size={24}
                         color={
-                          displayStatus === "Pending"
+                          displayStatus === "Draft"
+                            ? theme.colors.onSurfaceVariant
+                            : displayStatus === "Pending"
                             ? theme.colors.error
                             : displayStatus === "submitted"
                             ? theme.colors.primary

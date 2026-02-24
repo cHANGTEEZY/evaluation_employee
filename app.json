@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Evaluation",
-    "slug": "Evaluation",
+    "name": "Mr. Valuator",
+    "slug": "Mr. Valuator",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon/",
-    "scheme": "evaluationapp",
+    "icon": "./assets/images/app_icon.jpeg",
+    "scheme": "Mr. Valuatorapp",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash.png",
@@ -16,16 +16,17 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.changteezy.expo-router-example",
+      "icon": "./assets/valuator.icon/",
       "appleTeamId": "XPZVK3T5VQ",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Allow Evaluation to access your location to capture property coordinates.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow Evaluation to access your location to capture property coordinates.",
-        "NSLocationAlwaysUsageDescription": "Allow Evaluation to access your location to capture property coordinates."
+        "NSLocationWhenInUseUsageDescription": "Allow Valuation to access your location to capture property coordinates.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow Valuation to access your location to capture property coordinates.",
+        "NSLocationAlwaysUsageDescription": "Allow Valuation to access your location to capture property coordinates."
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/valuator.icon/Assets/app_icon.jpeg",
         "backgroundColor": "#ffffff"
       },
       "package": "com.changteezy.exporouterexample",
@@ -42,6 +43,12 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow $(PRODUCT_NAME) to use Face ID."
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -101,11 +108,12 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow Evaluation to use your location for property valuation.",
-          "locationAlwaysPermission": "Allow Evaluation to use your location for property valuation.",
-          "locationWhenInUsePermission": "Allow Evaluation to use your location for property valuation."
+          "locationAlwaysAndWhenInUsePermission": "Allow Valuation to use your location for property valuation.",
+          "locationAlwaysPermission": "Allow Valuation to use your location for property valuation.",
+          "locationWhenInUsePermission": "Allow Valuation to use your location for property valuation."
         }
-      ]
+      ],
+      "@maplibre/maplibre-react-native"
     ],
     "experiments": {
       "typedRoutes": true,

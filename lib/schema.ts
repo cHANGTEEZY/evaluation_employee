@@ -9,6 +9,14 @@ export function generateId() {
   return uuidv4();
 }
 
+/** Normalize date to ISO string for DB; form/draft may send Date or string. */
+function toISODateString(v: unknown): string | null {
+  if (v == null) return null;
+  if (v instanceof Date) return v.toISOString();
+  if (typeof v === "string") return v;
+  return null;
+}
+
 export async function createValuationTable() {
   const db = await getDb();
 
@@ -57,6 +65,7 @@ export async function createValuationTable() {
 
     -- Access & Rights
     right_of_way INTEGER DEFAULT 0,
+    right_of_way_width_ft REAL,
     motorable_access INTEGER DEFAULT 0,
     electricity_available INTEGER DEFAULT 0,
     drainage_near_property INTEGER DEFAULT 0,
@@ -123,8 +132,43 @@ export async function createValuationTable() {
     bank_name TEXT,
     bank_branch_name TEXT,
     city TEXT,
-    tole_area TEXT
+    tole_area TEXT,
+
+    -- Last synced image hashes (JSON) to skip re-upload when unchanged
+    synced_image_hashes TEXT
   )`);
+
+  // Lightweight migration: add new columns for existing installs.
+  // Older databases won't have some recently added fields; we ALTER TABLE
+  // and ignore the error if the column already exists.
+  try {
+    await db.execAsync(
+      "ALTER TABLE valuations ADD COLUMN right_of_way_width_ft REAL;",
+    );
+  } catch {
+    // ignore (likely: duplicate column name)
+  }
+  try {
+    await db.execAsync(
+      "ALTER TABLE valuations ADD COLUMN road_type_others TEXT;",
+    );
+  } catch {
+    // ignore (likely: duplicate column name)
+  }
+  try {
+    await db.execAsync(
+      "ALTER TABLE valuations ADD COLUMN document_photos TEXT;",
+    );
+  } catch {
+    // ignore (likely: duplicate column name)
+  }
+  try {
+    await db.execAsync(
+      "ALTER TABLE valuations ADD COLUMN synced_image_hashes TEXT;",
+    );
+  } catch {
+    // ignore (likely: duplicate column name)
+  }
 }
 
 // Insert a new valuation
@@ -145,9 +189,9 @@ export async function insertValuation(
       id, employee_id, created_at, updated_at, status, sync_status,
       ref_no, valuation_date, branch, client_name, contact_number, client_address_nagrita,
       owner_of_property, property_address_deed, plot_no, present_property_address, district,
-      valuation_for, road_type, road_width, access_road_direction, access_road_direction_others,
+      valuation_for, road_type, road_type_others, road_width, access_road_direction, access_road_direction_others,
       property_area_length, property_frontage_direction, property_narrowest_length, property_narrowest_direction,
-      right_of_way, motorable_access, electricity_available, drainage_near_property,
+      right_of_way, right_of_way_width_ft, motorable_access, electricity_available, drainage_near_property,
       property_type, property_ownership_type, ownership_transferred_through, hold_type,
       commercial_rate_per_anna, government_rate_per_anna,
       building_type, building_purpose, number_of_storeys, storey_height, building_age_years, completion_date,
@@ -156,9 +200,9 @@ export async function insertValuation(
       watchlist_category, watchlist_category_setback, heritage_memorial_site, heritage_memorial_site_setback,
       site_charge, high_land_ft, low_land_ft, latitude, longitude, slope_degree,
       payment_cash, payment_online, payment_online_mode, payment_pending_due,
-      documents, site_plan_note, site_plan_image, property_images,
+      documents, site_plan_note, site_plan_image, property_images, document_photos,
       bank_name, bank_branch_name, city, tole_area
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       employeeId,
@@ -167,7 +211,7 @@ export async function insertValuation(
       "draft",
       "pending",
       data.ref_no ?? null,
-      data.valuation_date?.toISOString() ?? null,
+      toISODateString(data.valuation_date),
       data.branch ?? null,
       data.client_name ?? null,
       data.contact_number ?? null,
@@ -179,6 +223,7 @@ export async function insertValuation(
       data.district ?? null,
       data.valuation_for ?? null,
       data.road_type ?? null,
+      data.road_type_others ?? null,
       data.road_width ?? null,
       data.access_road_direction ?? null,
       data.access_road_direction_others ?? null,
@@ -187,6 +232,7 @@ export async function insertValuation(
       data.property_narrowest_length ?? null,
       data.property_narrowest_direction ?? null,
       data.right_of_way ? 1 : 0,
+      data.right_of_way_width_ft ?? null,
       data.motorable_access ? 1 : 0,
       data.electricity_available ? 1 : 0,
       data.drainage_near_property ? 1 : 0,
@@ -201,7 +247,7 @@ export async function insertValuation(
       data.number_of_storeys ?? null,
       data.storey_height ?? null,
       data.building_age_years ?? null,
-      data.completion_date?.toISOString() ?? null,
+      toISODateString(data.completion_date),
       data.landslide_prone_area ? 1 : 0,
       data.landslide_prone_area_setback ?? null,
       data.river_side ? 1 : 0,
@@ -228,6 +274,7 @@ export async function insertValuation(
       data.site_plan_note ?? null,
       data.site_plan_drawing ?? null,
       data.property_images ? JSON.stringify(data.property_images) : null,
+      data.document_photos ? JSON.stringify(data.document_photos) : null,
       data.bank_name ?? null,
       data.bank_branch_name ?? null,
       data.city ?? null,
@@ -246,7 +293,9 @@ export async function seedDummyValuation(options?: {
   employeeId?: string;
 }): Promise<string> {
   const { defaultValuationValues } = await import("../constants/form-schema");
-  const { generateClientRefNumber } = await import("./ref-number");
+  const { generateClientRefNumber, generateShortId } = await import(
+    "./ref-number"
+  );
   const clientName = (defaultValuationValues.client_name ?? "Test Client").trim();
   const district = (defaultValuationValues.district ?? "Kathmandu").trim();
   const plotNo = String(defaultValuationValues.plot_no ?? "1").trim();
@@ -258,6 +307,7 @@ export async function seedDummyValuation(options?: {
     refNo = `${base}_${n}`;
     n += 1;
   }
+  refNo = `${refNo}_${generateShortId()}`;
   const data = {
     ...defaultValuationValues,
     ref_no: refNo,
@@ -292,7 +342,7 @@ export async function updateValuation(
     {
       key: "valuation_date",
       column: "valuation_date",
-      transform: (v) => (v instanceof Date ? v.toISOString() : null),
+      transform: toISODateString,
     },
     { key: "branch", column: "branch" },
     { key: "client_name", column: "client_name" },
@@ -305,6 +355,7 @@ export async function updateValuation(
     { key: "district", column: "district" },
     { key: "valuation_for", column: "valuation_for" },
     { key: "road_type", column: "road_type" },
+    { key: "road_type_others", column: "road_type_others" },
     { key: "road_width", column: "road_width" },
     { key: "access_road_direction", column: "access_road_direction" },
     { key: "access_road_direction_others", column: "access_road_direction_others" },
@@ -323,6 +374,7 @@ export async function updateValuation(
       column: "right_of_way",
       transform: (v) => (v ? 1 : 0),
     },
+    { key: "right_of_way_width_ft", column: "right_of_way_width_ft" },
     {
       key: "motorable_access",
       column: "motorable_access",
@@ -355,7 +407,7 @@ export async function updateValuation(
     {
       key: "completion_date",
       column: "completion_date",
-      transform: (v) => (v instanceof Date ? v.toISOString() : null),
+      transform: toISODateString,
     },
     {
       key: "landslide_prone_area",
@@ -407,6 +459,11 @@ export async function updateValuation(
       column: "property_images",
       transform: (v) => (v ? JSON.stringify(v) : null),
     },
+    {
+      key: "document_photos",
+      column: "document_photos",
+      transform: (v) => (v ? JSON.stringify(v) : null),
+    },
     { key: "bank_name", column: "bank_name" },
     { key: "bank_branch_name", column: "bank_branch_name" },
     { key: "city", column: "city" },
@@ -445,20 +502,28 @@ export async function getValuationById(
   return result ?? null;
 }
 
-// Get all valuations
-export async function getAllValuations(): Promise<ValuationRow[]> {
+// Get all valuations (filtered by creator when userId provided; empty when null)
+export async function getAllValuations(
+  userId: string | null,
+): Promise<ValuationRow[]> {
+  if (userId === null) return [];
   const db = await getDb();
   const results = await db.getAllAsync<ValuationRow>(
-    "SELECT * FROM valuations ORDER BY created_at DESC",
+    "SELECT * FROM valuations WHERE employee_id = ? ORDER BY created_at DESC",
+    [userId],
   );
   return results;
 }
 
-// Get recent valuations
-export async function getRecentValuations(): Promise<ValuationRow[]> {
+// Get recent valuations (filtered by creator when userId provided; empty when null)
+export async function getRecentValuations(
+  userId: string | null,
+): Promise<ValuationRow[]> {
+  if (userId === null) return [];
   const db = await getDb();
   const results = await db.getAllAsync<ValuationRow>(
-    "SELECT * FROM valuations ORDER BY created_at DESC LIMIT 10",
+    "SELECT * FROM valuations WHERE employee_id = ? ORDER BY created_at DESC LIMIT 10",
+    [userId],
   );
   return results;
 }
@@ -483,11 +548,16 @@ export interface ValuationMetrics {
   synced: number;
 }
 
-// Get valuations metrics counts (pending,completed,synced)
-export async function getValuationsMetrics(): Promise<ValuationMetrics> {
+// Get valuations metrics counts (filtered by creator when userId provided; zeros when null)
+export async function getValuationsMetrics(
+  userId: string | null,
+): Promise<ValuationMetrics> {
+  if (userId === null)
+    return { total: 0, draft: 0, submitted: 0, synced: 0 };
   const db = await getDb();
   const result = await db.getFirstAsync<ValuationMetrics>(
-    "SELECT COUNT(*) AS total, COUNT(CASE WHEN status = 'draft' THEN 1 END) AS draft, COUNT(CASE WHEN status = 'submitted' THEN 1 END) AS submitted, COUNT(CASE WHEN status = 'synced' THEN 1 END) AS synced FROM valuations",
+    "SELECT COUNT(*) AS total, COUNT(CASE WHEN status = 'draft' THEN 1 END) AS draft, COUNT(CASE WHEN status = 'submitted' THEN 1 END) AS submitted, COUNT(CASE WHEN status = 'synced' THEN 1 END) AS synced FROM valuations WHERE employee_id = ?",
+    [userId],
   );
   return result ?? { total: 0, draft: 0, submitted: 0, synced: 0 };
 }
@@ -514,31 +584,42 @@ export async function getRefNosStartingWith(
   return rows.map((r) => r.ref_no).filter((r): r is string => r != null);
 }
 
-// Get pending sync valuations
-export async function getPendingSyncValuations(): Promise<ValuationRow[]> {
+// Get pending sync valuations (filtered by creator when userId provided; empty when null)
+export async function getPendingSyncValuations(
+  userId: string | null,
+): Promise<ValuationRow[]> {
+  if (userId === null) return [];
   const db = await getDb();
   const results = await db.getAllAsync<ValuationRow>(
-    "SELECT * FROM valuations WHERE sync_status = 'pending' ORDER BY created_at ASC",
+    "SELECT * FROM valuations WHERE employee_id = ? AND sync_status = 'pending' ORDER BY created_at ASC",
+    [userId],
   );
   return results;
 }
 
-// Get failed sync valuations
-export async function getFailedSyncValuations(): Promise<ValuationRow[]> {
+// Get failed sync valuations (filtered by creator when userId provided; empty when null)
+export async function getFailedSyncValuations(
+  userId: string | null,
+): Promise<ValuationRow[]> {
+  if (userId === null) return [];
   const db = await getDb();
   const results = await db.getAllAsync<ValuationRow>(
-    "SELECT * FROM valuations WHERE sync_status = 'error' ORDER BY created_at ASC",
+    "SELECT * FROM valuations WHERE employee_id = ? AND sync_status = 'error' ORDER BY created_at ASC",
+    [userId],
   );
   return results;
 }
 
-// Reset failed sync valuations to pending for retry
-export async function resetFailedSyncValuations(): Promise<void> {
+// Reset failed sync valuations to pending for retry (only for given user; no-op when null)
+export async function resetFailedSyncValuations(
+  userId: string | null,
+): Promise<void> {
+  if (userId === null) return;
   const db = await getDb();
   const now = new Date().toISOString();
   await db.runAsync(
-    "UPDATE valuations SET sync_status = 'pending', error_message = NULL, updated_at = ? WHERE sync_status = 'error'",
-    [now],
+    "UPDATE valuations SET sync_status = 'pending', error_message = NULL, updated_at = ? WHERE employee_id = ? AND sync_status = 'error'",
+    [now, userId],
   );
 }
 
@@ -586,6 +667,31 @@ export async function updateValuationStatus(
   );
 }
 
+/** Update synced image hashes after a successful sync (so we can skip re-upload when unchanged). */
+export async function updateSyncedImageHashes(
+  valuationId: string,
+  hashes: { propertyImages: string[]; sitePlan: string | null; documentPhotos: string[] },
+): Promise<void> {
+  const db = await getDb();
+  const json = JSON.stringify(hashes);
+  await db.runAsync(
+    "UPDATE valuations SET synced_image_hashes = ?, updated_at = ? WHERE id = ?",
+    [json, new Date().toISOString(), valuationId],
+  );
+}
+
+/** Update server_id (Drive folder id/url) after successful sync. */
+export async function updateValuationServerId(
+  valuationId: string,
+  serverId: string | null,
+): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    "UPDATE valuations SET server_id = ?, updated_at = ? WHERE id = ?",
+    [serverId, new Date().toISOString(), valuationId],
+  );
+}
+
 // Delete a valuation
 export async function deleteValuation(id: string): Promise<void> {
   const db = await getDb();
@@ -621,6 +727,7 @@ export interface ValuationRow {
   district: string | null;
   valuation_for: string | null;
   road_type: string | null;
+  road_type_others: string | null;
   road_width: number | null;
   access_road_direction: string | null;
   access_road_direction_others: string | null;
@@ -628,7 +735,8 @@ export interface ValuationRow {
   property_frontage_direction: string | null;
   property_narrowest_length: number | null;
   property_narrowest_direction: string | null;
-  right_of_way: number;
+      right_of_way: number;
+      right_of_way_width_ft: number | null;
   motorable_access: number;
   electricity_available: number;
   drainage_near_property: number;
@@ -670,10 +778,84 @@ export interface ValuationRow {
   site_plan_note: string | null;
   site_plan_image: string | null;
   property_images: string | null;
+  document_photos: string | null;
   bank_name: string | null;
   bank_branch_name: string | null;
   city: string | null;
   tole_area: string | null;
+  synced_image_hashes: string | null;
+}
+
+// Document keys expected by the form (after removing BPTM, renaming to Nirman Ijajat / Nirman Sampanna)
+const DOCUMENT_KEYS = [
+  "citizenship_client",
+  "citizenship_owner",
+  "lorc",
+  "charkilla",
+  "blueprint",
+  "plot_utar",
+  "nirman_ijajat",
+  "nirman_sampanna",
+  "building_drawing",
+] as const;
+
+const DEFAULT_DOC_ENTRY = { original: false, photocopy: false };
+
+type DocEntry = { original: boolean; photocopy: boolean };
+
+/** Normalize documents from DB or draft (old keys bptm, nirmal_*, nirmarn_*) to current form shape. */
+export function normalizeDocumentsForForm(
+  raw: unknown,
+): ValuationFormValues["documents"] {
+  const doc = (raw && typeof raw === "object" ? raw : {}) as Record<
+    string,
+    { original?: boolean; photocopy?: boolean }
+  >;
+  const result: Record<string, DocEntry> = {};
+  for (const key of DOCUMENT_KEYS) {
+    result[key] = { ...DEFAULT_DOC_ENTRY };
+  }
+  // Merge blueprint with bptm (BPTM removed – same as Blueprint)
+  const blueprint = doc.blueprint || doc.bptm;
+  if (blueprint) {
+    result.blueprint = {
+      original: !!(result.blueprint?.original || blueprint.original),
+      photocopy: !!(result.blueprint?.photocopy || blueprint.photocopy),
+    };
+  }
+  // Map old keys to Nirman Ijajat / Nirman Sampanna
+  const nirmanIjajat = doc.nirman_ijajat || doc.nirmal_lagat || doc.nirmarn_lagat;
+  if (nirmanIjajat) {
+    result.nirman_ijajat = {
+      original: !!nirmanIjajat.original,
+      photocopy: !!nirmanIjajat.photocopy,
+    };
+  }
+  const nirmanSampanna =
+    doc.nirman_sampanna || doc.nirmal_sangarna || doc.nirmarn_sangarna;
+  if (nirmanSampanna) {
+    result.nirman_sampanna = {
+      original: !!nirmanSampanna.original,
+      photocopy: !!nirmanSampanna.photocopy,
+    };
+  }
+  // Copy over other known keys
+  for (const key of [
+    "citizenship_client",
+    "citizenship_owner",
+    "lorc",
+    "charkilla",
+    "plot_utar",
+    "building_drawing",
+  ] as const) {
+    if (doc[key]) {
+      result[key] = {
+        original: !!doc[key].original,
+        photocopy: !!doc[key].photocopy,
+      };
+    }
+  }
+  return result as ValuationFormValues["documents"];
 }
 
 // Convert database row to form values
@@ -696,6 +878,7 @@ export function rowToFormValues(
     district: row.district ?? undefined,
     valuation_for: row.valuation_for as ValuationFormValues["valuation_for"],
     road_type: row.road_type as ValuationFormValues["road_type"],
+    road_type_others: row.road_type_others ?? undefined,
     road_width: row.road_width ?? undefined,
     access_road_direction:
       row.access_road_direction as ValuationFormValues["access_road_direction"],
@@ -707,6 +890,13 @@ export function rowToFormValues(
     property_narrowest_direction:
       row.property_narrowest_direction as ValuationFormValues["property_narrowest_direction"],
     right_of_way: row.right_of_way === 1,
+    right_of_way_width_ft: row.right_of_way_width_ft ?? undefined,
+    right_of_way_m:
+      row.right_of_way_width_ft != null
+        ? [3, 4, 6, 8, 22, 50].includes(row.right_of_way_width_ft)
+          ? String(row.right_of_way_width_ft)
+          : "other"
+        : "",
     motorable_access: row.motorable_access === 1,
     electricity_available: row.electricity_available === 1,
     drainage_near_property: row.drainage_near_property === 1,
@@ -750,11 +940,16 @@ export function rowToFormValues(
     payment_online_mode:
       row.payment_online_mode as ValuationFormValues["payment_online_mode"],
     payment_pending_due: row.payment_pending_due ?? undefined,
-    documents: row.documents ? JSON.parse(row.documents) : undefined,
+    documents: row.documents
+      ? normalizeDocumentsForForm(JSON.parse(row.documents))
+      : undefined,
     site_plan_note: row.site_plan_note ?? undefined,
     site_plan_drawing: row.site_plan_image ?? undefined,
     property_images: row.property_images
       ? JSON.parse(row.property_images)
+      : undefined,
+    document_photos: row.document_photos
+      ? JSON.parse(row.document_photos)
       : undefined,
     bank_name: row.bank_name ?? undefined,
     bank_branch_name: row.bank_branch_name ?? undefined,

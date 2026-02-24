@@ -1,9 +1,11 @@
-import React from "react";
+import React, { useMemo, useEffect } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
+import { useWatch, useFormContext } from "react-hook-form";
 import FormInput from "../ui/FormInput";
 import FormDatePicker from "../ui/FormDatePicker";
 import FormSelect from "../ui/FormSelect";
+import { useBanks } from "../../hooks/useBanks";
 
 const valuationForOptions = [
   { label: "Vacant Land", value: "vacant_land" },
@@ -17,6 +19,48 @@ const valuationForOptions = [
 ];
 
 const Step1 = () => {
+  const { setValue } = useFormContext();
+  const { data: banks = [] } = useBanks();
+  const selectedBankName = useWatch({ name: "bank_name", defaultValue: "" });
+  const currentBranchName = useWatch({
+    name: "bank_branch_name",
+    defaultValue: "",
+  });
+
+  const bankOptions = useMemo(
+    () =>
+      banks.map((b) => ({
+        label: b.name,
+        value: b.name,
+      })),
+    [banks]
+  );
+
+  const selectedBank = useMemo(
+    () => banks.find((b) => b.name === selectedBankName) ?? null,
+    [banks, selectedBankName]
+  );
+
+  const branchOptions = useMemo(
+    () =>
+      (selectedBank?.branches ?? []).map((br) => ({
+        label: br.name,
+        value: br.name,
+      })),
+    [selectedBank]
+  );
+
+  useEffect(() => {
+    if (
+      selectedBankName &&
+      currentBranchName &&
+      branchOptions.length > 0 &&
+      !branchOptions.some((o) => o.value === currentBranchName)
+    ) {
+      setValue("bank_branch_name", "");
+    }
+  }, [selectedBankName, currentBranchName, branchOptions, setValue]);
+
   return (
     <ScrollView
       contentContainerStyle={styles.container}
@@ -28,26 +72,31 @@ const Step1 = () => {
 
       <FormInput name="ref_no" label="Ref No. (Auto-generated)" disabled />
       <FormDatePicker name="valuation_date" label="Valuation Date" />
-      <FormInput name="bank_name" label="Bank Name" />
-      <FormInput name="bank_branch_name" label="Bank Branch Name" />
+      <FormSelect
+        name="bank_name"
+        label="Bank"
+        options={bankOptions}
+        placeholder="Select bank"
+      />
+      <FormSelect
+        name="bank_branch_name"
+        label="Branch"
+        options={branchOptions}
+        placeholder="Select branch"
+        disabled={!selectedBankName}
+      />
       <FormInput name="client_name" label="Client Name" />
       <FormInput
         name="contact_number"
         label="Contact Number"
         keyboardType="phone-pad"
       />
-      <FormInput
-        name="client_address_nagrita"
-        label="Client Address (Nagrita)"
-      />
-
       <Text variant="titleMedium" style={styles.sectionTitle}>
         Property Ownership & Location
       </Text>
 
       <FormInput name="owner_of_property" label="Owner of Property" />
-      <FormInput name="property_address_deed" label="Property Address (Deed)" />
-      <FormInput name="plot_no" label="Plot No. (Optional)" />
+      <FormInput name="plot_no" label="Plot No." />
       <FormInput
         name="present_property_address"
         label="Present Property Address"

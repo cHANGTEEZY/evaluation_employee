@@ -23,7 +23,9 @@ export const valuationSchema = z.object({
   // ===== Property Ownership & Location =====
   owner_of_property: z.string().optional(),
   property_address_deed: z.string().optional(),
-  plot_no: z.string().optional(),
+  plot_no: z
+    .string({ message: "Plot number is required" })
+    .min(1, { message: "Plot number is required" }),
   present_property_address: z.string().optional(),
   district: z.string().optional(),
 
@@ -37,16 +39,17 @@ export const valuationSchema = z.object({
         "apartment_duplex",
         "construction_extension_renovation",
       ],
-      { message: "Please select a valuation purpose" },
+      { message: "Please select a valuation purpose" }
     )
     .optional(),
 
   // ===== Road & Access =====
   road_type: z
-    .enum(["black_topped", "gravel", "earthen", "concrete"], {
+    .enum(["black_topped", "gravel", "earthen", "concrete", "others"], {
       message: "Please select a road type",
     })
     .optional(),
+  road_type_others: z.string().optional(),
   road_width: z
     .number({ message: "Road width must be a number" })
     .positive("Road width must be greater than 0")
@@ -83,6 +86,13 @@ export const valuationSchema = z.object({
   motorable_access: z.boolean().default(false),
   electricity_available: z.boolean().default(false),
   drainage_near_property: z.boolean().default(false),
+  /** UI preset for Right of Way (m): "" for none, or "3"|"4"|"6"|"8"|"22"|"50"|"other". Not persisted; syncs to right_of_way_width_ft + right_of_way. */
+  right_of_way_m: z.string().optional(),
+  /** Right of way width in meters (was ft; client asked for meters). */
+  right_of_way_width_ft: z
+    .number({ message: "Right of way width must be a number" })
+    .nonnegative("Right of way width cannot be negative")
+    .optional(),
 
   // ===== Property Classification =====
   property_type: z
@@ -144,17 +154,17 @@ export const valuationSchema = z.object({
   completion_date: z.date({ message: "Please enter a valid date" }).optional(),
 
   // ===== Risk / Area =====
-  landslide_prone_area: z.boolean().default(false),
+  landslide_prone_area: z.boolean().optional(),
   landslide_prone_area_setback: z.number().nonnegative().optional(),
-  river_side: z.boolean().default(false),
+  river_side: z.boolean().optional(),
   river_side_setback: z.number().nonnegative().optional(),
-  high_tension_area: z.boolean().default(false),
+  high_tension_area: z.boolean().optional(),
   high_tension_area_setback: z.number().nonnegative().optional(),
-  canal_area: z.boolean().default(false),
+  canal_area: z.boolean().optional(),
   canal_area_setback: z.number().nonnegative().optional(),
-  watchlist_category: z.boolean().default(false),
+  watchlist_category: z.boolean().optional(),
   watchlist_category_setback: z.number().nonnegative().optional(),
-  heritage_memorial_site: z.boolean().default(false),
+  heritage_memorial_site: z.boolean().optional(),
   heritage_memorial_site_setback: z.number().nonnegative().optional(),
 
   // ===== Site & Topography =====
@@ -201,7 +211,7 @@ export const valuationSchema = z.object({
       ],
       {
         message: "Please select an online payment mode",
-      },
+      }
     )
     .optional(),
   payment_pending_due: z
@@ -209,7 +219,7 @@ export const valuationSchema = z.object({
     .nonnegative("Pending due cannot be negative")
     .optional(),
 
-  // ===== Documents =====
+  // ===== Documents ===== (BPTM removed – same as Blueprint; Nirman Ijajat / Nirman Sampanna)
   documents: z
     .object({
       citizenship_client: z.object({
@@ -221,10 +231,6 @@ export const valuationSchema = z.object({
         photocopy: z.boolean().default(false),
       }),
       lorc: z.object({
-        original: z.boolean().default(false),
-        photocopy: z.boolean().default(false),
-      }),
-      bptm: z.object({
         original: z.boolean().default(false),
         photocopy: z.boolean().default(false),
       }),
@@ -240,11 +246,11 @@ export const valuationSchema = z.object({
         original: z.boolean().default(false),
         photocopy: z.boolean().default(false),
       }),
-      nirmal_lagat: z.object({
+      nirman_ijajat: z.object({
         original: z.boolean().default(false),
         photocopy: z.boolean().default(false),
       }),
-      nirmal_sangarna: z.object({
+      nirman_sampanna: z.object({
         original: z.boolean().default(false),
         photocopy: z.boolean().default(false),
       }),
@@ -257,12 +263,11 @@ export const valuationSchema = z.object({
       citizenship_client: { original: false, photocopy: false },
       citizenship_owner: { original: false, photocopy: false },
       lorc: { original: false, photocopy: false },
-      bptm: { original: false, photocopy: false },
       charkilla: { original: false, photocopy: false },
       blueprint: { original: false, photocopy: false },
       plot_utar: { original: false, photocopy: false },
-      nirmal_lagat: { original: false, photocopy: false },
-      nirmal_sangarna: { original: false, photocopy: false },
+      nirman_ijajat: { original: false, photocopy: false },
+      nirman_sampanna: { original: false, photocopy: false },
       building_drawing: { original: false, photocopy: false },
     }),
 
@@ -274,73 +279,78 @@ export const valuationSchema = z.object({
 
   // Property Images
   property_images: z.array(z.string()).optional(),
+
+  // Document photos (optional, no limit) – photos of documents collected on site
+  document_photos: z.array(z.string()).optional(),
 });
 
 export type ValuationFormValues = z.infer<typeof valuationSchema>;
 
-// Default values for the form (all fields filled for testing)
+// Default (dummy) values for the form – used for both the initial form state
+// and the `seedDummyValuation` helper in `lib/schema.ts`.
+// All values are safe placeholders the user can overwrite.
 export const defaultValuationValues: Partial<ValuationFormValues> = {
-  // Basic Details - ref_no will be auto-generated
+  // Basic details
   ref_no: undefined,
   valuation_date: new Date(),
-  branch: "Main Branch",
-  client_name: "Ram Bahadur Sharma",
-  contact_number: "9841234567",
-  client_address_nagrita: "Kathmandu-10, Baneshwor",
+  branch: "Head Office",
+  client_name: "Test Client",
+  contact_number: "9800000000",
+  client_address_nagrita: "KTM-123456",
 
-  // Bank Details
-  bank_name: "NIC Asia Bank",
-  bank_branch_name: "Thapathali Branch",
+  // Bank / folder details
+  bank_name: "Test Bank",
+  bank_branch_name: "Boudha Branch",
   city: "Kathmandu",
-  tole_area: "New Baneshwor",
+  tole_area: "Boudha",
 
-  // Property Ownership & Location
-  owner_of_property: "Ram Bahadur Sharma",
-  property_address_deed: "Ward No. 10, Baneshwor, Kathmandu (as per deed)",
-  plot_no: "45",
-  present_property_address: "New Baneshwor, Kathmandu-10",
+  // Property ownership & location
+  owner_of_property: "Test Owner",
+  property_address_deed: "Boudha, Kathmandu",
+  plot_no: "1",
+  present_property_address: "Boudha, Kathmandu",
   district: "Kathmandu",
 
-  // Valuation Purpose
+  // Valuation purpose
   valuation_for: "land_and_building",
 
-  // Road & Access
+  // Road & access
   road_type: "black_topped",
   road_width: 20,
-  access_road_direction: "north",
-  access_road_direction_others: "",
+  access_road_direction: "east",
+  access_road_direction_others: undefined,
 
-  // Property Dimensions
-  property_area_length: 150,
-  property_frontage_direction: "north",
-  property_narrowest_length: 120,
-  property_narrowest_direction: "south",
+  // Property dimensions
+  property_area_length: 10,
+  property_frontage_direction: "east",
+  property_narrowest_length: 8,
+  property_narrowest_direction: "west",
 
-  // Access & Rights
+  // Road & access (additional)
   right_of_way: true,
   motorable_access: true,
   electricity_available: true,
   drainage_near_property: true,
 
-  // Property Classification
+  // Property classification
   property_type: "residential",
   property_ownership_type: "individual_single",
   ownership_transferred_through: "sale",
   hold_type: "freehold",
 
-  // Land Rates
-  commercial_rate_per_anna: 50000,
-  government_rate_per_anna: 45000,
+  // Land rates
+  commercial_rate_per_anna: 2500000,
+  government_rate_per_anna: 800000,
 
-  // Building Details
+  // Building details
   building_type: "rcc_framed",
   building_purpose: "residential",
   number_of_storeys: 2,
   storey_height: 10,
-  building_age_years: 5,
-  completion_date: new Date(Date.now() - 5 * 365 * 24 * 60 * 60 * 1000),
+  building_age_years: 1,
+  completion_date: new Date(),
 
-  // Risk / Area
+  // Risk / area
   landslide_prone_area: false,
   landslide_prone_area_setback: undefined,
   river_side: false,
@@ -354,36 +364,39 @@ export const defaultValuationValues: Partial<ValuationFormValues> = {
   heritage_memorial_site: false,
   heritage_memorial_site_setback: undefined,
 
-  // Site & Topography
-  high_land_ft: 15,
-  low_land_ft: 12,
+  // Site & topography
+  high_land_ft: 0,
+  low_land_ft: 0,
   latitude: 27.7172,
   longitude: 85.324,
-  slope_degree: 5,
+  slope_degree: 0,
 
-  // Payment & Details
-  site_charge: 15000,
-  payment_cash: 5000,
-  payment_online: 10000,
+  // Payment & details
+  site_charge: 2000,
+  payment_cash: 1000,
+  payment_online: 1000,
   payment_online_mode: "esewa",
   payment_pending_due: 0,
 
-  // Site Plan
-  site_plan_note: "Sample site plan for testing",
-
-  // Documents - some checked for testing
+  // Notes / drawings / images
+  site_plan_note: "Sample site plan note for testing.",
+  site_plan_drawing: undefined,
+  property_images: undefined,
   documents: {
-    citizenship_client: { original: true, photocopy: true },
-    citizenship_owner: { original: false, photocopy: true },
-    lorc: { original: false, photocopy: true },
-    bptm: { original: false, photocopy: false },
+    citizenship_client: { original: false, photocopy: false },
+    citizenship_owner: { original: false, photocopy: false },
+    lorc: { original: false, photocopy: false },
     charkilla: { original: false, photocopy: false },
-    blueprint: { original: false, photocopy: true },
-    plot_utar: { original: false, photocopy: true },
-    nirmal_lagat: { original: false, photocopy: false },
-    nirmal_sangarna: { original: false, photocopy: false },
-    building_drawing: { original: false, photocopy: true },
+    blueprint: { original: false, photocopy: false },
+    plot_utar: { original: false, photocopy: false },
+    nirman_ijajat: { original: false, photocopy: false },
+    nirman_sampanna: { original: false, photocopy: false },
+    building_drawing: { original: false, photocopy: false },
   },
+};
 
-  // site_plan_drawing and property_images remain empty (user adds via UI)
+// Clean-slate values – use when you want an empty form without dummy data.
+// valuation_date defaults to today so user doesn't have to set it every time.
+export const cleanValuationValues: Partial<ValuationFormValues> = {
+  valuation_date: new Date(),
 };

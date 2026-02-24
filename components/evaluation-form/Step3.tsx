@@ -1,11 +1,18 @@
-import React from "react";
-import { ScrollView, StyleSheet, View, Pressable } from "react-native";
-import { Text, Card, useTheme, Divider } from "react-native-paper";
+import React, { useState } from "react";
+import {
+  ScrollView,
+  StyleSheet,
+  View,
+  Pressable,
+  Modal,
+} from "react-native";
+import { Text, Card, useTheme, Divider, Button } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Controller, useFormContext } from "react-hook-form";
 import FormInput from "../ui/FormInput";
 import FormSelect from "../ui/FormSelect";
 import FormDatePicker from "../ui/FormDatePicker";
+import PhotoCaptureScreen from "../PhotoCaptureScreen";
 
 const buildingTypeOptions = [
   { label: "RCC Framed", value: "rcc_framed" },
@@ -20,7 +27,7 @@ const buildingPurposeOptions = [
   { label: "Both", value: "both" },
 ];
 
-// Document configuration
+// Document configuration (BPTM removed – same as Blueprint; spellings: Nirman Ijajat, Nirman Sampanna)
 const documents = [
   {
     key: "citizenship_client",
@@ -33,18 +40,17 @@ const documents = [
     icon: "card-account-details-outline",
   },
   { key: "lorc", label: "LORC", icon: "file-document" },
-  { key: "bptm", label: "BPTM", icon: "file-certificate" },
   { key: "charkilla", label: "Charkilla", icon: "map-marker-outline" },
   { key: "blueprint", label: "Blueprint", icon: "floor-plan" },
   { key: "plot_utar", label: "Plot Utar", icon: "image-area" },
   {
-    key: "nirmarn_lagat",
-    label: "Nirmarn Lagat",
+    key: "nirman_ijajat",
+    label: "Nirman Ijajat",
     icon: "file-document-outline",
   },
   {
-    key: "nirmarn_sangarna",
-    label: "Nirmarn Sangarna",
+    key: "nirman_sampanna",
+    label: "Nirman Sampanna",
     icon: "file-sign",
   },
   {
@@ -173,44 +179,86 @@ const DocumentRow = ({ docKey, label, icon }: DocumentRowProps) => {
   );
 };
 
+function DocumentPhotosField() {
+  const theme = useTheme();
+  const { setValue, watch } = useFormContext();
+  const documentPhotos = watch("document_photos") ?? [];
+  const photos = Array.isArray(documentPhotos) ? documentPhotos : [];
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const handleImagesChange = (next: string[]) => {
+    setValue("document_photos", next);
+  };
+
+  return (
+    <View style={styles.documentPhotosSection}>
+      <Button
+        mode="outlined"
+        onPress={() => setModalVisible(true)}
+        icon="camera-plus"
+        style={styles.documentPhotosButton}
+      >
+        {photos.length > 0
+          ? `Document photos (${photos.length}) – tap to add more`
+          : "Add document photos"}
+      </Button>
+
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+        statusBarTranslucent
+      >
+        <View
+          style={[
+            styles.documentPhotosModalContent,
+            { backgroundColor: theme.colors.surface },
+          ]}
+        >
+          <PhotoCaptureScreen
+            images={photos}
+            onImagesChange={handleImagesChange}
+            minImages={0}
+            title="Document photos"
+            helperText="Tap thumbnail to view • Tap delete in preview to remove. No limit."
+            showCloseButton
+            onClose={() => setModalVisible(false)}
+          />
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
 const Step3 = () => {
   const theme = useTheme();
+  const { watch } = useFormContext();
+  const valuationFor = watch("valuation_for");
+  const showBuildingDetails = valuationFor === "land_and_building";
 
   return (
     <ScrollView
       contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}
     >
-      {/* Building Details Section */}
-      <Text variant="titleMedium" style={styles.sectionTitle}>
-        Building Details
-      </Text>
-      <FormSelect
-        name="building_type"
-        label="Building Type"
-        options={buildingTypeOptions}
-      />
-      <FormSelect
-        name="building_purpose"
-        label="Building Purpose"
-        options={buildingPurposeOptions}
-      />
-      <FormInput
-        name="number_of_storeys"
-        label="Number of Storeys"
-        keyboardType="numeric"
-      />
-      <FormInput
-        name="storey_height"
-        label="Storey Height (ft)"
-        keyboardType="decimal-pad"
-      />
-      <FormInput
-        name="building_age_years"
-        label="Building Age (Years)"
-        keyboardType="numeric"
-      />
-      <FormDatePicker name="completion_date" label="Completion Date" />
+      {/* Building Details Section (only for Land & Building) */}
+      {showBuildingDetails && (
+        <>
+          <Text variant="titleMedium" style={styles.sectionTitle}>
+            Building Details
+          </Text>
+          <FormSelect
+            name="building_type"
+            label="Building Type"
+            options={buildingTypeOptions}
+          />
+          <FormSelect
+            name="building_purpose"
+            label="Building Purpose"
+            options={buildingPurposeOptions}
+          />
+        </>
+      )}
 
       {/* Documents Section - Redesigned */}
       <View style={styles.documentsSection}>
@@ -240,6 +288,20 @@ const Step3 = () => {
             ))}
           </Card.Content>
         </Card>
+      </View>
+
+      {/* Document photos (optional, no limit) */}
+      <View style={styles.documentsSection}>
+        <Text variant="titleMedium" style={styles.sectionTitle}>
+          Document photos (optional)
+        </Text>
+        <Text
+          variant="bodySmall"
+          style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}
+        >
+          Add photos of documents collected on site. No limit.
+        </Text>
+        <DocumentPhotosField />
       </View>
 
       {/* Site Plan Section */}
@@ -314,6 +376,15 @@ const styles = StyleSheet.create({
   },
   divider: {
     marginHorizontal: 16,
+  },
+  documentPhotosSection: {
+    marginBottom: 16,
+  },
+  documentPhotosButton: {
+    marginBottom: 8,
+  },
+  documentPhotosModalContent: {
+    flex: 1,
   },
 });
 
