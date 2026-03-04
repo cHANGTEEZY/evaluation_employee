@@ -93,10 +93,10 @@ const riskAreaOptions = [
     setbackField: "canal_area_setback",
   },
   {
-    name: "watchlist_category",
-    label: "Watchlist Category",
-    icon: "alert-circle" as const,
-    setbackField: "watchlist_category_setback",
+    name: "flood_prone_area",
+    label: "Flood Prone Area",
+    icon: "waves" as const,
+    setbackField: "flood_prone_area_setback",
   },
   {
     name: "heritage_memorial_site",

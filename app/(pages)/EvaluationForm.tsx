@@ -154,42 +154,15 @@ const stepTitles: Record<number, string> = {
   5: "Property Images",
 };
 
-const step0Fields: FieldPath<ValuationFormValues>[] = ["latitude", "longitude"];
+const step0Fields: FieldPath<ValuationFormValues>[] = [];
 
-const step1Fields: FieldPath<ValuationFormValues>[] = [
-  "valuation_date",
-  "branch",
-  "client_name",
-  "contact_number",
-  "owner_of_property",
-  "plot_no",
-  "present_property_address",
-  "district",
-  "valuation_for",
-];
+const step1Fields: FieldPath<ValuationFormValues>[] = ["plot_no"];
 
-const step2Fields: FieldPath<ValuationFormValues>[] = [
-  "property_type",
-  "hold_type",
-  "road_type",
-  "access_road_direction",
-  "landslide_prone_area",
-  "river_side",
-  "high_tension_area",
-  "canal_area",
-  "watchlist_category",
-  "heritage_memorial_site",
-];
+const step2Fields: FieldPath<ValuationFormValues>[] = [];
 
-const step3Fields: FieldPath<ValuationFormValues>[] = [
-  "building_type",
-  "building_purpose",
-];
+const step3Fields: FieldPath<ValuationFormValues>[] = [];
 
-const step4Fields: FieldPath<ValuationFormValues>[] = [
-  "site_plan_drawing",
-  "site_charge",
-];
+const step4Fields: FieldPath<ValuationFormValues>[] = [];
 
 const step5Fields: FieldPath<ValuationFormValues>[] = [];
 

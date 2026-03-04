@@ -35,8 +35,8 @@ async function runMigrations() {
     { name: "river_side_setback", type: "REAL" },
     { name: "high_tension_area_setback", type: "REAL" },
     { name: "canal_area_setback", type: "REAL" },
-    { name: "watchlist_category", type: "INTEGER DEFAULT 0" },
-    { name: "watchlist_category_setback", type: "REAL" },
+    { name: "flood_prone_area", type: "INTEGER DEFAULT 0" },
+    { name: "flood_prone_area_setback", type: "REAL" },
     { name: "heritage_memorial_site", type: "INTEGER DEFAULT 0" },
     { name: "heritage_memorial_site_setback", type: "REAL" },
   ];

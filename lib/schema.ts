@@ -96,8 +96,8 @@ export async function createValuationTable() {
     high_tension_area_setback REAL,
     canal_area INTEGER DEFAULT 0,
     canal_area_setback REAL,
-    watchlist_category INTEGER DEFAULT 0,
-    watchlist_category_setback REAL,
+    flood_prone_area INTEGER DEFAULT 0,
+    flood_prone_area_setback REAL,
     heritage_memorial_site INTEGER DEFAULT 0,
     heritage_memorial_site_setback REAL,
 
@@ -134,7 +134,10 @@ export async function createValuationTable() {
     tole_area TEXT,
 
     -- Last synced image hashes (JSON) to skip re-upload when unchanged
-    synced_image_hashes TEXT
+    synced_image_hashes TEXT,
+
+    -- GalliMaps Property Evaluation API response (JSON)
+    property_evaluation_data TEXT
   )`);
 
   // Lightweight migration: add new columns for existing installs.
@@ -168,6 +171,27 @@ export async function createValuationTable() {
   } catch {
     // ignore (likely: duplicate column name)
   }
+  try {
+    await db.execAsync(
+      "ALTER TABLE valuations ADD COLUMN property_evaluation_data TEXT;",
+    );
+  } catch {
+    // ignore (likely: duplicate column name)
+  }
+  try {
+    await db.execAsync(
+      "ALTER TABLE valuations ADD COLUMN flood_prone_area INTEGER DEFAULT 0;",
+    );
+  } catch {
+    // ignore
+  }
+  try {
+    await db.execAsync(
+      "ALTER TABLE valuations ADD COLUMN flood_prone_area_setback REAL;",
+    );
+  } catch {
+    // ignore
+  }
 }
 
 // Insert a new valuation
@@ -193,12 +217,13 @@ export async function insertValuation(
       building_type, building_purpose, number_of_storeys, storey_height, building_age_years, completion_date,
       landslide_prone_area, landslide_prone_area_setback, river_side, river_side_setback,
       high_tension_area, high_tension_area_setback, canal_area, canal_area_setback,
-      watchlist_category, watchlist_category_setback, heritage_memorial_site, heritage_memorial_site_setback,
+      flood_prone_area, flood_prone_area_setback, heritage_memorial_site, heritage_memorial_site_setback,
       site_charge, high_land_ft, low_land_ft, latitude, longitude, slope_degree,
       payment_cash, payment_online, payment_online_mode, payment_pending_due,
       documents, site_plan_note, site_plan_image, property_images, document_photos,
-      bank_name, bank_branch_name, city, tole_area
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      bank_name, bank_branch_name, city, tole_area,
+      property_evaluation_data
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       employeeId,
@@ -252,8 +277,8 @@ export async function insertValuation(
       data.high_tension_area_setback ?? null,
       data.canal_area ? 1 : 0,
       data.canal_area_setback ?? null,
-      data.watchlist_category ? 1 : 0,
-      data.watchlist_category_setback ?? null,
+      data.flood_prone_area ? 1 : 0,
+      data.flood_prone_area_setback ?? null,
       data.heritage_memorial_site ? 1 : 0,
       data.heritage_memorial_site_setback ?? null,
       data.site_charge ?? null,
@@ -275,6 +300,7 @@ export async function insertValuation(
       data.bank_branch_name ?? null,
       data.city ?? null,
       data.tole_area ?? null,
+      data.property_evaluation_data ?? null,
     ],
   );
 
@@ -419,11 +445,11 @@ export async function updateValuation(
     { key: "canal_area", column: "canal_area", transform: (v) => (v ? 1 : 0) },
     { key: "canal_area_setback", column: "canal_area_setback" },
     {
-      key: "watchlist_category",
-      column: "watchlist_category",
+      key: "flood_prone_area",
+      column: "flood_prone_area",
       transform: (v) => (v ? 1 : 0),
     },
-    { key: "watchlist_category_setback", column: "watchlist_category_setback" },
+    { key: "flood_prone_area_setback", column: "flood_prone_area_setback" },
     {
       key: "heritage_memorial_site",
       column: "heritage_memorial_site",
@@ -461,6 +487,7 @@ export async function updateValuation(
     { key: "bank_branch_name", column: "bank_branch_name" },
     { key: "city", column: "city" },
     { key: "tole_area", column: "tole_area" },
+    { key: "property_evaluation_data", column: "property_evaluation_data" },
   ];
 
   for (const mapping of fieldMappings) {
@@ -750,8 +777,8 @@ export interface ValuationRow {
   high_tension_area_setback: number | null;
   canal_area: number;
   canal_area_setback: number | null;
-  watchlist_category: number;
-  watchlist_category_setback: number | null;
+  flood_prone_area: number;
+  flood_prone_area_setback: number | null;
   heritage_memorial_site: number;
   heritage_memorial_site_setback: number | null;
   site_charge: number | null;
@@ -774,6 +801,7 @@ export interface ValuationRow {
   city: string | null;
   tole_area: string | null;
   synced_image_hashes: string | null;
+  property_evaluation_data: string | null;
 }
 
 // Document keys expected by the form (after removing BPTM, renaming to Nirman Ijajat / Nirman Sampanna)
@@ -915,8 +943,8 @@ export function rowToFormValues(
     high_tension_area_setback: row.high_tension_area_setback ?? undefined,
     canal_area: row.canal_area === 1,
     canal_area_setback: row.canal_area_setback ?? undefined,
-    watchlist_category: row.watchlist_category === 1,
-    watchlist_category_setback: row.watchlist_category_setback ?? undefined,
+    flood_prone_area: row.flood_prone_area === 1,
+    flood_prone_area_setback: row.flood_prone_area_setback ?? undefined,
     heritage_memorial_site: row.heritage_memorial_site === 1,
     heritage_memorial_site_setback: row.heritage_memorial_site_setback ?? undefined,
     site_charge: row.site_charge ?? undefined,
@@ -945,6 +973,7 @@ export function rowToFormValues(
     bank_branch_name: row.bank_branch_name ?? undefined,
     city: row.city ?? undefined,
     tole_area: row.tole_area ?? undefined,
+    property_evaluation_data: row.property_evaluation_data ?? undefined,
   };
 }
 

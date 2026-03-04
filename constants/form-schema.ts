@@ -162,8 +162,8 @@ export const valuationSchema = z.object({
   high_tension_area_setback: z.number().nonnegative().optional(),
   canal_area: z.boolean().optional(),
   canal_area_setback: z.number().nonnegative().optional(),
-  watchlist_category: z.boolean().optional(),
-  watchlist_category_setback: z.number().nonnegative().optional(),
+  flood_prone_area: z.boolean().optional(),
+  flood_prone_area_setback: z.number().nonnegative().optional(),
   heritage_memorial_site: z.boolean().optional(),
   heritage_memorial_site_setback: z.number().nonnegative().optional(),
 
@@ -282,6 +282,9 @@ export const valuationSchema = z.object({
 
   // Document photos (optional, no limit) – photos of documents collected on site
   document_photos: z.array(z.string()).optional(),
+
+  // GalliMaps Property Evaluation API response (stored as JSON string)
+  property_evaluation_data: z.string().optional(),
 });
 
 export type ValuationFormValues = z.infer<typeof valuationSchema>;
@@ -359,8 +362,8 @@ export const defaultValuationValues: Partial<ValuationFormValues> = {
   high_tension_area_setback: undefined,
   canal_area: false,
   canal_area_setback: undefined,
-  watchlist_category: false,
-  watchlist_category_setback: undefined,
+  flood_prone_area: false,
+  flood_prone_area_setback: undefined,
   heritage_memorial_site: false,
   heritage_memorial_site_setback: undefined,
 

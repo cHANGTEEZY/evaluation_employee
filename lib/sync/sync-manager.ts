@@ -76,8 +76,8 @@ function valuationToPayload(valuation: ValuationRow): Record<string, unknown> {
     high_tension_area_setback: valuation.high_tension_area_setback ?? undefined,
     canal_area: valuation.canal_area === 1,
     canal_area_setback: valuation.canal_area_setback ?? undefined,
-    watchlist_category: valuation.watchlist_category === 1,
-    watchlist_category_setback: valuation.watchlist_category_setback ?? undefined,
+    flood_prone_area: valuation.flood_prone_area === 1,
+    flood_prone_area_setback: valuation.flood_prone_area_setback ?? undefined,
     heritage_memorial_site: valuation.heritage_memorial_site === 1,
     heritage_memorial_site_setback: valuation.heritage_memorial_site_setback ?? undefined,
     site_charge: valuation.site_charge,
@@ -103,6 +103,9 @@ function valuationToPayload(valuation: ValuationRow): Record<string, unknown> {
     payment_pending_due: valuation.payment_pending_due ?? undefined,
     document_photos: valuation.document_photos
       ? JSON.parse(valuation.document_photos)
+      : undefined,
+    property_evaluation_data: valuation.property_evaluation_data
+      ? JSON.parse(valuation.property_evaluation_data)
       : undefined,
   };
 }
