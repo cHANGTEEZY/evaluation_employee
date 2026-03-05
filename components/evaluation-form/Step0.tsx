@@ -206,8 +206,8 @@ const Step0 = () => {
   const cameraRef = useRef<CameraRef>(null);
   // Prevent re-flying every time coordinates change after a tap
   const hasFlewToInitialPin = useRef(false);
-
-  // ── Location handling ───────────────────────────────────────────────
+  // Set initial zoom once on mount (avoids re-applying it on every camera update)
+  const hasSetInitialZoom = useRef(false);
 
   const handleLocationSelect = useCallback(
     (latitude: number, longitude: number) => {
@@ -486,6 +486,21 @@ const Step0 = () => {
     }
   }, [hasValidCoordinates, currentLatitude, currentLongitude, flyToCoordinate]);
 
+  // Set the initial zoom level once after mount. Because zoomLevel is NOT passed
+  // as a controlled Camera prop, MapLibre won't reset zoom on subsequent renders.
+  useEffect(() => {
+    if (hasSetInitialZoom.current) return;
+    hasSetInitialZoom.current = true;
+    const timer = setTimeout(() => {
+      cameraRef.current?.setCamera({
+        zoomLevel: DEFAULT_ZOOM,
+        animationDuration: 0,
+      });
+    }, 150);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // reverse geocode
   useEffect(() => {
     if (
@@ -732,14 +747,13 @@ const Step0 = () => {
         Use current location
       </Button>
 
-      {/* ── Map ─────────────────────────────────────────────────────── */}
-
       <View style={styles.mapContainer}>
         <MapView
           ref={mapRef}
           mapStyle={getMapStyleUrl()}
           logoEnabled={false}
           attributionEnabled={true}
+          compassViewMargins={{ x: 23, y: 16 }}
           onPress={handleMapPress}
           style={styles.mapView}
         >
@@ -747,7 +761,6 @@ const Step0 = () => {
             ref={cameraRef}
             maxBounds={NEPAL_BOUNDS}
             animationDuration={0}
-            zoomLevel={DEFAULT_ZOOM}
             centerCoordinate={
               hasValidCoordinates &&
               currentLatitude != null &&
@@ -757,7 +770,6 @@ const Step0 = () => {
             }
           />
 
-          {/* User-selected pin — location icon */}
           {hasValidCoordinates && (
             <MarkerView
               coordinate={[currentLongitude, currentLatitude]}
@@ -772,7 +784,6 @@ const Step0 = () => {
             </MarkerView>
           )}
 
-          {/* Heritage + disaster points — always mounted to avoid native bridge crash */}
           <ShapeSource id="eval-points-source" shape={evalPointsGeoJSON}>
             <CircleLayer
               id="heritage-circles"
@@ -1251,11 +1262,10 @@ const styles = StyleSheet.create({
   },
   mapContainer: {
     flex: 1,
-    height: 400,
+    height: 460,
     marginHorizontal: -20,
     marginBottom: 8,
-    borderRadius: 16,
-    overflow: "hidden",
+    overflow: "visible",
   },
   mapView: {
     flex: 1,
