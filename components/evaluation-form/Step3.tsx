@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -13,6 +13,14 @@ import FormInput from "../ui/FormInput";
 import FormSelect from "../ui/FormSelect";
 import FormDatePicker from "../ui/FormDatePicker";
 import PhotoCaptureScreen from "../PhotoCaptureScreen";
+
+function getFloorLabel(index: number): string {
+  if (index === 0) return "Ground floor";
+  if (index === 1) return "1st floor";
+  if (index === 2) return "2nd floor";
+  if (index === 3) return "3rd floor";
+  return `${index}th floor`;
+}
 
 const buildingTypeOptions = [
   { label: "RCC Framed", value: "rcc_framed" },
@@ -232,9 +240,29 @@ function DocumentPhotosField() {
 
 const Step3 = () => {
   const theme = useTheme();
-  const { watch } = useFormContext();
+  const { watch, setValue } = useFormContext();
   const valuationFor = watch("valuation_for");
   const showBuildingDetails = valuationFor === "land_and_building";
+  const numberOfStoreys = watch("number_of_storeys");
+  const existingRates = watch("building_rate_per_sqft") ?? [];
+
+  const numStoreys =
+    typeof numberOfStoreys === "number" && numberOfStoreys >= 1
+      ? Math.min(Math.floor(numberOfStoreys), 99)
+      : 0;
+
+  // Keep building_rate_per_sqft array length in sync with number_of_storeys
+  useEffect(() => {
+    if (!showBuildingDetails || numStoreys <= 0) return;
+    const current = (existingRates as (number | undefined)[]) ?? [];
+    if (current.length === numStoreys) return;
+    const next: (number | undefined)[] = Array.from(
+      { length: numStoreys },
+      (_, i) => (i < current.length ? current[i] : undefined),
+    );
+    setValue("building_rate_per_sqft", next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showBuildingDetails, numStoreys]);
 
   return (
     <ScrollView
@@ -257,6 +285,31 @@ const Step3 = () => {
             label="Building Purpose"
             options={buildingPurposeOptions}
           />
+          <FormInput
+            name="number_of_storeys"
+            label="Number of storeys"
+            keyboardType="numeric"
+          />
+          <FormInput
+            name="storey_height"
+            label="Storey height (ft)"
+            keyboardType="decimal-pad"
+          />
+          {numStoreys > 0 && (
+            <View style={styles.ratePerSqftSection}>
+              <Text variant="titleSmall" style={styles.ratePerSqftTitle}>
+                Rate per sq ft (NPR) by floor
+              </Text>
+              {Array.from({ length: numStoreys }, (_, i) => (
+                <FormInput
+                  key={i}
+                  name={`building_rate_per_sqft.${i}`}
+                  label={`${getFloorLabel(i)} – Rate per sq ft (NPR)`}
+                  keyboardType="decimal-pad"
+                />
+              ))}
+            </View>
+          )}
         </>
       )}
 
@@ -385,6 +438,14 @@ const styles = StyleSheet.create({
   },
   documentPhotosModalContent: {
     flex: 1,
+  },
+  ratePerSqftSection: {
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  ratePerSqftTitle: {
+    marginBottom: 12,
+    fontWeight: "600",
   },
 });
 

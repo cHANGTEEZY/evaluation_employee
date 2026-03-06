@@ -151,6 +151,10 @@ export const valuationSchema = z.object({
     .int("Building age must be a whole number")
     .nonnegative("Building age cannot be negative")
     .optional(),
+  /** Per-floor building rate (NPR per sq ft). Index 0 = Ground, 1 = 1st floor, etc. */
+  building_rate_per_sqft: z
+    .array(z.number().nonnegative().optional())
+    .optional(),
   completion_date: z.date({ message: "Please enter a valid date" }).optional(),
 
   // ===== Risk / Area =====
@@ -351,6 +355,7 @@ export const defaultValuationValues: Partial<ValuationFormValues> = {
   number_of_storeys: 2,
   storey_height: 10,
   building_age_years: 1,
+  building_rate_per_sqft: undefined,
   completion_date: new Date(),
 
   // Risk / area

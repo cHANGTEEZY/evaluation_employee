@@ -127,7 +127,6 @@ export async function fetchPropertyEvaluation(
     return null;
   }
 
-  // URL format per GalliMaps docs (trailing slash before query string is intentional)
   const url = `${PROPERTY_EVAL_BASE}/?accessToken=${encodeURIComponent(token)}&lat=${lat}&lng=${lng}`;
 
   try {

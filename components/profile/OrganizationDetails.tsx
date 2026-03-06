@@ -23,14 +23,30 @@ export default function OrganizationDetails() {
     value: string;
   }) => (
     <View style={styles.row}>
-      <View style={[styles.iconWrap, { backgroundColor: theme.colors.surfaceVariant }]}>
-        <MaterialCommunityIcons name={icon as any} size={20} color={theme.colors.secondary} />
+      <View
+        style={[
+          styles.iconWrap,
+          { backgroundColor: theme.colors.surfaceVariant },
+        ]}
+      >
+        <MaterialCommunityIcons
+          name={icon as any}
+          size={20}
+          color={theme.colors.secondary}
+        />
       </View>
       <View style={styles.rowText}>
-        <Text variant="labelMedium" style={[styles.label, { color: theme.colors.onSurfaceVariant }]}>
+        <Text
+          variant="labelMedium"
+          style={[styles.label, { color: theme.colors.onSurfaceVariant }]}
+        >
           {label}
         </Text>
-        <Text variant="bodyLarge" style={{ color: theme.colors.onSurface }} numberOfLines={2}>
+        <Text
+          variant="bodyLarge"
+          style={{ color: theme.colors.onSurface }}
+          numberOfLines={2}
+        >
           {value}
         </Text>
       </View>
@@ -39,8 +55,19 @@ export default function OrganizationDetails() {
 
   if (!organization) {
     return (
-      <View style={[styles.wrapper, { borderTopColor: theme.colors.outlineVariant }]}>
-        <Text style={[styles.sectionTitle, SECTION_LABEL, { color: theme.colors.onSurfaceVariant }]}>
+      <View
+        style={[
+          styles.wrapper,
+          { borderTopColor: theme.colors.outlineVariant },
+        ]}
+      >
+        <Text
+          style={[
+            styles.sectionTitle,
+            SECTION_LABEL,
+            { color: theme.colors.onSurfaceVariant },
+          ]}
+        >
           Organization
         </Text>
         <View style={styles.empty}>
@@ -49,8 +76,17 @@ export default function OrganizationDetails() {
             size={40}
             color={theme.colors.onSurfaceVariant}
           />
-          <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginTop: 8, textAlign: "center" }}>
-            {isAuthenticated ? "No organization assigned" : "Sign in to view organization details"}
+          <Text
+            variant="bodyMedium"
+            style={{
+              color: theme.colors.onSurfaceVariant,
+              marginTop: 8,
+              textAlign: "center",
+            }}
+          >
+            {isAuthenticated
+              ? "No organization assigned"
+              : "Sign in to view organization details"}
           </Text>
         </View>
       </View>
@@ -58,13 +94,29 @@ export default function OrganizationDetails() {
   }
 
   return (
-    <View style={[styles.wrapper, { borderTopColor: theme.colors.outlineVariant }]}>
-      <Text style={[styles.sectionTitle, SECTION_LABEL, { color: theme.colors.onSurfaceVariant }]}>
+    <View
+      style={[styles.wrapper, { borderTopColor: theme.colors.outlineVariant }]}
+    >
+      <Text
+        style={[
+          styles.sectionTitle,
+          SECTION_LABEL,
+          { color: theme.colors.onSurfaceVariant },
+        ]}
+      >
         Organization
       </Text>
       <Row icon="office-building" label="Name" value={organization.name} />
-      <Row icon="map-marker" label="Address" value={organization.address || "N/A"} />
-      <Row icon="phone" label="Contact" value={organization.contactNumber || "N/A"} />
+      <Row
+        icon="map-marker"
+        label="Address"
+        value={organization.address || "N/A"}
+      />
+      <Row
+        icon="phone"
+        label="Contact"
+        value={organization.contactNumber || "N/A"}
+      />
     </View>
   );
 }

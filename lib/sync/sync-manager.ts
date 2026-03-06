@@ -67,6 +67,9 @@ function valuationToPayload(valuation: ValuationRow): Record<string, unknown> {
     number_of_storeys: valuation.number_of_storeys,
     storey_height: valuation.storey_height,
     building_age_years: valuation.building_age_years,
+    building_rate_per_sqft: valuation.building_rate_per_sqft
+      ? JSON.parse(valuation.building_rate_per_sqft)
+      : undefined,
     completion_date: valuation.completion_date,
     landslide_prone_area: valuation.landslide_prone_area === 1,
     landslide_prone_area_setback: valuation.landslide_prone_area_setback ?? undefined,

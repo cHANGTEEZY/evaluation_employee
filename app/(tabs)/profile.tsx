@@ -38,7 +38,10 @@ export default function Profile() {
   const goToSettings = () => router.push("/(pages)/Settings");
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }]} edges={["left"]}>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: theme.colors.background }]}
+      edges={["left"]}
+    >
       <PageHeader
         title="Profile"
         subtitle="Manage your profile"
@@ -50,36 +53,71 @@ export default function Profile() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <UserProfile />
+        <View style={styles.profileContent}>
+          <UserProfile />
+          {isAuthenticated && <PresenceSection embedded />}
 
-        {/* Settings entry */}
-        <View style={[styles.settingsSection, { borderTopColor: theme.colors.outlineVariant }]}>
-          <Text style={[styles.sectionTitle, SECTION_LABEL, { color: theme.colors.onSurfaceVariant }]}>
+          {/* Settings entry */}
+          <View
+            style={[
+              styles.settingsSection,
+              { borderTopColor: theme.colors.outlineVariant },
+            ]}
+          >
+          <Text
+            style={[
+              styles.sectionTitle,
+              SECTION_LABEL,
+              { color: theme.colors.onSurfaceVariant },
+            ]}
+          >
             App
           </Text>
           <Pressable
             style={({ pressed }) => [
               styles.settingsRow,
-              { backgroundColor: pressed ? theme.colors.surfaceVariant : "transparent" },
+              {
+                backgroundColor: pressed
+                  ? theme.colors.surfaceVariant
+                  : "transparent",
+              },
             ]}
             onPress={goToSettings}
           >
-            <View style={[styles.settingsIconWrap, { backgroundColor: theme.colors.surfaceVariant }]}>
-              <MaterialCommunityIcons name="cog-outline" size={22} color={theme.colors.primary} />
+            <View
+              style={[
+                styles.settingsIconWrap,
+                { backgroundColor: theme.colors.surfaceVariant },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="cog-outline"
+                size={22}
+                color={theme.colors.primary}
+              />
             </View>
             <View style={styles.settingsRowText}>
-              <Text variant="titleMedium" style={{ color: theme.colors.onSurface }}>
+              <Text
+                variant="titleMedium"
+                style={{ color: theme.colors.onSurface }}
+              >
                 Settings
               </Text>
-              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
+              <Text
+                variant="bodySmall"
+                style={{ color: theme.colors.onSurfaceVariant, marginTop: 2 }}
+              >
                 Theme, sync & preferences
               </Text>
             </View>
-            <MaterialCommunityIcons name="chevron-right" size={24} color={theme.colors.onSurfaceVariant} />
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={24}
+              color={theme.colors.onSurfaceVariant}
+            />
           </Pressable>
         </View>
 
-        <PresenceSection />
         <OrganizationDetails />
         <BranchDetails />
 
@@ -106,6 +144,7 @@ export default function Profile() {
             {isAuthenticated ? "Sign Out" : "Sign In"}
           </Button>
         </View>
+        </View>
       </ScrollView>
 
       <ChangePasswordModal
@@ -115,7 +154,8 @@ export default function Profile() {
           clearBiometricCredentials().catch(() => {});
           toast({
             title: "Password changed",
-            message: "Your password has been updated. Sign in again to use biometric login.",
+            message:
+              "Your password has been updated. Sign in again to use biometric login.",
             preset: "done",
           });
         }}
@@ -132,8 +172,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 24,
     paddingBottom: 120,
+  },
+  profileContent: {
+    paddingHorizontal: 24,
   },
   settingsSection: {
     paddingVertical: 24,

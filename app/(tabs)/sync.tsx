@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { StyleSheet, View, RefreshControl, ScrollView } from "react-native";
-import { FlashList } from "@shopify/flash-list";
+
 import {
   Button,
   Card,
@@ -16,7 +16,6 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import PageHeader from "../../components/PageHeader";
 import {
   useSyncStore,
   useNetwork,
@@ -334,10 +333,7 @@ export default function SyncScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <LinearGradient
-        colors={[
-          theme.colors.primaryContainer,
-          theme.colors.primary,
-        ]}
+        colors={[theme.colors.primaryContainer, theme.colors.primary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0.5 }}
         style={[styles.gradientHeader, { paddingTop: insets.top + 12 }]}
@@ -602,9 +598,7 @@ export default function SyncScreen() {
               <Button
                 mode="elevated"
                 onPress={handleRetry}
-                disabled={
-                  !isOnline || isSyncing || isEmployeeWithoutBranch
-                }
+                disabled={!isOnline || isSyncing || isEmployeeWithoutBranch}
                 textColor={theme.colors.error}
                 style={{
                   flex: 1,

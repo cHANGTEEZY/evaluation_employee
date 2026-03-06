@@ -186,7 +186,7 @@ const EvaluationForm = () => {
   const inset = useSafeAreaInsets();
   const router = useRouter();
 
-  const USE_DEMO_DEFAULTS = false;
+  const USE_DEMO_DEFAULTS = true;
 
   const form = useForm<ValuationFormValues>({
     resolver: zodResolver(valuationSchema) as Resolver<ValuationFormValues>,

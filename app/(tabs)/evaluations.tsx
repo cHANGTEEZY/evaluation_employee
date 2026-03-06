@@ -55,7 +55,7 @@ export default function EvaluationsScreen() {
   useFocusEffect(
     useCallback(() => {
       refetchValuations();
-    }, [refetchValuations])
+    }, [refetchValuations]),
   );
 
   const handleSeedDummy = useCallback(async () => {
@@ -103,7 +103,7 @@ export default function EvaluationsScreen() {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.surface }}>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <LinearGradient
         colors={[theme.colors.secondaryContainer, theme.colors.primary]}
         start={{ x: 0, y: 0 }}
@@ -293,7 +293,7 @@ export default function EvaluationsScreen() {
             renderItem={({ item }) => {
               const displayStatus = getStatusDisplay(
                 item.status,
-                item.sync_status
+                item.sync_status,
               );
               return (
                 <Card
@@ -316,10 +316,10 @@ export default function EvaluationsScreen() {
                             displayStatus === "Draft"
                               ? theme.colors.surfaceVariant
                               : displayStatus === "Pending"
-                              ? theme.colors.errorContainer
-                              : displayStatus === "submitted"
-                              ? theme.colors.primaryContainer
-                              : theme.colors.tertiaryContainer,
+                                ? theme.colors.errorContainer
+                                : displayStatus === "submitted"
+                                  ? theme.colors.primaryContainer
+                                  : theme.colors.tertiaryContainer,
                         },
                       ]}
                     >
@@ -328,20 +328,20 @@ export default function EvaluationsScreen() {
                           displayStatus === "Draft"
                             ? "file-document-edit-outline"
                             : displayStatus === "Pending"
-                            ? "clock-outline"
-                            : displayStatus === "submitted"
-                            ? "check-circle-outline"
-                            : "cloud-check-outline"
+                              ? "clock-outline"
+                              : displayStatus === "submitted"
+                                ? "check-circle-outline"
+                                : "cloud-check-outline"
                         }
                         size={24}
                         color={
                           displayStatus === "Draft"
                             ? theme.colors.onSurfaceVariant
                             : displayStatus === "Pending"
-                            ? theme.colors.error
-                            : displayStatus === "submitted"
-                            ? theme.colors.primary
-                            : theme.colors.tertiary
+                              ? theme.colors.error
+                              : displayStatus === "submitted"
+                                ? theme.colors.primary
+                                : theme.colors.tertiary
                         }
                       />
                     </View>

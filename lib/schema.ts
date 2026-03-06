@@ -85,6 +85,7 @@ export async function createValuationTable() {
     number_of_storeys INTEGER,
     storey_height REAL,
     building_age_years INTEGER,
+    building_rate_per_sqft TEXT,
     completion_date TEXT,
 
     -- Risk / Area
@@ -192,6 +193,13 @@ export async function createValuationTable() {
   } catch {
     // ignore
   }
+  try {
+    await db.execAsync(
+      "ALTER TABLE valuations ADD COLUMN building_rate_per_sqft TEXT;",
+    );
+  } catch {
+    // ignore
+  }
 }
 
 // Insert a new valuation
@@ -214,7 +222,7 @@ export async function insertValuation(
       right_of_way, right_of_way_width_ft, motorable_access, electricity_available, drainage_near_property,
       property_type, property_ownership_type, ownership_transferred_through, hold_type,
       commercial_rate_per_anna, government_rate_per_anna,
-      building_type, building_purpose, number_of_storeys, storey_height, building_age_years, completion_date,
+      building_type, building_purpose, number_of_storeys, storey_height, building_age_years, building_rate_per_sqft, completion_date,
       landslide_prone_area, landslide_prone_area_setback, river_side, river_side_setback,
       high_tension_area, high_tension_area_setback, canal_area, canal_area_setback,
       flood_prone_area, flood_prone_area_setback, heritage_memorial_site, heritage_memorial_site_setback,
@@ -223,7 +231,7 @@ export async function insertValuation(
       documents, site_plan_note, site_plan_image, property_images, document_photos,
       bank_name, bank_branch_name, city, tole_area,
       property_evaluation_data
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       employeeId,
@@ -268,6 +276,7 @@ export async function insertValuation(
       data.number_of_storeys ?? null,
       data.storey_height ?? null,
       data.building_age_years ?? null,
+      data.building_rate_per_sqft ? JSON.stringify(data.building_rate_per_sqft) : null,
       toISODateString(data.completion_date),
       data.landslide_prone_area ? 1 : 0,
       data.landslide_prone_area_setback ?? null,
@@ -423,6 +432,11 @@ export async function updateValuation(
     { key: "number_of_storeys", column: "number_of_storeys" },
     { key: "storey_height", column: "storey_height" },
     { key: "building_age_years", column: "building_age_years" },
+    {
+      key: "building_rate_per_sqft",
+      column: "building_rate_per_sqft",
+      transform: (v) => (v != null && Array.isArray(v) ? JSON.stringify(v) : null),
+    },
     {
       key: "completion_date",
       column: "completion_date",
@@ -768,6 +782,7 @@ export interface ValuationRow {
   number_of_storeys: number | null;
   storey_height: number | null;
   building_age_years: number | null;
+  building_rate_per_sqft: string | null;
   completion_date: string | null;
   landslide_prone_area: number;
   landslide_prone_area_setback: number | null;
@@ -932,6 +947,9 @@ export function rowToFormValues(
     number_of_storeys: row.number_of_storeys ?? undefined,
     storey_height: row.storey_height ?? undefined,
     building_age_years: row.building_age_years ?? undefined,
+    building_rate_per_sqft: row.building_rate_per_sqft
+      ? JSON.parse(row.building_rate_per_sqft)
+      : undefined,
     completion_date: row.completion_date
       ? new Date(row.completion_date)
       : undefined,

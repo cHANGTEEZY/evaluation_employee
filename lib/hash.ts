@@ -1,15 +1,11 @@
 import * as Crypto from "expo-crypto";
 
-/**
- * Compute SHA-256 hash of a string (e.g. base64 image content) and return hex.
- * Used to compare current images with last-synced hashes and skip upload when unchanged.
- */
+// Compute SHA-256 hash of a string (e.g. base64 image content) and return hex.
+// Used to compare current images with last-synced hashes and skip upload when unchanged.
 export async function sha256Hex(input: string): Promise<string> {
-  return Crypto.digestStringAsync(
-    Crypto.CryptoDigestAlgorithm.SHA256,
-    input,
-    { encoding: Crypto.CryptoEncoding.HEX }
-  );
+  return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, input, {
+    encoding: Crypto.CryptoEncoding.HEX,
+  });
 }
 
 export type SyncedImageHashes = {
@@ -18,11 +14,18 @@ export type SyncedImageHashes = {
   documentPhotos: string[];
 };
 
-export function parseSyncedImageHashes(json: string | null): SyncedImageHashes | null {
+export function parseSyncedImageHashes(
+  json: string | null,
+): SyncedImageHashes | null {
   if (!json || typeof json !== "string") return null;
   try {
     const o = JSON.parse(json) as unknown;
-    if (o && typeof o === "object" && Array.isArray((o as SyncedImageHashes).propertyImages) && Array.isArray((o as SyncedImageHashes).documentPhotos)) {
+    if (
+      o &&
+      typeof o === "object" &&
+      Array.isArray((o as SyncedImageHashes).propertyImages) &&
+      Array.isArray((o as SyncedImageHashes).documentPhotos)
+    ) {
       return o as SyncedImageHashes;
     }
   } catch {
@@ -34,7 +37,7 @@ export function parseSyncedImageHashes(json: string | null): SyncedImageHashes |
 /** Compare current hashes with stored; returns true only if all three segments match. */
 export function imageHashesMatch(
   stored: SyncedImageHashes | null,
-  current: SyncedImageHashes
+  current: SyncedImageHashes,
 ): boolean {
   if (!stored) return false;
   if (

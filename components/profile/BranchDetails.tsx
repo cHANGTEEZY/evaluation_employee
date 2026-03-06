@@ -23,14 +23,30 @@ export default function BranchDetails() {
     value: string;
   }) => (
     <View style={styles.row}>
-      <View style={[styles.iconWrap, { backgroundColor: theme.colors.surfaceVariant }]}>
-        <MaterialCommunityIcons name={icon as any} size={20} color={theme.colors.tertiary} />
+      <View
+        style={[
+          styles.iconWrap,
+          { backgroundColor: theme.colors.surfaceVariant },
+        ]}
+      >
+        <MaterialCommunityIcons
+          name={icon as any}
+          size={20}
+          color={theme.colors.tertiary}
+        />
       </View>
       <View style={styles.rowText}>
-        <Text variant="labelMedium" style={[styles.label, { color: theme.colors.onSurfaceVariant }]}>
+        <Text
+          variant="labelMedium"
+          style={[styles.label, { color: theme.colors.onSurfaceVariant }]}
+        >
           {label}
         </Text>
-        <Text variant="bodyLarge" style={{ color: theme.colors.onSurface }} numberOfLines={2}>
+        <Text
+          variant="bodyLarge"
+          style={{ color: theme.colors.onSurface }}
+          numberOfLines={2}
+        >
           {value}
         </Text>
       </View>
@@ -39,8 +55,19 @@ export default function BranchDetails() {
 
   if (!branch) {
     return (
-      <View style={[styles.wrapper, { borderTopColor: theme.colors.outlineVariant }]}>
-        <Text style={[styles.sectionTitle, SECTION_LABEL, { color: theme.colors.onSurfaceVariant }]}>
+      <View
+        style={[
+          styles.wrapper,
+          { borderTopColor: theme.colors.outlineVariant },
+        ]}
+      >
+        <Text
+          style={[
+            styles.sectionTitle,
+            SECTION_LABEL,
+            { color: theme.colors.onSurfaceVariant },
+          ]}
+        >
           Branch
         </Text>
         <View style={styles.empty}>
@@ -49,8 +76,17 @@ export default function BranchDetails() {
             size={40}
             color={theme.colors.onSurfaceVariant}
           />
-          <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginTop: 8, textAlign: "center" }}>
-            {isAuthenticated ? "No branch assigned" : "Sign in to view branch details"}
+          <Text
+            variant="bodyMedium"
+            style={{
+              color: theme.colors.onSurfaceVariant,
+              marginTop: 8,
+              textAlign: "center",
+            }}
+          >
+            {isAuthenticated
+              ? "No branch assigned"
+              : "Sign in to view branch details"}
           </Text>
         </View>
       </View>
@@ -58,13 +94,29 @@ export default function BranchDetails() {
   }
 
   return (
-    <View style={[styles.wrapper, { borderTopColor: theme.colors.outlineVariant }]}>
-      <Text style={[styles.sectionTitle, SECTION_LABEL, { color: theme.colors.onSurfaceVariant }]}>
+    <View
+      style={[styles.wrapper, { borderTopColor: theme.colors.outlineVariant }]}
+    >
+      <Text
+        style={[
+          styles.sectionTitle,
+          SECTION_LABEL,
+          { color: theme.colors.onSurfaceVariant },
+        ]}
+      >
         Branch
       </Text>
       <Row icon="store-outline" label="Branch Name" value={branch.name} />
-      <Row icon="map-marker-outline" label="Address" value={branch.address || "N/A"} />
-      <Row icon="phone-outline" label="Contact" value={branch.contactNumber || "N/A"} />
+      <Row
+        icon="map-marker-outline"
+        label="Address"
+        value={branch.address || "N/A"}
+      />
+      <Row
+        icon="phone-outline"
+        label="Contact"
+        value={branch.contactNumber || "N/A"}
+      />
     </View>
   );
 }

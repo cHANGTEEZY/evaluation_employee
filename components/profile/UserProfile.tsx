@@ -5,6 +5,8 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 type UserProfileProps = {
   onEdit?: () => void;
+  /** Rendered in the hero section below name/role (e.g. status form) */
+  heroExtra?: React.ReactNode;
 };
 
 const SECTION_LABEL = {
@@ -13,7 +15,7 @@ const SECTION_LABEL = {
   letterSpacing: 0.8,
 };
 
-export default function UserProfile({ onEdit }: UserProfileProps) {
+export default function UserProfile({ onEdit, heroExtra }: UserProfileProps) {
   const { user, isAuthenticated } = useAuthSession();
   const theme = useTheme();
 
@@ -34,7 +36,12 @@ export default function UserProfile({ onEdit }: UserProfileProps) {
     value: string;
   }) => (
     <View style={styles.row}>
-      <View style={[styles.iconWrap, { backgroundColor: theme.colors.surfaceVariant }]}>
+      <View
+        style={[
+          styles.iconWrap,
+          { backgroundColor: theme.colors.surfaceVariant },
+        ]}
+      >
         <MaterialCommunityIcons
           name={icon as any}
           size={20}
@@ -42,10 +49,17 @@ export default function UserProfile({ onEdit }: UserProfileProps) {
         />
       </View>
       <View style={styles.rowText}>
-        <Text variant="labelMedium" style={[styles.label, { color: theme.colors.onSurfaceVariant }]}>
+        <Text
+          variant="labelMedium"
+          style={[styles.label, { color: theme.colors.onSurfaceVariant }]}
+        >
           {label}
         </Text>
-        <Text variant="bodyLarge" style={{ color: theme.colors.onSurface }} numberOfLines={1}>
+        <Text
+          variant="bodyLarge"
+          style={{ color: theme.colors.onSurface }}
+          numberOfLines={1}
+        >
           {value}
         </Text>
       </View>
@@ -54,29 +68,84 @@ export default function UserProfile({ onEdit }: UserProfileProps) {
 
   return (
     <View style={styles.wrapper}>
-      <View style={styles.hero}>
-        {displayUser.image ? (
-          <Avatar.Image size={72} source={{ uri: displayUser.image }} />
-        ) : (
-          <Avatar.Icon size={72} icon="account" style={{ backgroundColor: theme.colors.primaryContainer }} />
-        )}
-        <Text variant="titleLarge" style={[styles.name, { color: theme.colors.onSurface }]}>
-          {displayUser.name}
-        </Text>
-        <View style={[styles.roleChip, { backgroundColor: theme.colors.primaryContainer }]}>
-          <MaterialCommunityIcons name="shield-account" size={14} color={theme.colors.primary} />
-          <Text variant="labelMedium" style={{ color: theme.colors.primary, marginLeft: 4 }}>
-            {displayUser.role}
-          </Text>
+      <View
+        style={[
+          styles.hero,
+          heroExtra && {
+            backgroundColor: theme.colors.surfaceContainerHighest,
+            borderRadius: 20,
+            padding: 20,
+          },
+        ]}
+      >
+        <View style={styles.heroRow}>
+          <View style={styles.avatarWrap}>
+            {displayUser.image ? (
+              <Avatar.Image size={64} source={{ uri: displayUser.image }} />
+            ) : (
+              <Avatar.Icon
+                size={64}
+                icon="account"
+                style={{ backgroundColor: theme.colors.primaryContainer }}
+              />
+            )}
+          </View>
+          <View style={styles.heroText}>
+            <Text
+              variant="titleLarge"
+              style={[styles.name, { color: theme.colors.onSurface }]}
+              numberOfLines={1}
+            >
+              {displayUser.name}
+            </Text>
+            <View
+              style={[
+                styles.roleChip,
+                { backgroundColor: theme.colors.primaryContainer },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="shield-account"
+                size={14}
+                color={theme.colors.primary}
+              />
+              <Text
+                variant="labelMedium"
+                style={{ color: theme.colors.primary, marginLeft: 4 }}
+              >
+                {displayUser.role}
+              </Text>
+            </View>
+          </View>
         </View>
+        {heroExtra ? (
+          <View
+            style={[
+              styles.heroExtra,
+              { borderTopColor: theme.colors.outlineVariant },
+            ]}
+          >
+            {heroExtra}
+          </View>
+        ) : null}
       </View>
 
-      <Text style={[styles.sectionTitle, SECTION_LABEL, { color: theme.colors.onSurfaceVariant }]}>
+      <Text
+        style={[
+          styles.sectionTitle,
+          SECTION_LABEL,
+          { color: theme.colors.onSurfaceVariant },
+        ]}
+      >
         Account
       </Text>
       <Row icon="account-outline" label="Full Name" value={displayUser.name} />
       <Row icon="email-outline" label="Email" value={displayUser.email} />
-      <Row icon="shield-account-outline" label="Role" value={displayUser.role} />
+      <Row
+        icon="shield-account-outline"
+        label="Role"
+        value={displayUser.role}
+      />
     </View>
   );
 }
@@ -86,21 +155,35 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
   hero: {
+    marginBottom: 24,
+  },
+  heroRow: {
+    flexDirection: "row",
     alignItems: "center",
-    marginBottom: 28,
+  },
+  avatarWrap: {
+    marginRight: 16,
+  },
+  heroText: {
+    flex: 1,
+  },
+  heroExtra: {
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   name: {
     fontWeight: "700",
-    marginTop: 14,
     letterSpacing: -0.2,
   },
   roleChip: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
-    marginTop: 10,
+    marginTop: 8,
+    alignSelf: "flex-start",
   },
   sectionTitle: {
     marginBottom: 14,
