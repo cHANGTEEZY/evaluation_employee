@@ -133,6 +133,17 @@ const MenuDrawer = ({ visible, onDismiss }: MenuDrawerProps) => {
               }}
             />
             <Drawer.Item
+              label="Unit Converter"
+              icon="swap-horizontal"
+              active={active === "unit-converter"}
+              onPress={() => {
+                setActive("unit-converter");
+                onDismiss();
+                setActive("");
+                router.push("/(pages)/NepalUnitConverter");
+              }}
+            />
+            <Drawer.Item
               label="Evaluation"
               icon="file-document"
               active={active === "evaluation"}

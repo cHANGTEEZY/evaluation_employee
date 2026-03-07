@@ -9,6 +9,7 @@ const PagesLayout = () => {
       }}
     >
       <Stack.Screen name="Settings" options={{ headerShown: false }} />
+      <Stack.Screen name="NepalUnitConverter" options={{ headerShown: false }} />
       <Stack.Screen name="EvaluationDetail" options={{ headerShown: false }} />
       <Stack.Screen name="EvaluationForm" options={{ headerShown: false }} />
     </Stack>

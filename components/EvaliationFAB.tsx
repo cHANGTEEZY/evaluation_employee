@@ -64,6 +64,11 @@ const EvaliationFAB = () => {
             onPress: () => router.push("/(pages)/Settings"),
           },
           {
+            icon: "calculator",
+            label: "Nepal Unit Converter",
+            onPress: () => router.push("/(pages)/NepalUnitConverter"),
+          },
+          {
             icon: "cloud-sync",
             label: "Sync Data",
             onPress: () => router.push("/(tabs)/sync"),
