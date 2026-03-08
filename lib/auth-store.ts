@@ -129,7 +129,10 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
               PERSISTED_SESSION_KEY,
               JSON.stringify(nextSession),
             );
-          } else if (!isPending && (!value?.error || (value.error as any)?.status === 401)) {
+          } else if (
+            !isPending &&
+            (!value?.error || (value.error as any)?.status === 401)
+          ) {
             await SecureStore.deleteItemAsync(PERSISTED_SESSION_KEY);
           }
         } catch (err) {

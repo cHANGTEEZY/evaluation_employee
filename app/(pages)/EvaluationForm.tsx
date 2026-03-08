@@ -476,6 +476,9 @@ const EvaluationForm = () => {
       let pdfUri: string | null = null;
       if (data.site_charge && data.site_charge > 0) {
         try {
+          const existingPayments = await getPaymentsByValuationId(valuationId);
+          const existingPaymentId =
+            existingPayments.length > 0 ? existingPayments[0].id : undefined;
           const receiptData: PaymentReceiptData = {
             refNo: data.ref_no || "",
             clientName: data.client_name || "",
@@ -486,8 +489,17 @@ const EvaluationForm = () => {
             onlinePaymentMode: data.payment_online_mode,
             pendingDue: data.payment_pending_due || 0,
           };
-          pdfUri = await generatePaymentReceipt(valuationId, receiptData);
-          console.log("PDF receipt generated:", pdfUri);
+          pdfUri = await generatePaymentReceipt(
+            valuationId,
+            receiptData,
+            existingPaymentId,
+          );
+          console.log(
+            existingPaymentId
+              ? "PDF receipt updated:"
+              : "PDF receipt generated:",
+            pdfUri,
+          );
         } catch (pdfError) {
           console.error("Error generating PDF:", pdfError);
         }

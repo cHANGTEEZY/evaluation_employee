@@ -7,6 +7,7 @@ import React, {
   useState,
 } from "react";
 import { StyleSheet, Text as RNText, View } from "react-native";
+import ViewShot from "react-native-view-shot";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Svg, { Circle, G, Line, Rect, Text as SvgText } from "react-native-svg";
 import {
@@ -41,6 +42,7 @@ export interface PropertyPlotterRef {
   clear: () => void;
   getData: () => PlotterData;
   loadData: (data: PlotterData) => void;
+  capture: () => Promise<string | undefined>;
 }
 
 interface PropertyPlotterProps {
@@ -104,9 +106,9 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
     );
 
     // Drag: long-press a vertex then drag to move it
-    const [draggingPointIndex, setDraggingPointIndex] = useState<
-      number | null
-    >(null);
+    const [draggingPointIndex, setDraggingPointIndex] = useState<number | null>(
+      null,
+    );
     const [draggingPointPosition, setDraggingPointPosition] = useState<{
       x: number;
       y: number;
@@ -114,6 +116,7 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
     const draggingPointIndexRef = useRef<number | null>(null);
     const justFinishedDraggingRef = useRef(false);
     const pendingLoadDataRef = useRef<PlotterData | null>(null);
+    const viewShotRef = useRef<ViewShot>(null);
 
     // Keep latest state in refs so gesture callbacks can read them without stale closures
     const pointsRef = useRef(points);
@@ -156,6 +159,9 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
           canvasHeight: canvasSize.height,
         };
       },
+      async capture() {
+        return viewShotRef.current?.capture?.();
+      },
       loadData(data: PlotterData) {
         const w = canvasSize.width;
         const h = canvasSize.height;
@@ -189,8 +195,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
       );
       syncAndNotify(scaled, data.distances ?? [], data.isClosed);
     }, [canvasSize.width, canvasSize.height, syncAndNotify]);
-
-    // ── Tap gesture ────────────────────────────────────────────────────────
 
     const tap = Gesture.Tap()
       .runOnJS(true)
@@ -390,15 +394,20 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
 
     return (
       <View style={styles.wrapper}>
-        <GestureDetector gesture={composed}>
-          <View
-            style={styles.canvasContainer}
-            onLayout={(e) => {
-              const { width, height } = e.nativeEvent.layout;
-              setCanvasSize({ width, height });
-            }}
-          >
-            <Svg
+        <ViewShot
+          ref={viewShotRef}
+          options={{ format: "png", quality: 1 }}
+          style={styles.canvasWrapper}
+        >
+          <GestureDetector gesture={composed}>
+            <View
+              style={styles.canvasContainer}
+              onLayout={(e) => {
+                const { width, height } = e.nativeEvent.layout;
+                setCanvasSize({ width, height });
+              }}
+            >
+              <Svg
               width={canvasSize.width || "100%"}
               height={canvasSize.height || "100%"}
               style={styles.svg}
@@ -529,8 +538,9 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
                 );
               })}
             </Svg>
-          </View>
-        </GestureDetector>
+            </View>
+          </GestureDetector>
+        </ViewShot>
 
         {/* Hint text */}
         <SvgHint
@@ -671,6 +681,9 @@ function scalePoints(
 
 const styles = StyleSheet.create({
   wrapper: {
+    flex: 1,
+  },
+  canvasWrapper: {
     flex: 1,
   },
   canvasContainer: {

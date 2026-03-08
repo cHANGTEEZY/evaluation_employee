@@ -1229,6 +1229,19 @@ export async function getPendingSyncPayments(): Promise<PaymentRow[]> {
   return results;
 }
 
+// Update payment receipt (pdf_uri and file_name) for an existing payment
+export async function updatePaymentReceipt(
+  paymentId: string,
+  pdfUri: string,
+  fileName: string,
+): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    "UPDATE payments SET pdf_uri = ?, file_name = ? WHERE id = ?",
+    [pdfUri, fileName, paymentId],
+  );
+}
+
 // Update payment sync status
 export async function updatePaymentSyncStatus(
   id: string,

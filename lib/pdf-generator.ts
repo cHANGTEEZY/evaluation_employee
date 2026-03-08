@@ -1,7 +1,7 @@
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
-import { insertPayment } from "./schema";
+import { insertPayment, updatePaymentReceipt } from "./schema";
 
 export interface PaymentReceiptData {
   refNo: string;
@@ -254,14 +254,18 @@ const generateReceiptHtml = (data: PaymentReceiptData): string => {
 };
 
 /**
- * Generate a PDF receipt for the payment and save it to the payments folder
+ * Generate a PDF receipt for the payment and save it to the payments folder.
+ * When existingPaymentId is provided (e.g. when updating a valuation), updates
+ * that payment row instead of inserting a new one.
  * @param valuationId - The valuation ID to associate the payment with
  * @param data - The payment receipt data
+ * @param existingPaymentId - If provided, update this payment's pdf_uri/file_name instead of inserting
  * @returns The PDF file URI
  */
 export async function generatePaymentReceipt(
   valuationId: string,
-  data: PaymentReceiptData
+  data: PaymentReceiptData,
+  existingPaymentId?: string,
 ): Promise<string> {
   try {
     // Generate HTML content
@@ -311,8 +315,12 @@ export async function generatePaymentReceipt(
       });
     }
 
-    // Insert payment record in database with the PDF URI
-    await insertPayment(valuationId, pdfUri, fileName);
+    // Insert or update payment record in database with the PDF URI
+    if (existingPaymentId) {
+      await updatePaymentReceipt(existingPaymentId, pdfUri, fileName);
+    } else {
+      await insertPayment(valuationId, pdfUri, fileName);
+    }
 
     return pdfUri;
   } catch (error) {

@@ -7,7 +7,6 @@ import {
   Divider,
   SegmentedButtons,
 } from "react-native-paper";
-import ViewShot from "react-native-view-shot";
 import { File, Paths } from "expo-file-system";
 import { useFormContext } from "react-hook-form";
 import PropertyPlotter, {
@@ -43,7 +42,6 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
     existingDrawing || null,
   );
 
-  const viewShotRef = useRef<ViewShot>(null);
   const plotterRef = useRef<PropertyPlotterRef>(null);
   const hasLoadedInitial = useRef(false);
 
@@ -82,7 +80,7 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
   const hasPoints = (plotterData?.points.length ?? 0) > 0;
 
   const handleSaveDrawing = async () => {
-    if (!viewShotRef.current) return;
+    if (!plotterRef.current) return;
 
     if (!hasPoints) {
       Alert.alert(
@@ -95,7 +93,7 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
     try {
       setIsSaving(true);
 
-      const capturedUri = await viewShotRef.current.capture?.();
+      const capturedUri = await plotterRef.current.capture();
 
       if (capturedUri) {
         const fileName = `site_plan_${Date.now()}.png`;
@@ -269,13 +267,9 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
           </View>
         </View>
       ) : (
-        <ViewShot
-          ref={viewShotRef}
-          options={{ format: "png", quality: 1 }}
-          style={styles.canvasContainer}
-        >
+        <View style={styles.canvasContainer}>
           <PropertyPlotter ref={plotterRef} onDataChange={setPlotterData} />
-        </ViewShot>
+        </View>
       )}
 
       {!!savedUri && hasPoints && (
