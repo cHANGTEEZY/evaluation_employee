@@ -157,7 +157,7 @@ function RootLayoutNav() {
             }}
             useSuspense
           >
-            <StatusBar style={effectiveTheme === "dark" ? "dark" : "light"} />
+            <StatusBar style="light" />
             <Stack>
               <Stack.Screen
                 name="(tabs)"

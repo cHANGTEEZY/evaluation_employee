@@ -86,6 +86,15 @@ function getGalliAccessToken(): string {
 const PROPERTY_EVAL_BASE =
   "https://route-dev.gallimap.com/reverse/propertyevaulation";
 
+function safeStringifyBody(raw: string): string {
+  try {
+    const parsed = JSON.parse(raw);
+    return JSON.stringify(parsed, null, 2);
+  } catch {
+    return raw;
+  }
+}
+
 //* Parse the stringified geometry from water / transmissionline fields into
 //* a GeoJSON-compatible coordinate array: number[][] (each item is [lng, lat]).
 //* Returns null when parsing fails.
@@ -131,14 +140,21 @@ export async function fetchPropertyEvaluation(
 
   try {
     console.log("[PropertyEval] Fetching:", url);
-    const res = await fetch(url);
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": "MrValuator/1.0 (Property Evaluation)",
+      },
+    });
 
     const rawText = await res.text();
     console.log(
       "[PropertyEval] HTTP status:",
       res.status,
       "body:",
-      JSON.stringify(JSON.parse(rawText), null, 2),
+      safeStringifyBody(rawText),
     );
 
     if (!res.ok) {

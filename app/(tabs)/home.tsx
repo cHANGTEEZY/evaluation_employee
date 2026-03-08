@@ -24,6 +24,7 @@ import {
   ValuationRow,
 } from "../../lib/schema";
 import { getPresence } from "../../lib/presence-api";
+import ValuationVIcon from "../../components/ValuationVIcon";
 
 const HomeScreen = () => {
   const [drawerVisible, setDrawerVisible] = useState(false);
@@ -41,6 +42,7 @@ const HomeScreen = () => {
     total: 0,
   });
   const [presenceLabel, setPresenceLabel] = useState<string | null>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
 
   const PRESENCE_LABELS: Record<string, string> = {
     on_site: "On-site",
@@ -144,12 +146,25 @@ const HomeScreen = () => {
         onDismiss={() => setDrawerVisible(false)}
       />
 
-      <LinearGradient
-        colors={[theme.colors.primaryContainer, theme.colors.primary]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      <View
         style={[styles.gradientHeader, { paddingTop: insets.top + 12 }]}
+        onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
       >
+        <LinearGradient
+          colors={[theme.colors.primaryContainer, theme.colors.primary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+
+        {headerHeight > 0 && (
+          <View style={styles.headerBgIcon} pointerEvents="none">
+            <ValuationVIcon
+              size={Math.round(headerHeight * 0.88)}
+              color="rgba(44, 43, 43, 0.2)"
+            />
+          </View>
+        )}
         <View style={styles.headerTopRow}>
           <View style={{ flex: 1, marginLeft: 4 }}>
             <Text
@@ -268,7 +283,7 @@ const HomeScreen = () => {
             </Text>
           </View>
         </View>
-      </LinearGradient>
+      </View>
       <ScrollView
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
@@ -635,6 +650,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   gradientHeader: {
+    position: "relative",
+    overflow: "hidden",
     paddingHorizontal: 24,
     paddingBottom: 28,
     borderBottomLeftRadius: 32,
@@ -645,11 +662,20 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 4,
   },
-
+  headerBgIcon: {
+    position: "absolute",
+    right: -24,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "flex-end",
+    width: "50%",
+  },
   headerTopRow: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 20,
+    zIndex: 1,
   },
   headerStatsRow: {
     flexDirection: "row",
@@ -659,6 +685,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     borderTopWidth: 1,
     borderTopColor: "rgba(255, 255, 255, 0.2)",
+    zIndex: 1,
   },
   headerStatItem: {
     flex: 1,

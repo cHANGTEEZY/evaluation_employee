@@ -34,7 +34,7 @@ import {
   MapViewRef,
   Camera,
   CameraRef,
-  PointAnnotation,
+  MarkerView,
   ShapeSource,
   LineLayer,
   CircleLayer,
@@ -71,9 +71,17 @@ function getGalliAccessToken(): string {
   );
 }
 
+// Same as old working code: use Galli style for all platforms when token is set.
+// When token is missing, fallback so the map still loads (e.g. in dev without .env).
+const FALLBACK_MAP_STYLE =
+  "https://demotiles.maplibre.org/styles/osm-bright-gl-style/style.json";
+
 function getMapStyleUrl(): string {
   const token = getGalliAccessToken();
-  return `https://map-init.gallimap.com/styles/light/style.json?accessToken=${token}`;
+  if (token) {
+    return `https://map-init.gallimap.com/styles/light/style.json?accessToken=${token}`;
+  }
+  return FALLBACK_MAP_STYLE;
 }
 
 interface SearchResultItem {
@@ -206,9 +214,6 @@ const Step0 = () => {
   const cameraRef = useRef<CameraRef>(null);
   // Prevent re-flying every time coordinates change after a tap
   const hasFlewToInitialPin = useRef(false);
-  // Set initial zoom once on mount (avoids re-applying it on every camera update)
-  const hasSetInitialZoom = useRef(false);
-
   const handleLocationSelect = useCallback(
     (latitude: number, longitude: number) => {
       setValue("latitude", latitude, {
@@ -432,7 +437,7 @@ const Step0 = () => {
       if (!serviceEnabled) {
         Alert.alert(
           "Location Disabled",
-          "Please enable location services in settings.",
+          "Please enable location services in device settings.",
           [
             { text: "Cancel", style: "cancel" },
             { text: "Open Settings", onPress: () => Linking.openSettings() },
@@ -440,18 +445,40 @@ const Step0 = () => {
         );
         return;
       }
-      const { status } = await Location.requestForegroundPermissionsAsync();
+
+      // Check current permission; request if not yet granted
+      let { status, canAskAgain } =
+        await Location.getForegroundPermissionsAsync();
+
+      if (status !== "granted") {
+        if (canAskAgain === false) {
+          Alert.alert(
+            "Location Permission",
+            "Location access was previously denied. Please enable it in app settings to use current location.",
+            [
+              { text: "Cancel", style: "cancel" },
+              { text: "Open Settings", onPress: () => Linking.openSettings() },
+            ],
+          );
+          return;
+        }
+        const { status: newStatus } =
+          await Location.requestForegroundPermissionsAsync();
+        status = newStatus;
+      }
+
       if (status !== "granted") {
         Alert.alert(
           "Permission Denied",
-          "Location permission is needed to use your current position.",
+          "Location permission is needed to use your current position. You can enable it in app settings.",
           [
-            { text: "OK" },
+            { text: "Cancel", style: "cancel" },
             { text: "Open Settings", onPress: () => Linking.openSettings() },
           ],
         );
         return;
       }
+
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
@@ -459,10 +486,17 @@ const Step0 = () => {
       const lng = location.coords.longitude;
       handleLocationSelect(lat, lng);
       flyToCoordinate(lat, lng, ZOOM_WHEN_PINNED);
-    } catch {
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Could not get your location.";
+      console.warn("[Step0] Use current location error:", err);
       Alert.alert(
         "Location Error",
-        "Could not get your location. Try again or pick on the map.",
+        `${message} Try again or pick a location on the map.`,
+        [
+          { text: "OK" },
+          { text: "Open Settings", onPress: () => Linking.openSettings() },
+        ],
       );
     } finally {
       setIsLoadingLocation(false);
@@ -485,21 +519,6 @@ const Step0 = () => {
       flyToCoordinate(currentLatitude, currentLongitude, ZOOM_WHEN_PINNED);
     }
   }, [hasValidCoordinates, currentLatitude, currentLongitude, flyToCoordinate]);
-
-  // Set the initial zoom level once after mount. Because zoomLevel is NOT passed
-  // as a controlled Camera prop, MapLibre won't reset zoom on subsequent renders.
-  useEffect(() => {
-    if (hasSetInitialZoom.current) return;
-    hasSetInitialZoom.current = true;
-    const timer = setTimeout(() => {
-      cameraRef.current?.setCamera({
-        zoomLevel: DEFAULT_ZOOM,
-        animationDuration: 0,
-      });
-    }, 150);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // reverse geocode
   useEffect(() => {
@@ -760,7 +779,9 @@ const Step0 = () => {
           <Camera
             ref={cameraRef}
             maxBounds={NEPAL_BOUNDS}
-            animationDuration={0}
+            zoomLevel={
+              hasValidCoordinates ? ZOOM_WHEN_PINNED : DEFAULT_ZOOM
+            }
             centerCoordinate={
               hasValidCoordinates &&
               currentLatitude != null &&
@@ -771,10 +792,9 @@ const Step0 = () => {
           />
 
           {hasValidCoordinates && (
-            <PointAnnotation
-              id="property-location-pin"
+            <MarkerView
               coordinate={[currentLongitude, currentLatitude]}
-              anchor={{ x: 0.5, y: 1 }}
+              allowOverlap
             >
               <View style={styles.pinContainer}>
                 <MaterialCommunityIcons
@@ -783,7 +803,7 @@ const Step0 = () => {
                   color="#d32f2f"
                 />
               </View>
-            </PointAnnotation>
+            </MarkerView>
           )}
 
           <ShapeSource id="eval-points-source" shape={evalPointsGeoJSON}>
@@ -1279,6 +1299,14 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: "center",
     justifyContent: "center",
+  },
+  markerPin: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#1976d2",
+    borderWidth: 3,
+    borderColor: "#fff",
   },
   mapLegendOverlay: {
     position: "absolute",

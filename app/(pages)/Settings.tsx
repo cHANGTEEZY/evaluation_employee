@@ -238,6 +238,16 @@ const Settings = () => {
                     value={autoSyncEnabled}
                     onValueChange={setAutoSyncEnabled}
                     disabled={!isAuthenticated}
+                    trackColor={{
+                      false: theme.colors.surfaceVariant,
+                      true: theme.colors.primaryContainer,
+                    }}
+                    thumbColor={
+                      autoSyncEnabled
+                        ? theme.colors.primary
+                        : theme.colors.outline
+                    }
+                    ios_backgroundColor={theme.colors.surfaceVariant}
                   />
                 )}
                 style={styles.listItem}
@@ -259,6 +269,16 @@ const Settings = () => {
                     value={autoSyncOnWifiOnly}
                     onValueChange={setAutoSyncOnWifiOnly}
                     disabled={!autoSyncEnabled || !isAuthenticated}
+                    trackColor={{
+                      false: theme.colors.surfaceVariant,
+                      true: theme.colors.primaryContainer,
+                    }}
+                    thumbColor={
+                      autoSyncOnWifiOnly
+                        ? theme.colors.primary
+                        : theme.colors.outline
+                    }
+                    ios_backgroundColor={theme.colors.surfaceVariant}
                   />
                 )}
                 style={styles.listItem}
