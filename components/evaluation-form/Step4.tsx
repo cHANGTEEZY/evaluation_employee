@@ -1,5 +1,5 @@
 import { StyleSheet, View, Alert, Image, ScrollView } from "react-native";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Button,
   Text,
@@ -10,7 +10,10 @@ import {
 import ViewShot from "react-native-view-shot";
 import { File, Paths } from "expo-file-system";
 import { useFormContext } from "react-hook-form";
-import DrawingCanvas, { DrawingCanvasRef } from "../DrawingCanvas";
+import PropertyPlotter, {
+  type PlotterData,
+  type PropertyPlotterRef,
+} from "../PropertyPlotter";
 import FormInput from "../ui/FormInput";
 import FormSelect from "../ui/FormSelect";
 
@@ -30,29 +33,44 @@ const onlinePaymentModeOptions = [
 const Step4 = ({ onDrawingSaved }: Step4Props) => {
   const form = useFormContext();
   const existingDrawing = form.watch("site_plan_drawing");
+  const existingPlotterData = form.watch("site_plan_plotter_data");
   const pendingDue = form.watch("payment_pending_due");
 
   const [paymentType, setPaymentType] = useState<"cash" | "online">("cash");
-  const [drawnPaths, setDrawnPaths] = useState<any[]>([]);
+  const [plotterData, setPlotterData] = useState<PlotterData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [savedUri, setSavedUri] = useState<string | null>(
     existingDrawing || null,
   );
+
   const viewShotRef = useRef<ViewShot>(null);
-  const canvasRef = useRef<DrawingCanvasRef>(null);
+  const plotterRef = useRef<PropertyPlotterRef>(null);
+  const hasLoadedInitial = useRef(false);
+
   const theme = useTheme();
 
-  // Load existing drawing on mount
+  // Load existing drawing and plotter data on mount
   useEffect(() => {
-    if (existingDrawing) {
-      setSavedUri(existingDrawing);
-    }
+    if (existingDrawing) setSavedUri(existingDrawing);
   }, [existingDrawing]);
+
+  // Load plotter data into the canvas once the component is ready
+  useEffect(() => {
+    if (hasLoadedInitial.current) return;
+    if (!existingPlotterData || !plotterRef.current) return;
+    try {
+      const parsed: PlotterData = JSON.parse(existingPlotterData);
+      plotterRef.current.loadData(parsed);
+      setPlotterData(parsed);
+      hasLoadedInitial.current = true;
+    } catch {
+      // corrupted JSON — ignore
+    }
+  });
 
   // Handle payment type change
   const handlePaymentTypeChange = (value: string) => {
     setPaymentType(value as "cash" | "online");
-    // Clear the other payment field when switching
     if (value === "cash") {
       form.setValue("payment_online", undefined);
       form.setValue("payment_online_mode", undefined);
@@ -61,42 +79,47 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
     }
   };
 
-  const getCompletedPath = (paths: any[]) => {
-    setDrawnPaths(paths);
-  };
+  const hasPoints = (plotterData?.points.length ?? 0) > 0;
 
   const handleSaveDrawing = async () => {
     if (!viewShotRef.current) return;
 
-    if (drawnPaths.length === 0) {
-      Alert.alert("No Drawing", "Please draw something before saving.");
+    if (!hasPoints) {
+      Alert.alert(
+        "No Drawing",
+        "Please place at least one point before saving.",
+      );
       return;
     }
 
     try {
       setIsSaving(true);
 
-      // Capture the drawing as PNG
       const capturedUri = await viewShotRef.current.capture?.();
 
       if (capturedUri) {
-        // Generate unique filename and save to document directory
         const fileName = `site_plan_${Date.now()}.png`;
         const destFile = new File(Paths.document, fileName);
         const sourceFile = new File(capturedUri);
-
-        // Copy the captured file to permanent location
         await sourceFile.copy(destFile);
-
         const destUri = destFile.uri;
-        setSavedUri(destUri);
-        onDrawingSaved?.(destUri);
 
-        Alert.alert("Success", "Drawing saved successfully!");
+        setSavedUri(destUri);
+        form.setValue("site_plan_drawing", destUri, { shouldDirty: true });
+        onDrawingSaved?.(destUri);
       }
+
+      // Save plotter data (for resume editing)
+      if (plotterData) {
+        form.setValue("site_plan_plotter_data", JSON.stringify(plotterData), {
+          shouldDirty: true,
+        });
+      }
+
+      Alert.alert("Success", "Site plan saved successfully!");
     } catch (error) {
-      console.error("Error saving drawing:", error);
-      Alert.alert("Error", "Failed to save drawing. Please try again.");
+      console.error("Error saving site plan:", error);
+      Alert.alert("Error", "Failed to save site plan. Please try again.");
     } finally {
       setIsSaving(false);
     }
@@ -104,28 +127,29 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
 
   const handleClearDrawing = () => {
     Alert.alert(
-      "Clear Drawing?",
-      "This will remove all your drawings. Are you sure?",
+      "Clear Site Plan?",
+      "This will remove all points and lines. Are you sure?",
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Clear",
           style: "destructive",
           onPress: () => {
-            // Clear the canvas via ref
-            canvasRef.current?.clear();
-            setDrawnPaths([]);
+            plotterRef.current?.clear();
+            setPlotterData(null);
             setSavedUri(null);
-            // Also clear from form
             form.setValue("site_plan_drawing", "");
+            form.setValue("site_plan_plotter_data", "");
           },
         },
       ],
     );
   };
 
-  // If we have a saved drawing and no new paths, show the saved image
-  const showSavedPreview = savedUri && drawnPaths.length === 0;
+  // Show image-only preview only when we have a saved image but no plotter data to edit.
+  // When reopening a draft with plotter_data, show the plotter so the user can edit.
+  const showSavedPreview =
+    savedUri && !hasPoints && !existingPlotterData;
 
   return (
     <ScrollView
@@ -133,7 +157,6 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
-      {/* Payment & Details Section - FIRST */}
       <Text variant="titleMedium" style={styles.title}>
         Payment & Details
       </Text>
@@ -150,7 +173,6 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
         keyboardType="decimal-pad"
       />
 
-      {/* Payment Type Selection */}
       <Text
         variant="labelMedium"
         style={[styles.paymentTypeLabel, { color: theme.colors.onSurface }]}
@@ -161,21 +183,12 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
         value={paymentType}
         onValueChange={handlePaymentTypeChange}
         buttons={[
-          {
-            value: "cash",
-            label: "Cash",
-            icon: "cash",
-          },
-          {
-            value: "online",
-            label: "Online",
-            icon: "cellphone",
-          },
+          { value: "cash", label: "Cash", icon: "cash" },
+          { value: "online", label: "Online", icon: "cellphone" },
         ]}
         style={styles.segmentedButtons}
       />
 
-      {/* Conditional Payment Fields */}
       {paymentType === "cash" ? (
         <FormInput
           name="payment_cash"
@@ -203,8 +216,7 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
         keyboardType="decimal-pad"
       />
 
-      {/* Pending due notification indicator */}
-      {pendingDue && pendingDue > 0 && (
+      {(pendingDue ?? 0) > 0 && (
         <View
           style={[
             styles.pendingNotice,
@@ -217,7 +229,6 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
         </View>
       )}
 
-      {/* Remarks Field */}
       <FormInput
         name="site_plan_note"
         label="Remarks"
@@ -225,10 +236,9 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
         numberOfLines={3}
       />
 
-      {/* Divider between Payment and Site Plan */}
       <Divider style={styles.divider} />
 
-      {/* Site Plan Drawing Section - SECOND */}
+      {/* Site Plan Drawing Section */}
       <Text variant="titleMedium" style={styles.title}>
         Draw Site Plan
       </Text>
@@ -236,11 +246,11 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
         variant="bodySmall"
         style={[styles.helper, { color: theme.colors.onSurfaceVariant }]}
       >
-        Use your finger to draw the site plan. Save when complete.
+        Tap to place points and build the site plan boundary. Tap the first
+        point (↩) to close the polygon. Tap any edge to enter its distance.
       </Text>
 
       {showSavedPreview ? (
-        // Show saved drawing preview
         <View style={styles.canvasContainer}>
           <Image
             source={{ uri: savedUri }}
@@ -254,7 +264,7 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
             ]}
           >
             <Text style={{ color: theme.colors.onPrimaryContainer }}>
-              ✓ Saved drawing - Draw to create new
+              ✓ Saved site plan — clear to redraw
             </Text>
           </View>
         </View>
@@ -264,11 +274,11 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
           options={{ format: "png", quality: 1 }}
           style={styles.canvasContainer}
         >
-          <DrawingCanvas ref={canvasRef} getCompletedPath={getCompletedPath} />
+          <PropertyPlotter ref={plotterRef} onDataChange={setPlotterData} />
         </ViewShot>
       )}
 
-      {savedUri && drawnPaths.length > 0 && (
+      {!!savedUri && hasPoints && (
         <View
           style={[
             styles.savedIndicator,
@@ -276,7 +286,7 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
           ]}
         >
           <Text style={{ color: theme.colors.onPrimaryContainer }}>
-            ✓ New drawing ready to save
+            ✓ Unsaved changes — press Save to update
           </Text>
         </View>
       )}
@@ -285,7 +295,7 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
         <Button
           mode="outlined"
           onPress={handleClearDrawing}
-          disabled={drawnPaths.length === 0 && !savedUri}
+          disabled={!hasPoints && !savedUri}
           style={styles.button}
           icon="eraser"
         >
@@ -295,7 +305,7 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
           mode="contained"
           onPress={handleSaveDrawing}
           loading={isSaving}
-          disabled={isSaving || drawnPaths.length === 0}
+          disabled={isSaving || !hasPoints}
           style={styles.button}
           icon="content-save"
         >
@@ -330,7 +340,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   canvasContainer: {
-    height: 300,
+    height: 340,
     borderRadius: 8,
     overflow: "hidden",
     borderWidth: 1,

@@ -281,6 +281,9 @@ export const valuationSchema = z.object({
   //  Site Plan Drawing
   site_plan_drawing: z.string().optional(),
 
+  //  Site Plan Plotter Data (JSON string of PlotterData for resume editing)
+  site_plan_plotter_data: z.string().optional(),
+
   // Property Images
   property_images: z.array(z.string()).optional(),
 

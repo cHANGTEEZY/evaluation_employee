@@ -125,6 +125,9 @@ export async function createValuationTable() {
     -- Site Plan Drawing (local file URI or remote URL)
     site_plan_image TEXT,
 
+    -- Site Plan Plotter Data (JSON string of PlotterData for resume editing)
+    site_plan_plotter_data TEXT,
+
     -- Property Images (stored as JSON array of URIs)
     property_images TEXT,
 
@@ -200,6 +203,13 @@ export async function createValuationTable() {
   } catch {
     // ignore
   }
+  try {
+    await db.execAsync(
+      "ALTER TABLE valuations ADD COLUMN site_plan_plotter_data TEXT;",
+    );
+  } catch {
+    // ignore
+  }
 }
 
 // Insert a new valuation
@@ -228,10 +238,10 @@ export async function insertValuation(
       flood_prone_area, flood_prone_area_setback, heritage_memorial_site, heritage_memorial_site_setback,
       site_charge, high_land_ft, low_land_ft, latitude, longitude, slope_degree,
       payment_cash, payment_online, payment_online_mode, payment_pending_due,
-      documents, site_plan_note, site_plan_image, property_images, document_photos,
+      documents, site_plan_note, site_plan_image, site_plan_plotter_data, property_images, document_photos,
       bank_name, bank_branch_name, city, tole_area,
       property_evaluation_data
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       employeeId,
@@ -303,6 +313,7 @@ export async function insertValuation(
       data.documents ? JSON.stringify(data.documents) : null,
       data.site_plan_note ?? null,
       data.site_plan_drawing ?? null,
+      data.site_plan_plotter_data ?? null,
       data.property_images ? JSON.stringify(data.property_images) : null,
       data.document_photos ? JSON.stringify(data.document_photos) : null,
       data.bank_name ?? null,
@@ -487,6 +498,7 @@ export async function updateValuation(
     },
     { key: "site_plan_note", column: "site_plan_note" },
     { key: "site_plan_drawing", column: "site_plan_image" },
+    { key: "site_plan_plotter_data", column: "site_plan_plotter_data" },
     {
       key: "property_images",
       column: "property_images",
@@ -809,6 +821,7 @@ export interface ValuationRow {
   documents: string | null;
   site_plan_note: string | null;
   site_plan_image: string | null;
+  site_plan_plotter_data: string | null;
   property_images: string | null;
   document_photos: string | null;
   bank_name: string | null;
@@ -981,6 +994,7 @@ export function rowToFormValues(
       : undefined,
     site_plan_note: row.site_plan_note ?? undefined,
     site_plan_drawing: row.site_plan_image ?? undefined,
+    site_plan_plotter_data: row.site_plan_plotter_data ?? undefined,
     property_images: row.property_images
       ? JSON.parse(row.property_images)
       : undefined,

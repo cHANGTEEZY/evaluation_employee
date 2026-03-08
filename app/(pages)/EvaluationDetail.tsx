@@ -98,7 +98,7 @@ const EvaluationDetail = () => {
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -225,7 +225,7 @@ const EvaluationDetail = () => {
             style={{
               backgroundColor: getStatusColor(
                 valuation.status,
-                valuation.sync_status
+                valuation.sync_status,
               ),
             }}
             textStyle={{ color: "white" }}
@@ -572,7 +572,7 @@ const EvaluationDetail = () => {
       <FAB
         icon="pencil"
         label="Edit"
-        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+        style={[styles.fab, { backgroundColor: theme.colors.secondary }]}
         onPress={() => {
           router.push({
             pathname: "/(pages)/EvaluationForm",
