@@ -34,11 +34,11 @@ import {
   MapViewRef,
   Camera,
   CameraRef,
-  MarkerView,
   ShapeSource,
   LineLayer,
   CircleLayer,
   SymbolLayer,
+  PointAnnotation,
 } from "@maplibre/maplibre-react-native";
 
 import {
@@ -792,19 +792,21 @@ const Step0 = () => {
           />
 
           {hasValidCoordinates && (
-            <MarkerView
-              coordinate={[currentLongitude, currentLatitude]}
-              allowOverlap
-            >
-              <View style={styles.pinContainer}>
-                <MaterialCommunityIcons
-                  name="map-marker"
-                  size={40}
-                  color="#d32f2f"
-                />
-              </View>
-            </MarkerView>
-          )}
+            currentLatitude != null &&
+            currentLongitude != null && (
+              <PointAnnotation
+                id="selected-location"
+                coordinate={[currentLongitude, currentLatitude]}
+              >
+                <View style={styles.pinContainer}>
+                  <MaterialCommunityIcons
+                    name="map-marker"
+                    size={40}
+                    color="#d32f2f"
+                  />
+                </View>
+              </PointAnnotation>
+            ))}
 
           <ShapeSource id="eval-points-source" shape={evalPointsGeoJSON}>
             <CircleLayer
