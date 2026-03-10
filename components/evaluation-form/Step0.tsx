@@ -129,7 +129,7 @@ interface GalliReverseData {
   province?: string;
 }
 
-// ── GeoJSON helpers for map overlays ────────────────────────────────────
+// GeoJSON helpers for map overlays
 
 function makeLineGeoJSON(
   coords: number[][] | null,
@@ -150,7 +150,7 @@ function makeLineGeoJSON(
   };
 }
 
-/** Build a point FeatureCollection from eval data for heritage + disaster markers. */
+// Build a point FeatureCollection from eval data for heritage + disaster markers
 function makeEvalPointsGeoJSON(
   data: PropertyEvaluationData | null,
 ): GeoJSON.FeatureCollection {
@@ -185,14 +185,12 @@ function makeEvalPointsGeoJSON(
   return { type: "FeatureCollection", features };
 }
 
-// ── Threshold for auto-populating risk fields (km) ──────────────────────
+// Threshold for auto-populating risk fields (km)
 const RISK_DISTANCE_THRESHOLD_KM = 2;
 
-// How long the user must stop panning before we commit coordinates & fetch data.
-// 800ms feels responsive yet avoids mid-gesture API calls (food-app pattern).
+// How long the user must stop panning before we commit coordinates & fetch data
+// 800ms feels responsive yet avoids mid-gesture API calls (food-app pattern)
 const SETTLE_DEBOUNCE_MS = 800;
-
-// ── Component ───────────────────────────────────────────────────────────
 
 const Step0 = () => {
   const theme = useTheme();
@@ -240,9 +238,7 @@ const Step0 = () => {
   // Set true before any programmatic camera move, cleared after the resulting regionDidChange.
   const isProgrammaticMoveRef = useRef(false);
 
-  // ── Core helpers ────────────────────────────────────────────────
-
-  // ── commitLocation: the single function that does ALL work after settle ─
+  // The single function that does ALL work after settle
   const commitLocation = useCallback(
     async (lat: number, lng: number) => {
       // Cancel any previous in-flight commit
