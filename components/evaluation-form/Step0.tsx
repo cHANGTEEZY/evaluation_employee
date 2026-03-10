@@ -12,6 +12,7 @@ import {
   Alert,
   Keyboard,
   Linking,
+  Platform,
 } from "react-native";
 import {
   Searchbar,
@@ -38,7 +39,6 @@ import {
   LineLayer,
   CircleLayer,
   SymbolLayer,
-  PointAnnotation,
 } from "@maplibre/maplibre-react-native";
 
 import {
@@ -188,16 +188,28 @@ function makeEvalPointsGeoJSON(
 // ── Threshold for auto-populating risk fields (km) ──────────────────────
 const RISK_DISTANCE_THRESHOLD_KM = 2;
 
-const EVAL_DEBOUNCE_MS = 500;
+// How long the user must stop panning before we commit coordinates & fetch data.
+// 800ms feels responsive yet avoids mid-gesture API calls (food-app pattern).
+const SETTLE_DEBOUNCE_MS = 800;
 
 // ── Component ───────────────────────────────────────────────────────────
 
 const Step0 = () => {
   const theme = useTheme();
-  const { setValue, watch } = useFormContext<ValuationFormValues>();
+  const { setValue, getValues } = useFormContext<ValuationFormValues>();
 
-  const currentLatitude = watch("latitude");
-  const currentLongitude = watch("longitude");
+  // Committed coordinates — only updated after the user stops panning.
+  // These drive the address block and eval data display.
+  const [committedCoords, setCommittedCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(() => {
+    const lat = getValues("latitude");
+    const lng = getValues("longitude");
+    return typeof lat === "number" && typeof lng === "number"
+      ? { lat, lng }
+      : null;
+  });
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
@@ -209,27 +221,171 @@ const Step0 = () => {
 
   const [evalData, setEvalData] = useState<PropertyEvaluationData | null>(null);
   const [isLoadingEval, setIsLoadingEval] = useState(false);
+  // true while the user is actively panning the map (hides address, shows hint)
+  const [isMapMoving, setIsMapMoving] = useState(false);
 
   const mapRef = useRef<MapViewRef>(null);
   const cameraRef = useRef<CameraRef>(null);
   // Prevent re-flying every time coordinates change after a tap
   const hasFlewToInitialPin = useRef(false);
-  const handleLocationSelect = useCallback(
-    (latitude: number, longitude: number) => {
-      setValue("latitude", latitude, {
-        shouldValidate: true,
-        shouldDirty: true,
-      });
-      setValue("longitude", longitude, {
-        shouldValidate: true,
-        shouldDirty: true,
-      });
+
+  // ── Settle-debounce refs (no re-renders during panning) ─────────
+  // Stores the latest map-center while the user is still panning.
+  const pendingCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
+  // Single timer that gates ALL downstream work (form commit + APIs).
+  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // AbortController so a new commit cancels any in-flight API requests.
+  const commitAbortRef = useRef<AbortController | null>(null);
+  // Guards against the feedback loop: programmatic flyTo → onRegionDidChange → scheduleSettle.
+  // Set true before any programmatic camera move, cleared after the resulting regionDidChange.
+  const isProgrammaticMoveRef = useRef(false);
+
+  // ── Core helpers ────────────────────────────────────────────────
+
+  // ── commitLocation: the single function that does ALL work after settle ─
+  const commitLocation = useCallback(
+    async (lat: number, lng: number) => {
+      // Cancel any previous in-flight commit
+      commitAbortRef.current?.abort();
+      const controller = new AbortController();
+      commitAbortRef.current = controller;
+      const { signal } = controller;
+
+      // 1. Commit coordinates to form (skip validation — only matters at submit)
+      setValue("latitude", lat, { shouldDirty: true });
+      setValue("longitude", lng, { shouldDirty: true });
+      setCommittedCoords({ lat, lng });
+      setIsMapMoving(false);
+
+      // 2. Reverse geocode
+      const reverseGeocode = async () => {
+        const token = getGalliAccessToken();
+        if (!token) {
+          try {
+            const res = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
+              { headers: { "User-Agent": "EvaluationApp/1.0" }, signal },
+            );
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!signal.aborted) setReverseAddress(data?.display_name ?? "");
+          } catch {
+            // aborted or network error — ignore
+          }
+          return;
+        }
+        try {
+          const url = `${GALLI_API_BASE}/reverse/generalReverse?accessToken=${encodeURIComponent(token)}&lat=${lat}&lng=${lng}`;
+          const res = await fetch(url, { signal });
+          if (!res.ok) throw new Error("galli failed");
+          const json = (await res.json()) as {
+            success?: boolean;
+            data?: GalliReverseData;
+          };
+          if (!json?.success || !json.data) return;
+          const d = json.data;
+          const parts = [
+            d.generalName,
+            d.roadName,
+            d.place,
+            d.municipality,
+            d.ward,
+            d.district,
+            d.province,
+          ].filter(Boolean);
+          if (!signal.aborted)
+            setReverseAddress(
+              parts.length ? parts.join(", ") : "Address not found",
+            );
+        } catch {
+          if (signal.aborted) return;
+          // Fallback to Nominatim
+          try {
+            const res = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
+              { headers: { "User-Agent": "EvaluationApp/1.0" }, signal },
+            );
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!signal.aborted)
+              setReverseAddress(data?.display_name ?? "Address not found");
+          } catch {
+            // aborted or network error — ignore
+          }
+        }
+      };
+
+      // 3. Property evaluation fetch
+      const fetchEval = async () => {
+        setIsLoadingEval(true);
+        try {
+          const data = await fetchPropertyEvaluation(lat, lng);
+          if (signal.aborted) return;
+
+          if (data) {
+            setEvalData(data);
+            setValue("property_evaluation_data", JSON.stringify(data), {
+              shouldDirty: true,
+            });
+
+            if (data.water?.type === "river") {
+              setValue("river_side", true, { shouldDirty: true });
+            }
+            if (data.transmissionline) {
+              setValue("high_tension_area", true, { shouldDirty: true });
+            }
+            if (
+              data.heritage &&
+              data.heritage.distance < RISK_DISTANCE_THRESHOLD_KM
+            ) {
+              setValue("heritage_memorial_site", true, { shouldDirty: true });
+            }
+            const hasNearbyLandslide = data.disasters?.some(
+              (d) =>
+                d.disastertype === "Landslide" &&
+                d.distance < RISK_DISTANCE_THRESHOLD_KM,
+            );
+            if (hasNearbyLandslide) {
+              setValue("landslide_prone_area", true, { shouldDirty: true });
+            }
+            const hasNearbyFlood = data.disasters?.some(
+              (d) =>
+                d.disastertype === "Flood" &&
+                d.distance < RISK_DISTANCE_THRESHOLD_KM,
+            );
+            if (hasNearbyFlood) {
+              setValue("flood_prone_area", true, { shouldDirty: true });
+            }
+          }
+        } catch (err) {
+          if (!signal.aborted)
+            console.error("[Step0] Property eval error:", err);
+        } finally {
+          if (!signal.aborted) setIsLoadingEval(false);
+        }
+      };
+
+      // Run reverse geocode and eval fetch in parallel
+      await Promise.all([reverseGeocode(), fetchEval()]);
     },
     [setValue],
   );
 
+  // Keep a stable ref to commitLocation so flyToCoordinate can call it
+  // without creating a circular useCallback dependency.
+  const commitLocationRef = useRef(commitLocation);
+  commitLocationRef.current = commitLocation;
+
+  // Fly the camera and optionally commit the location after animation settles.
+  // The commit is done directly (not via onRegionDidChange) to avoid the
+  // feedback loop while still resolving address/eval data for programmatic moves.
   const flyToCoordinate = useCallback(
-    (latitude: number, longitude: number, zoom?: number) => {
+    (latitude: number, longitude: number, zoom?: number, autoCommit = true) => {
+      // Mark as programmatic so onRegionDidChange ignores the resulting event
+      isProgrammaticMoveRef.current = true;
+      // Cancel any pending user-gesture settle since we're overriding with a programmatic move
+      if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
+
       if (zoom != null) {
         cameraRef.current?.setCamera?.({
           centerCoordinate: [longitude, latitude],
@@ -239,20 +395,73 @@ const Step0 = () => {
       } else {
         cameraRef.current?.flyTo?.([longitude, latitude], 500);
       }
+      if (autoCommit) {
+        // Wait for the fly animation to finish, then commit
+        settleTimerRef.current = setTimeout(() => {
+          commitLocationRef.current(latitude, longitude);
+        }, 600);
+      }
     },
     [],
   );
 
+  // ── scheduleSettle: debounced commit after user stops panning ────
+  const scheduleSettle = useCallback(
+    (lat: number, lng: number) => {
+      pendingCoordsRef.current = { lat, lng };
+      setIsMapMoving(true);
+
+      if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
+
+      settleTimerRef.current = setTimeout(() => {
+        const coords = pendingCoordsRef.current;
+        if (coords) {
+          commitLocation(coords.lat, coords.lng);
+        }
+      }, SETTLE_DEBOUNCE_MS);
+    },
+    [commitLocation],
+  );
+
+  // Clean up timers & abort on unmount
+  useEffect(() => {
+    return () => {
+      if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
+      commitAbortRef.current?.abort();
+    };
+  }, []);
+
+  // ── Map tap handler — fly camera to tapped point ────────────────
   const handleMapPress = useCallback(
     (feature: GeoJSON.Feature) => {
       const geom = feature?.geometry;
       if (geom?.type === "Point" && Array.isArray(geom.coordinates)) {
         const longitude = geom.coordinates[0];
         const latitude = geom.coordinates[1];
-        handleLocationSelect(latitude, longitude);
+        flyToCoordinate(latitude, longitude, ZOOM_WHEN_PINNED);
       }
     },
-    [handleLocationSelect],
+    [flyToCoordinate],
+  );
+
+  // ── Map region change handler ───────────────────────────────────
+  const handleRegionDidChange = useCallback(
+    (feature: GeoJSON.Feature) => {
+      // Skip if this event was caused by a programmatic flyTo/setCamera.
+      // This breaks the infinite loop: flyTo → regionDidChange → scheduleSettle → commitLocation → repeat.
+      if (isProgrammaticMoveRef.current) {
+        isProgrammaticMoveRef.current = false;
+        return;
+      }
+
+      const geom = feature?.geometry;
+      if (geom?.type === "Point" && Array.isArray(geom.coordinates)) {
+        const lng = geom.coordinates[0];
+        const lat = geom.coordinates[1];
+        scheduleSettle(lat, lng);
+      }
+    },
+    [scheduleSettle],
   );
 
   // ── Search ──────────────────────────────────────────────────────────
@@ -269,12 +478,10 @@ const Step0 = () => {
     setIsSearching(true);
     setShowResults(true);
     Keyboard.dismiss();
-    const lat =
-      typeof currentLatitude === "number" ? currentLatitude : NEPAL_CENTER_LAT;
-    const lng =
-      typeof currentLongitude === "number"
-        ? currentLongitude
-        : NEPAL_CENTER_LNG;
+    const formLat = getValues("latitude");
+    const formLng = getValues("longitude");
+    const lat = typeof formLat === "number" ? formLat : NEPAL_CENTER_LAT;
+    const lng = typeof formLng === "number" ? formLng : NEPAL_CENTER_LNG;
 
     const tryGalli = async (): Promise<SearchResultItem[] | null> => {
       const token = getGalliAccessToken();
@@ -351,7 +558,7 @@ const Step0 = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [searchQuery, currentLatitude, currentLongitude]);
+  }, [searchQuery, getValues]);
 
   const handleSelectPlace = useCallback(
     async (item: SearchResultItem) => {
@@ -362,7 +569,7 @@ const Step0 = () => {
       if (item.lat != null && item.lon != null) {
         const latitude = parseFloat(item.lat);
         const longitude = parseFloat(item.lon);
-        handleLocationSelect(latitude, longitude);
+        // Fly to coordinate — onRegionDidChange will trigger commitLocation via scheduleSettle
         flyToCoordinate(latitude, longitude, ZOOM_WHEN_PINNED);
         return;
       }
@@ -376,14 +583,10 @@ const Step0 = () => {
         return;
       }
       setIsResolvingCoordinates(true);
-      const lat =
-        typeof currentLatitude === "number"
-          ? currentLatitude
-          : NEPAL_CENTER_LAT;
-      const lng =
-        typeof currentLongitude === "number"
-          ? currentLongitude
-          : NEPAL_CENTER_LNG;
+      const formLat = getValues("latitude");
+      const formLng = getValues("longitude");
+      const lat = typeof formLat === "number" ? formLat : NEPAL_CENTER_LAT;
+      const lng = typeof formLng === "number" ? formLng : NEPAL_CENTER_LNG;
       try {
         const baseParams = `name=${encodeURIComponent(item.name)}&currentLat=${lat}&currentLng=${lng}`;
         let url = `${GALLI_API_BASE}/search/currentLocation?accessToken=${encodeURIComponent(token)}&${baseParams}`;
@@ -410,7 +613,7 @@ const Step0 = () => {
         const features = json?.data?.features;
         if (features?.length && features[0].geometry?.coordinates) {
           const [longitude, latitude] = features[0].geometry.coordinates;
-          handleLocationSelect(latitude, longitude);
+          // Fly to coordinate — onRegionDidChange will trigger commitLocation via scheduleSettle
           flyToCoordinate(latitude, longitude, ZOOM_WHEN_PINNED);
         } else {
           Alert.alert(
@@ -427,7 +630,7 @@ const Step0 = () => {
         setIsResolvingCoordinates(false);
       }
     },
-    [handleLocationSelect, flyToCoordinate, currentLatitude, currentLongitude],
+    [flyToCoordinate, getValues],
   );
 
   const handleUseCurrentLocation = useCallback(async () => {
@@ -484,7 +687,7 @@ const Step0 = () => {
       });
       const lat = location.coords.latitude;
       const lng = location.coords.longitude;
-      handleLocationSelect(lat, lng);
+      // Fly to coordinate — onRegionDidChange will trigger commitLocation via scheduleSettle
       flyToCoordinate(lat, lng, ZOOM_WHEN_PINNED);
     } catch (err) {
       const message =
@@ -501,178 +704,33 @@ const Step0 = () => {
     } finally {
       setIsLoadingLocation(false);
     }
-  }, [handleLocationSelect, flyToCoordinate]);
+  }, [flyToCoordinate]);
 
-  const hasValidCoordinates =
-    typeof currentLatitude === "number" && typeof currentLongitude === "number";
+  const hasValidCoordinates = committedCoords != null;
 
-  // On first mount only: if coordinates are already set (edit mode), fly to them.
-  // Do NOT re-fly on every tap — the map is already at the tapped location.
-  useEffect(() => {
-    if (
-      !hasFlewToInitialPin.current &&
-      hasValidCoordinates &&
-      currentLatitude != null &&
-      currentLongitude != null
-    ) {
-      hasFlewToInitialPin.current = true;
-      flyToCoordinate(currentLatitude, currentLongitude, ZOOM_WHEN_PINNED);
-    }
-  }, [hasValidCoordinates, currentLatitude, currentLongitude, flyToCoordinate]);
-
-  // reverse geocode
-  useEffect(() => {
-    if (
-      !hasValidCoordinates ||
-      currentLatitude == null ||
-      currentLongitude == null
-    ) {
-      setReverseAddress(null);
-      return;
-    }
-    let cancelled = false;
-    const token = getGalliAccessToken();
-    const fetchGalliReverse = async () => {
-      if (!token) {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${currentLatitude}&lon=${currentLongitude}`,
-          { headers: { "User-Agent": "EvaluationApp/1.0" } },
-        );
-        if (cancelled || !res.ok) return;
-        const data = await res.json();
-        const addr = data?.display_name ?? "";
-        if (!cancelled) setReverseAddress(addr);
-        return;
-      }
-      try {
-        const url = `${GALLI_API_BASE}/reverse/generalReverse?accessToken=${encodeURIComponent(token)}&lat=${currentLatitude}&lng=${currentLongitude}`;
-        const res = await fetch(url);
-        if (cancelled || !res.ok) return;
-        const json = (await res.json()) as {
-          success?: boolean;
-          data?: GalliReverseData;
-        };
-        if (!json?.success || !json.data) return;
-        const d = json.data;
-        const parts = [
-          d.generalName,
-          d.roadName,
-          d.place,
-          d.municipality,
-          d.ward,
-          d.district,
-          d.province,
-        ].filter(Boolean);
-        if (!cancelled)
-          setReverseAddress(
-            parts.length ? parts.join(", ") : "Address not found",
-          );
-      } catch {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${currentLatitude}&lon=${currentLongitude}`,
-          { headers: { "User-Agent": "EvaluationApp/1.0" } },
-        );
-        if (cancelled || !res.ok) return;
-        const data = await res.json();
-        if (!cancelled)
-          setReverseAddress(data?.display_name ?? "Address not found");
-      }
-    };
-    fetchGalliReverse();
-    return () => {
-      cancelled = true;
-    };
-  }, [hasValidCoordinates, currentLatitude, currentLongitude]);
-
-  // Fetch property evaluation data (debounced to prevent rapid state churn
-  // from multiple taps which destabilises the MapLibre native bridge).
-  const evalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    // Only clear data when coordinates become truly invalid (user hasn't placed a pin).
-    if (
-      !hasValidCoordinates ||
-      currentLatitude == null ||
-      currentLongitude == null
-    ) {
-      if (evalTimerRef.current) clearTimeout(evalTimerRef.current);
-      setEvalData(null);
-      return;
-    }
-
-    // Cancel any pending debounced call
-    if (evalTimerRef.current) clearTimeout(evalTimerRef.current);
-
-    let cancelled = false;
-    setIsLoadingEval(true);
-
-    evalTimerRef.current = setTimeout(async () => {
-      try {
-        const data = await fetchPropertyEvaluation(
-          currentLatitude,
-          currentLongitude,
-        );
-        if (cancelled) return;
-
-        if (data) {
-          setEvalData(data);
-          setValue("property_evaluation_data", JSON.stringify(data), {
-            shouldDirty: true,
-          });
-
-          if (data.water?.type === "river") {
-            setValue("river_side", true, { shouldDirty: true });
-          }
-          if (data.transmissionline) {
-            setValue("high_tension_area", true, { shouldDirty: true });
-          }
-          if (
-            data.heritage &&
-            data.heritage.distance < RISK_DISTANCE_THRESHOLD_KM
-          ) {
-            setValue("heritage_memorial_site", true, { shouldDirty: true });
-          }
-          const hasNearbyLandslide = data.disasters?.some(
-            (d) =>
-              d.disastertype === "Landslide" &&
-              d.distance < RISK_DISTANCE_THRESHOLD_KM,
-          );
-          if (hasNearbyLandslide) {
-            setValue("landslide_prone_area", true, { shouldDirty: true });
-          }
-          const hasNearbyFlood = data.disasters?.some(
-            (d) =>
-              d.disastertype === "Flood" &&
-              d.distance < RISK_DISTANCE_THRESHOLD_KM,
-          );
-          if (hasNearbyFlood) {
-            setValue("flood_prone_area", true, { shouldDirty: true });
-          }
-        }
-        // If API returns null, keep old evalData visible rather than flashing to empty
-      } catch (err) {
-        console.error("[Step0] Property eval error:", err);
-      } finally {
-        if (!cancelled) setIsLoadingEval(false);
-      }
-    }, EVAL_DEBOUNCE_MS);
-
-    return () => {
-      cancelled = true;
-      if (evalTimerRef.current) clearTimeout(evalTimerRef.current);
-    };
-  }, [hasValidCoordinates, currentLatitude, currentLongitude, setValue]);
-
-  // On edit mode, hydrate evalData from the stored form field
+  // On edit mode, hydrate evalData from the stored form field (runs before initial fly)
   useEffect(() => {
     if (evalData) return;
-    const stored = watch("property_evaluation_data");
+    const stored = getValues("property_evaluation_data");
     if (stored) {
       try {
         setEvalData(JSON.parse(stored));
       } catch {
         // ignore
       }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // On first mount only: if coordinates are already set (edit mode), fly to them.
+  // flyToCoordinate auto-commits (fetches address + eval) unless data is already hydrated.
+  useEffect(() => {
+    if (hasFlewToInitialPin.current) return;
+    const lat = getValues("latitude");
+    const lng = getValues("longitude");
+    if (typeof lat === "number" && typeof lng === "number") {
+      hasFlewToInitialPin.current = true;
+      // If evalData was hydrated from storage above, skip the API fetch
+      flyToCoordinate(lat, lng, ZOOM_WHEN_PINNED);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -773,40 +831,21 @@ const Step0 = () => {
           logoEnabled={false}
           attributionEnabled={true}
           compassViewMargins={{ x: 23, y: 16 }}
+          regionDidChangeDebounceTime={100}
           onPress={handleMapPress}
+          onRegionDidChange={handleRegionDidChange}
           style={styles.mapView}
         >
           <Camera
             ref={cameraRef}
             maxBounds={NEPAL_BOUNDS}
-            zoomLevel={
-              hasValidCoordinates ? ZOOM_WHEN_PINNED : DEFAULT_ZOOM
-            }
-            centerCoordinate={
-              hasValidCoordinates &&
-              currentLatitude != null &&
-              currentLongitude != null
-                ? [currentLongitude, currentLatitude]
-                : [KATHMANDU_LNG, KATHMANDU_LAT]
-            }
+            defaultSettings={{
+              zoomLevel: hasValidCoordinates ? ZOOM_WHEN_PINNED : DEFAULT_ZOOM,
+              centerCoordinate: committedCoords
+                ? [committedCoords.lng, committedCoords.lat]
+                : [KATHMANDU_LNG, KATHMANDU_LAT],
+            }}
           />
-
-          {hasValidCoordinates && (
-            currentLatitude != null &&
-            currentLongitude != null && (
-              <PointAnnotation
-                id="selected-location"
-                coordinate={[currentLongitude, currentLatitude]}
-              >
-                <View style={styles.pinContainer}>
-                  <MaterialCommunityIcons
-                    name="map-marker"
-                    size={40}
-                    color="#d32f2f"
-                  />
-                </View>
-              </PointAnnotation>
-            ))}
 
           <ShapeSource id="eval-points-source" shape={evalPointsGeoJSON}>
             <CircleLayer
@@ -889,6 +928,23 @@ const Step0 = () => {
           </ShapeSource>
         </MapView>
 
+        {/* Fixed center pin overlay — always at exact center */}
+        <View pointerEvents="none" style={styles.centerPinOverlay}>
+          <MaterialCommunityIcons name="map-marker" size={44} color="#d32f2f" />
+        </View>
+
+        {/* Loading overlay — shown after user stops panning while APIs resolve */}
+        {(isLoadingEval || isMapMoving) && hasValidCoordinates && (
+          <View style={styles.mapLoadingOverlay}>
+            <View style={styles.mapLoadingPill}>
+              <ActivityIndicator size={14} color="#ffffff" />
+              <Text style={styles.mapLoadingText}>
+                {isMapMoving ? "Locating..." : "Fetching data..."}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Legend overlay — bottom-left corner of the map */}
         {evalData && (
           <View style={styles.mapLegendOverlay}>
@@ -948,7 +1004,7 @@ const Step0 = () => {
 
       {/* ── Address & Coordinates ───────────────────────────────────── */}
 
-      {hasValidCoordinates && (
+      {hasValidCoordinates && !isMapMoving && (
         <Surface style={styles.addressBlock} elevation={1}>
           {reverseAddress != null && (
             <List.Item
@@ -960,7 +1016,7 @@ const Step0 = () => {
           )}
           <List.Item
             title="Coordinates"
-            description={`Lat: ${Number(currentLatitude).toFixed(6)}, Long: ${Number(currentLongitude).toFixed(6)}`}
+            description={`Lat: ${committedCoords.lat.toFixed(6)}, Long: ${committedCoords.lng.toFixed(6)}`}
             left={(props) => <List.Icon {...props} icon="crosshairs-gps" />}
           />
         </Surface>
@@ -968,7 +1024,7 @@ const Step0 = () => {
 
       {/* ── Property Evaluation Data (read-only) ───────────────────── */}
 
-      {isLoadingEval && hasValidCoordinates && (
+      {isLoadingEval && hasValidCoordinates && !isMapMoving && (
         <View style={styles.evalLoading}>
           <ActivityIndicator size="small" />
           <Text variant="bodySmall" style={{ marginLeft: 8 }}>
@@ -977,7 +1033,7 @@ const Step0 = () => {
         </View>
       )}
 
-      {evalData && (
+      {evalData && !isMapMoving && (
         <View style={styles.evalSection}>
           <Text
             variant="titleMedium"
@@ -1289,18 +1345,43 @@ const styles = StyleSheet.create({
     height: 460,
     marginHorizontal: -20,
     marginBottom: 8,
-    overflow: "visible",
+    overflow: Platform.OS === "android" ? "hidden" : "visible",
   },
   mapView: {
     flex: 1,
     width: "100%",
     height: "100%",
   },
-  pinContainer: {
-    width: 40,
-    height: 40,
+  centerPinOverlay: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    // The icon is 44x44; offset by half to center the tip on the map center.
+    // map-marker icon has its tip at the bottom-center, so shift up by full height
+    // and left by half width.
+    marginLeft: -22,
+    marginTop: -44,
+  },
+  mapLoadingOverlay: {
+    position: "absolute",
+    top: 14,
+    alignSelf: "center",
+    width: "100%",
     alignItems: "center",
-    justifyContent: "center",
+  },
+  mapLoadingPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  mapLoadingText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "500",
   },
   markerPin: {
     width: 24,
