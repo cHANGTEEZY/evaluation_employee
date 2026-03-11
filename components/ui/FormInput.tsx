@@ -17,6 +17,9 @@ type FormInputProps = {
   multiline?: boolean;
   numberOfLines?: number;
   disabled?: boolean;
+  /** When true (default for numeric/decimal keyboards), the value is parsed to a JS number.
+   *  Pass false to keep the value as a string even when using a numeric keyboard. */
+  parseAsNumber?: boolean;
 };
 
 const FormInput = ({
@@ -28,12 +31,15 @@ const FormInput = ({
   multiline,
   numberOfLines,
   disabled,
+  parseAsNumber,
 }: FormInputProps) => {
   const { control } = useFormContext();
   const theme = useTheme();
 
-  const isNumeric =
+  const isNumericKeyboard =
     keyboardType === "numeric" || keyboardType === "decimal-pad";
+  // Parse to number only when the keyboard is numeric AND parseAsNumber is not explicitly false
+  const isNumeric = isNumericKeyboard && parseAsNumber !== false;
 
   return (
     <Controller

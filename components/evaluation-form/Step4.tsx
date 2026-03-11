@@ -1,24 +1,11 @@
-import { StyleSheet, View, Alert, Image, ScrollView } from "react-native";
-import React, { useEffect, useRef, useState } from "react";
-import {
-  Button,
-  Text,
-  useTheme,
-  Divider,
-  SegmentedButtons,
-} from "react-native-paper";
-import { File, Paths } from "expo-file-system";
+import { StyleSheet, View, ScrollView } from "react-native";
+import React, { useState } from "react";
+import { Text, useTheme, SegmentedButtons } from "react-native-paper";
 import { useFormContext } from "react-hook-form";
-import PropertyPlotter, {
-  type PlotterData,
-  type PropertyPlotterRef,
-} from "../PropertyPlotter";
 import FormInput from "../ui/FormInput";
 import FormSelect from "../ui/FormSelect";
 
-type Step4Props = {
-  onDrawingSaved?: (uri: string) => void;
-};
+type Step4Props = {};
 
 const onlinePaymentModeOptions = [
   { label: "eSewa", value: "esewa" },
@@ -29,44 +16,14 @@ const onlinePaymentModeOptions = [
   { label: "Other", value: "other" },
 ];
 
-const Step4 = ({ onDrawingSaved }: Step4Props) => {
+const Step4 = (_props: Step4Props) => {
   const form = useFormContext();
-  const existingDrawing = form.watch("site_plan_drawing");
-  const existingPlotterData = form.watch("site_plan_plotter_data");
   const pendingDue = form.watch("payment_pending_due");
 
   const [paymentType, setPaymentType] = useState<"cash" | "online">("cash");
-  const [plotterData, setPlotterData] = useState<PlotterData | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [savedUri, setSavedUri] = useState<string | null>(
-    existingDrawing || null,
-  );
-
-  const plotterRef = useRef<PropertyPlotterRef>(null);
-  const hasLoadedInitial = useRef(false);
 
   const theme = useTheme();
 
-  // Load existing drawing and plotter data on mount
-  useEffect(() => {
-    if (existingDrawing) setSavedUri(existingDrawing);
-  }, [existingDrawing]);
-
-  // Load plotter data into the canvas once the component is ready
-  useEffect(() => {
-    if (hasLoadedInitial.current) return;
-    if (!existingPlotterData || !plotterRef.current) return;
-    try {
-      const parsed: PlotterData = JSON.parse(existingPlotterData);
-      plotterRef.current.loadData(parsed);
-      setPlotterData(parsed);
-      hasLoadedInitial.current = true;
-    } catch {
-      // corrupted JSON — ignore
-    }
-  });
-
-  // Handle payment type change
   const handlePaymentTypeChange = (value: string) => {
     setPaymentType(value as "cash" | "online");
     if (value === "cash") {
@@ -76,78 +33,6 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
       form.setValue("payment_cash", undefined);
     }
   };
-
-  const hasPoints = (plotterData?.points.length ?? 0) > 0;
-
-  const handleSaveDrawing = async () => {
-    if (!plotterRef.current) return;
-
-    if (!hasPoints) {
-      Alert.alert(
-        "No Drawing",
-        "Please place at least one point before saving.",
-      );
-      return;
-    }
-
-    try {
-      setIsSaving(true);
-
-      const capturedUri = await plotterRef.current.capture();
-
-      if (capturedUri) {
-        const fileName = `site_plan_${Date.now()}.png`;
-        const destFile = new File(Paths.document, fileName);
-        const sourceFile = new File(capturedUri);
-        await sourceFile.copy(destFile);
-        const destUri = destFile.uri;
-
-        setSavedUri(destUri);
-        form.setValue("site_plan_drawing", destUri, { shouldDirty: true });
-        onDrawingSaved?.(destUri);
-      }
-
-      // Save plotter data (for resume editing)
-      if (plotterData) {
-        form.setValue("site_plan_plotter_data", JSON.stringify(plotterData), {
-          shouldDirty: true,
-        });
-      }
-
-      Alert.alert("Success", "Site plan saved successfully!");
-    } catch (error) {
-      console.error("Error saving site plan:", error);
-      Alert.alert("Error", "Failed to save site plan. Please try again.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleClearDrawing = () => {
-    Alert.alert(
-      "Clear Site Plan?",
-      "This will remove all points and lines. Are you sure?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Clear",
-          style: "destructive",
-          onPress: () => {
-            plotterRef.current?.clear();
-            setPlotterData(null);
-            setSavedUri(null);
-            form.setValue("site_plan_drawing", "");
-            form.setValue("site_plan_plotter_data", "");
-          },
-        },
-      ],
-    );
-  };
-
-  // Show image-only preview only when we have a saved image but no plotter data to edit.
-  // When reopening a draft with plotter_data, show the plotter so the user can edit.
-  const showSavedPreview =
-    savedUri && !hasPoints && !existingPlotterData;
 
   return (
     <ScrollView
@@ -233,79 +118,6 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
         multiline
         numberOfLines={3}
       />
-
-      <Divider style={styles.divider} />
-
-      {/* Site Plan Drawing Section */}
-      <Text variant="titleMedium" style={styles.title}>
-        Draw Site Plan
-      </Text>
-      <Text
-        variant="bodySmall"
-        style={[styles.helper, { color: theme.colors.onSurfaceVariant }]}
-      >
-        Tap to place points and build the site plan boundary. Tap the first
-        point (↩) to close the polygon. Tap any edge to enter its distance.
-      </Text>
-
-      {showSavedPreview ? (
-        <View style={styles.canvasContainer}>
-          <Image
-            source={{ uri: savedUri }}
-            style={styles.savedImage}
-            resizeMode="contain"
-          />
-          <View
-            style={[
-              styles.savedOverlay,
-              { backgroundColor: theme.colors.primaryContainer },
-            ]}
-          >
-            <Text style={{ color: theme.colors.onPrimaryContainer }}>
-              ✓ Saved site plan — clear to redraw
-            </Text>
-          </View>
-        </View>
-      ) : (
-        <View style={styles.canvasContainer}>
-          <PropertyPlotter ref={plotterRef} onDataChange={setPlotterData} />
-        </View>
-      )}
-
-      {!!savedUri && hasPoints && (
-        <View
-          style={[
-            styles.savedIndicator,
-            { backgroundColor: theme.colors.primaryContainer },
-          ]}
-        >
-          <Text style={{ color: theme.colors.onPrimaryContainer }}>
-            ✓ Unsaved changes — press Save to update
-          </Text>
-        </View>
-      )}
-
-      <View style={styles.buttonContainer}>
-        <Button
-          mode="outlined"
-          onPress={handleClearDrawing}
-          disabled={!hasPoints && !savedUri}
-          style={styles.button}
-          icon="eraser"
-        >
-          Clear
-        </Button>
-        <Button
-          mode="contained"
-          onPress={handleSaveDrawing}
-          loading={isSaving}
-          disabled={isSaving || !hasPoints}
-          style={styles.button}
-          icon="content-save"
-        >
-          {savedUri ? "Resave" : "Save Drawing"}
-        </Button>
-      </View>
     </ScrollView>
   );
 };
@@ -332,43 +144,6 @@ const styles = StyleSheet.create({
   },
   segmentedButtons: {
     marginBottom: 16,
-  },
-  canvasContainer: {
-    height: 340,
-    borderRadius: 8,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#ccc",
-    backgroundColor: "white",
-  },
-  savedImage: {
-    flex: 1,
-    width: "100%",
-  },
-  savedOverlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 8,
-    alignItems: "center",
-  },
-  savedIndicator: {
-    padding: 8,
-    borderRadius: 8,
-    marginTop: 8,
-    alignItems: "center",
-  },
-  buttonContainer: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 12,
-  },
-  button: {
-    flex: 1,
-  },
-  divider: {
-    marginVertical: 24,
   },
   pendingNotice: {
     padding: 12,

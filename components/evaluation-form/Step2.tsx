@@ -164,10 +164,7 @@ const Step2 = () => {
         options={roadTypeOptions}
       />
       {roadType === "others" && (
-        <FormInput
-          name="road_type_others"
-          label="Other road type (specify)"
-        />
+        <FormInput name="road_type_others" label="Other road type (specify)" />
       )}
       <FormInput
         name="road_width"
@@ -187,7 +184,6 @@ const Step2 = () => {
         />
       )}
 
-      {/* Right of Way (m) – same style as Road Type */}
       <Controller
         control={control}
         name="right_of_way_m"

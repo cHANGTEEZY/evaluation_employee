@@ -3,7 +3,6 @@ import { StyleSheet, View, ScrollView, Pressable } from "react-native";
 import { useTheme, Text } from "react-native-paper";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { router } from "expo-router";
 
 import {
   ModeToggle,

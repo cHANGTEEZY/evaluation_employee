@@ -6,7 +6,7 @@ import {
   StyleSheet,
   Pressable,
 } from "react-native";
-import { StatusBar } from "expo-status-bar";
+import { StatusBar, setStatusBarStyle } from "expo-status-bar";
 import {
   DarkTheme,
   DefaultTheme,
@@ -127,6 +127,11 @@ function RootLayoutNav() {
         : "light"
       : themeMode;
 
+  // Keep status bar in sync whenever theme changes
+  useEffect(() => {
+    setStatusBarStyle(effectiveTheme === "dark" ? "light" : "dark", true);
+  }, [effectiveTheme]);
+
   // Enable auto-sync when WiFi is connected (if enabled in settings)
   useAutoSync();
 
@@ -157,7 +162,7 @@ function RootLayoutNav() {
             }}
             useSuspense
           >
-            <StatusBar style="light" />
+            <StatusBar style={effectiveTheme === "dark" ? "light" : "dark"} />
             <Stack>
               <Stack.Screen
                 name="(tabs)"

@@ -47,7 +47,10 @@ export const AREA_UNITS: { id: AreaUnitKey; label: string }[] = [
 ];
 
 /** Convert value in given area unit to square meters */
-export function areaToSquareMeters(value: number, fromUnit: AreaUnitKey): number {
+export function areaToSquareMeters(
+  value: number,
+  fromUnit: AreaUnitKey,
+): number {
   if (!Number.isFinite(value)) return 0;
   switch (fromUnit) {
     case "ropani":
@@ -114,7 +117,15 @@ const MILE_M = 1609.344;
 
 export const LENGTH_UNIT_GROUPS = {
   nepali: ["angul", "vitastaa", "haat", "gaj", "dand", "kos"] as const,
-  standard: ["inch", "feet", "yard", "centimeter", "meter", "kilometer", "mile"] as const,
+  standard: [
+    "inch",
+    "feet",
+    "yard",
+    "centimeter",
+    "meter",
+    "kilometer",
+    "mile",
+  ] as const,
 } as const;
 
 export type LengthUnitKey =
@@ -190,4 +201,78 @@ export function metersToLength(m: number): Record<LengthUnitKey, number> {
     kilometer: m / 1000,
     mile: m / MILE_M,
   };
+}
+
+// ─── Compound area decomposition helpers ─────────────────────────────────────
+
+export interface CompoundHill {
+  ropani: number;
+  aana: number;
+  paisa: number;
+  dam: number;
+}
+
+export interface CompoundTerai {
+  bigha: number;
+  kattha: number;
+  dhur: number;
+}
+
+/**
+ * Decompose a square-feet value into integer Hill (Ropani) units.
+ * 1 ropani = 508.72 m² = 5475.5 sq ft (approx)
+ */
+export function sqFtToCompoundHill(sqFt: number): CompoundHill {
+  if (!Number.isFinite(sqFt) || sqFt < 0)
+    return { ropani: 0, aana: 0, paisa: 0, dam: 0 };
+  const m2 = sqFt * SQFT_M2;
+  // Total dam units (base sub-unit)
+  const totalDam = m2 / (ROPANI_M2 / DAM_PER_ROPANI);
+  const damInt = Math.floor(totalDam);
+  const ropani = Math.floor(damInt / DAM_PER_ROPANI);
+  const remAfterRopani = damInt % DAM_PER_ROPANI;
+  // 1 ropani = 16 aana = 64 paisa = 256 dam → 1 aana = 16 dam, 1 paisa = 4 dam
+  const aana = Math.floor(remAfterRopani / 16);
+  const remAfterAana = remAfterRopani % 16;
+  const paisa = Math.floor(remAfterAana / 4);
+  const dam = remAfterAana % 4;
+  return { ropani, aana, paisa, dam };
+}
+
+/**
+ * Decompose a square-feet value into integer Terai (Bigha) units.
+ * 1 bigha = 6772.63 m² = 72900 sq ft (approx)
+ */
+export function sqFtToCompoundTerai(sqFt: number): CompoundTerai {
+  if (!Number.isFinite(sqFt) || sqFt < 0)
+    return { bigha: 0, kattha: 0, dhur: 0 };
+  const m2 = sqFt * SQFT_M2;
+  // Total dhur units (base sub-unit)
+  const totalDhur = m2 / (BIGHA_M2 / DHUR_PER_BIGHA);
+  const dhurInt = Math.floor(totalDhur);
+  const bigha = Math.floor(dhurInt / DHUR_PER_BIGHA);
+  const remAfterBigha = dhurInt % DHUR_PER_BIGHA;
+  // 1 bigha = 20 kattha = 400 dhur → 1 kattha = 20 dhur
+  const kattha = Math.floor(remAfterBigha / 20);
+  const dhur = remAfterBigha % 20;
+  return { bigha, kattha, dhur };
+}
+
+/** Format Hill compound as a readable string, skipping zero values */
+export function formatHill(h: CompoundHill): string {
+  const parts: string[] = [];
+  if (h.ropani > 0) parts.push(`${h.ropani} Ropani`);
+  if (h.aana > 0) parts.push(`${h.aana} Aana`);
+  if (h.paisa > 0) parts.push(`${h.paisa} Paisa`);
+  if (h.dam > 0) parts.push(`${h.dam} Dam`);
+  return parts.length > 0 ? parts.join(" ") : "0 Dam";
+}
+
+/** Format Terai compound as a readable string, skipping zero values */
+export function formatTerai(t: CompoundTerai): string {
+  const parts: string[] = [];
+  if (t.bigha > 0) parts.push(`${t.bigha} Bigha`);
+  if (t.kattha > 0) parts.push(`${t.kattha} Kattha`);
+  if (t.dhur > 0) parts.push(`${t.dhur} Dhur`);
+  return parts.length > 0 ? parts.join(" ") : "0 Dhur";
 }

@@ -60,12 +60,14 @@ import {
   PaymentReceiptData,
 } from "../../lib/pdf-generator";
 
+import Compass from "../../components/evaluation-form/Compass";
 import Step0 from "../../components/evaluation-form/Step0";
 import Step1 from "../../components/evaluation-form/Step1";
 import Step2 from "../../components/evaluation-form/Step2";
 import Step3 from "../../components/evaluation-form/Step3";
 import Step4 from "../../components/evaluation-form/Step4";
 import Step5 from "../../components/evaluation-form/Step5";
+import Step6 from "../../components/evaluation-form/Step6";
 import { goBack } from "expo-router/build/global-state/routing";
 import { generateClientRefNumber, generateShortId } from "../../lib/ref-number";
 import { useAuthSession } from "../../lib/auth-store";
@@ -143,15 +145,16 @@ function SubmitOverlay({ visible }: { visible: boolean }) {
   );
 }
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 7;
 
 const stepTitles: Record<number, string> = {
   0: "Property Location",
   1: "Basic Details",
   2: "Property Details",
   3: "Building & Documents",
-  4: "Site Plan & Payment",
-  5: "Property Images",
+  4: "Payment & Details",
+  5: "Site Plan",
+  6: "Property Images",
 };
 
 const step0Fields: FieldPath<ValuationFormValues>[] = [];
@@ -166,12 +169,15 @@ const step4Fields: FieldPath<ValuationFormValues>[] = [];
 
 const step5Fields: FieldPath<ValuationFormValues>[] = [];
 
+const step6Fields: FieldPath<ValuationFormValues>[] = [];
+
 const EvaluationForm = () => {
   const { id, mode } = useLocalSearchParams<{ id?: string; mode?: string }>();
   const isEditMode = mode === "edit" && id;
   const { user, sessionInfo } = useAuthSession();
   const { isOnline } = useNetwork();
 
+  const [showCompass, setShowCompass] = useState(!isEditMode);
   const [currentStep, setCurrentStep] = useState(0);
   const [isValidating, setIsValidating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -309,6 +315,8 @@ const EvaluationForm = () => {
         return step4Fields;
       case 5:
         return step5Fields;
+      case 6:
+        return step6Fields;
       default:
         return [];
     }
@@ -599,17 +607,19 @@ const EvaluationForm = () => {
       case 3:
         return <Step3 />;
       case 4:
+        return <Step4 />;
+      case 5:
         return (
-          <Step4
+          <Step5
             onDrawingSaved={(uri) => {
               form.setValue("site_plan_drawing", uri);
               setDrawingSaved(true);
             }}
           />
         );
-      case 5:
+      case 6:
         return (
-          <Step5
+          <Step6
             onImagesChange={(images) => {
               setPropertyImages(images);
               form.setValue("property_images", images);
@@ -622,6 +632,17 @@ const EvaluationForm = () => {
   };
 
   const progress = currentStep / TOTAL_STEPS;
+
+  if (showCompass) {
+    return (
+      <SafeAreaView
+        edges={["left"]}
+        style={[styles.safeArea, { backgroundColor: theme.colors.surface }]}
+      >
+        <Compass onAligned={() => setShowCompass(false)} />
+      </SafeAreaView>
+    );
+  }
 
   if (isLoading) {
     return (

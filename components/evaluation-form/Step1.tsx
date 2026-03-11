@@ -33,12 +33,12 @@ const Step1 = () => {
         label: b.name,
         value: b.name,
       })),
-    [banks]
+    [banks],
   );
 
   const selectedBank = useMemo(
     () => banks.find((b) => b.name === selectedBankName) ?? null,
-    [banks, selectedBankName]
+    [banks, selectedBankName],
   );
 
   const branchOptions = useMemo(
@@ -47,7 +47,7 @@ const Step1 = () => {
         label: br.name,
         value: br.name,
       })),
-    [selectedBank]
+    [selectedBank],
   );
 
   useEffect(() => {
@@ -96,7 +96,12 @@ const Step1 = () => {
       </Text>
 
       <FormInput name="owner_of_property" label="Owner of Property" />
-      <FormInput name="plot_no" label="Plot No." />
+      <FormInput
+        name="plot_no"
+        label="Plot No."
+        keyboardType="numeric"
+        parseAsNumber={false}
+      />
       <FormInput
         name="present_property_address"
         label="Present Property Address"

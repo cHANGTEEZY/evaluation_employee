@@ -1,47 +1,677 @@
-import React, { useState, useEffect } from "react";
-import { View } from "react-native";
+import { StyleSheet, View, Alert, Image, ScrollView } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Button, Divider, Surface, Text, useTheme } from "react-native-paper";
+import { File, Paths } from "expo-file-system";
 import { useFormContext } from "react-hook-form";
-import PhotoCaptureScreen from "../PhotoCaptureScreen";
+import PropertyPlotter, {
+  type PlotterData,
+  type PlotterUIState,
+  type PlotTriangle,
+  type PropertyPlotterRef,
+  type MeasureUnit,
+  type TapMode,
+} from "../PropertyPlotter";
+import { UnitResultSection } from "../nepal-unit-converter";
+import {
+  AREA_UNITS,
+  AREA_UNIT_GROUPS,
+  squareMetersToArea,
+} from "../../lib/nepal-unit-converter";
 
-const MIN_IMAGES = 4;
+// ─── Heron's formula ─────────────────────────────────────────────────────────
+
+function distInFt(
+  d: { feet: number; inches: number; totalFt?: number; meters?: number } | null,
+): number | null {
+  if (!d) return null;
+  // Prefer pre-computed totalFt (set for both imperial and metric inputs)
+  if (d.totalFt != null && d.totalFt > 0) return d.totalFt;
+  // Fallback: compute from feet+inches (old saved data)
+  const total = d.feet + d.inches / 12;
+  return total > 0 ? total : null;
+}
+
+/**
+ * Compute triangle area in sq ft from three side lengths (feet) via Heron's formula.
+ * Returns null if any side is missing or the triangle is degenerate.
+ */
+function heronSqFt(
+  a: number | null,
+  b: number | null,
+  c: number | null,
+): number | null {
+  if (a == null || b == null || c == null) return null;
+  if (a <= 0 || b <= 0 || c <= 0) return null;
+  // Triangle inequality: use strict < so near-degenerate triangles still compute
+  if (a + b < c || a + c < b || b + c < a) return null;
+  const s = (a + b + c) / 2;
+  const area2 = s * (s - a) * (s - b) * (s - c);
+  if (area2 < 0) return null;
+  return Math.sqrt(Math.max(0, area2));
+}
+
+function sqFtToSqM(sqFt: number): number {
+  return sqFt * 0.09290304;
+}
+
+// ─── Step5 ────────────────────────────────────────────────────────────────────
 
 type Step5Props = {
-  onImagesChange?: (images: string[]) => void;
+  onDrawingSaved?: (uri: string) => void;
 };
 
-const Step5 = ({ onImagesChange }: Step5Props) => {
+const Step5 = ({ onDrawingSaved }: Step5Props) => {
   const form = useFormContext();
-  const existingImages = form.watch("property_images") || [];
-  const [images, setImages] = useState<string[]>(
-    Array.isArray(existingImages) ? existingImages : []
+  const existingDrawing = form.watch("site_plan_drawing");
+  const existingPlotterData = form.watch("site_plan_plotter_data");
+
+  // Parse saved plotter data once so we can seed both the canvas and the
+  // AreaDetailsPanel without waiting for the canvas ref to be ready.
+  const initialPlotterData = React.useMemo<PlotterData | null>(() => {
+    if (!existingPlotterData) return null;
+    try {
+      return JSON.parse(existingPlotterData) as PlotterData;
+    } catch {
+      return null;
+    }
+  }, [existingPlotterData]);
+
+  const [plotterData, setPlotterData] = useState<PlotterData | null>(
+    initialPlotterData,
   );
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedUri, setSavedUri] = useState<string | null>(
+    existingDrawing || null,
+  );
+  const [plotterUIState, setPlotterUIState] = useState<PlotterUIState>({
+    measureUnit: "imperial",
+    tapMode: "select",
+    selectedCount: 0,
+    pointCount: 0,
+  });
+
+  const plotterRef = useRef<PropertyPlotterRef>(null);
+
+  const theme = useTheme();
 
   useEffect(() => {
-    if (
-      Array.isArray(existingImages) &&
-      existingImages.length > 0 &&
-      images.length === 0
-    ) {
-      setImages(existingImages);
-    }
-  }, [existingImages]);
+    if (existingDrawing) setSavedUri(existingDrawing);
+  }, [existingDrawing]);
 
-  const handleImagesChange = (next: string[]) => {
-    setImages(next);
-    form.setValue("property_images", next);
-    onImagesChange?.(next);
+  // Keep the form value in sync with canvas state so draft saves always
+  // include the latest plotter data — even without clicking "Save Drawing".
+  useEffect(() => {
+    if (!plotterData) return;
+    form.setValue("site_plan_plotter_data", JSON.stringify(plotterData), {
+      shouldDirty: true,
+    });
+  }, [plotterData]);
+
+  const hasPoints = (plotterData?.points.length ?? 0) > 0;
+  const hasTriangles = (plotterData?.triangles?.length ?? 0) > 0;
+
+  const handleSaveDrawing = async () => {
+    if (!plotterRef.current) return;
+    if (!hasPoints) {
+      Alert.alert(
+        "No Drawing",
+        "Please place at least one point before saving.",
+      );
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const capturedUri = await plotterRef.current.capture();
+      if (capturedUri) {
+        const fileName = `site_plan_${Date.now()}.png`;
+        const destFile = new File(Paths.document, fileName);
+        const sourceFile = new File(capturedUri);
+        await sourceFile.copy(destFile);
+        const destUri = destFile.uri;
+        setSavedUri(destUri);
+        form.setValue("site_plan_drawing", destUri, { shouldDirty: true });
+        onDrawingSaved?.(destUri);
+      }
+      if (plotterData) {
+        form.setValue("site_plan_plotter_data", JSON.stringify(plotterData), {
+          shouldDirty: true,
+        });
+      }
+      Alert.alert("Success", "Site plan saved successfully!");
+    } catch (error) {
+      console.error("Error saving site plan:", error);
+      Alert.alert("Error", "Failed to save site plan. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
+  const handleClearDrawing = () => {
+    Alert.alert(
+      "Clear Site Plan?",
+      "This will remove all points and triangles. Are you sure?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear",
+          style: "destructive",
+          onPress: () => {
+            plotterRef.current?.clear();
+            setPlotterData(null);
+            setSavedUri(null);
+            form.setValue("site_plan_drawing", "");
+            form.setValue("site_plan_plotter_data", "");
+          },
+        },
+      ],
+    );
+  };
+
+  const showSavedPreview = savedUri && !hasPoints && !existingPlotterData;
+
   return (
-    <View style={{ flex: 1 }}>
-      <PhotoCaptureScreen
-        images={images}
-        onImagesChange={handleImagesChange}
-        minImages={MIN_IMAGES}
-        title="Captured photos"
-      />
-    </View>
+    <ScrollView
+      style={styles.scrollContainer}
+      contentContainerStyle={styles.container}
+    >
+      <Text variant="titleMedium" style={styles.title}>
+        Draw Site Plan
+      </Text>
+
+      {/* Plotter toolbar — above the canvas */}
+      <View style={styles.plotterToolbar}>
+        <Button
+          mode={
+            plotterUIState.measureUnit === "imperial"
+              ? "contained-tonal"
+              : "outlined"
+          }
+          icon="ruler"
+          onPress={() =>
+            plotterRef.current?.setMeasureUnit(
+              plotterUIState.measureUnit === "imperial" ? "metric" : "imperial",
+            )
+          }
+          compact
+          style={styles.toolbarBtn}
+        >
+          {plotterUIState.measureUnit === "imperial" ? "ft/in" : "m/cm"}
+        </Button>
+
+        <Button
+          mode={plotterUIState.tapMode === "delete" ? "contained" : "outlined"}
+          icon={
+            plotterUIState.tapMode === "delete" ? "cursor-pointer" : "delete"
+          }
+          onPress={() =>
+            plotterRef.current?.setTapMode(
+              plotterUIState.tapMode === "select" ? "delete" : "select",
+            )
+          }
+          compact
+          buttonColor={
+            plotterUIState.tapMode === "delete" ? theme.colors.error : undefined
+          }
+          textColor={
+            plotterUIState.tapMode === "delete" ? "white" : theme.colors.error
+          }
+          style={[styles.toolbarBtn, { borderColor: theme.colors.error }]}
+        >
+          {plotterUIState.tapMode === "delete" ? "Delete On" : "Delete"}
+        </Button>
+
+        <Button
+          mode="outlined"
+          icon="undo"
+          onPress={() => plotterRef.current?.undo()}
+          disabled={plotterUIState.pointCount === 0}
+          compact
+          textColor={theme.colors.tertiary}
+          style={[styles.toolbarBtn, { borderColor: theme.colors.outline }]}
+        >
+          Undo
+        </Button>
+
+        {plotterUIState.selectedCount > 0 && (
+          <Button
+            mode="outlined"
+            icon="close"
+            onPress={() => plotterRef.current?.deselectAll()}
+            compact
+            textColor={theme.colors.error}
+            style={[styles.toolbarBtn, { borderColor: theme.colors.error }]}
+          >
+            {`Deselect (${plotterUIState.selectedCount})`}
+          </Button>
+        )}
+      </View>
+
+      <View style={styles.canvasContainer}>
+        {showSavedPreview ? (
+          <>
+            <Image
+              source={{ uri: savedUri }}
+              style={styles.savedImage}
+              resizeMode="contain"
+            />
+            <View
+              style={[
+                styles.savedOverlay,
+                { backgroundColor: theme.colors.primaryContainer },
+              ]}
+            >
+              <Text style={{ color: theme.colors.onPrimaryContainer }}>
+                ✓ Saved site plan — clear to redraw
+              </Text>
+            </View>
+          </>
+        ) : (
+          <PropertyPlotter
+            ref={plotterRef}
+            onDataChange={setPlotterData}
+            onUIStateChange={setPlotterUIState}
+            initialData={initialPlotterData}
+          />
+        )}
+      </View>
+
+      {!!savedUri && hasPoints && (
+        <View
+          style={[
+            styles.savedIndicator,
+            { backgroundColor: theme.colors.primaryContainer },
+          ]}
+        >
+          <Text style={{ color: theme.colors.onPrimaryContainer }}>
+            ✓ Unsaved changes — press Save to update
+          </Text>
+        </View>
+      )}
+
+      <View style={styles.buttonContainer}>
+        <Button
+          mode="outlined"
+          onPress={handleClearDrawing}
+          disabled={!hasPoints && !savedUri}
+          style={styles.button}
+          icon="eraser"
+        >
+          Clear
+        </Button>
+        <Button
+          mode="contained"
+          onPress={handleSaveDrawing}
+          loading={isSaving}
+          disabled={isSaving || !hasPoints}
+          style={styles.button}
+          icon="content-save"
+        >
+          {savedUri ? "Resave" : "Save Drawing"}
+        </Button>
+      </View>
+
+      {/* Area details panel */}
+      {hasTriangles && plotterData && <AreaDetailsPanel data={plotterData} />}
+    </ScrollView>
   );
 };
 
 export default Step5;
+
+type AreaDetailsPanelProps = {
+  data: PlotterData;
+};
+
+function AreaDetailsPanel({ data }: AreaDetailsPanelProps) {
+  const { triangles } = data;
+  const theme = useTheme();
+
+  interface TriangleResult {
+    tri: PlotTriangle;
+    index: number;
+    sides: [number | null, number | null, number | null];
+    areaSqFt: number | null;
+    areaSqM: number | null;
+  }
+
+  const results: TriangleResult[] = triangles.map((tri, idx) => {
+    const [a, b, c] = [
+      distInFt(tri.sides[0]),
+      distInFt(tri.sides[1]),
+      distInFt(tri.sides[2]),
+    ];
+    const areaSqFt = heronSqFt(a, b, c);
+    return {
+      tri,
+      index: idx,
+      sides: [a, b, c],
+      areaSqFt,
+      areaSqM: areaSqFt != null ? sqFtToSqM(areaSqFt) : null,
+    };
+  });
+
+  const totalSqFt = results.reduce((sum, r) => sum + (r.areaSqFt ?? 0), 0);
+  const measuredCount = results.filter((r) => r.areaSqFt != null).length;
+  const totalSqM = totalSqFt * 0.09290304;
+  const areaResults = squareMetersToArea(totalSqM);
+
+  const cardBg = theme.colors.surfaceVariant;
+  const labelColor = theme.colors.onSurfaceVariant;
+  const valueColor = theme.colors.onSurface;
+  const accentColor = theme.colors.primary;
+
+  function formatValue(n: number): string {
+    if (!Number.isFinite(n)) return "0";
+    const fixed = n.toFixed(4).replace(/\.?0+$/, "");
+    return parseFloat(fixed).toLocaleString(undefined, {
+      maximumFractionDigits: 4,
+    });
+  }
+
+  function getUnitLabel(key: string): string {
+    return AREA_UNITS.find((u) => u.id === key)?.label ?? key;
+  }
+
+  function pointLabel(idx: number): string {
+    return `p${idx + 1}`;
+  }
+
+  function sideLabel(s: number | null): string {
+    if (s == null) return "—";
+    const ft = Math.floor(s);
+    const inches = Math.round((s - ft) * 12);
+    if (ft > 0 && inches > 0) return `${ft}′ ${inches}″`;
+    if (ft > 0) return `${ft}′`;
+    return `${inches}″`;
+  }
+
+  return (
+    <Surface
+      style={[styles.detailsPanel, { backgroundColor: cardBg }]}
+      elevation={1}
+    >
+      <Text
+        variant="titleSmall"
+        style={[styles.detailsTitle, { color: accentColor }]}
+      >
+        Area Details
+      </Text>
+
+      {/* Per-triangle side breakdown */}
+      {results.map((r) => {
+        const [ai, bi, ci] = r.tri.pointIndices;
+        const allSidesPresent =
+          r.sides[0] != null && r.sides[1] != null && r.sides[2] != null;
+        const complete = allSidesPresent && r.areaSqFt != null;
+
+        return (
+          <View key={r.tri.id} style={styles.triRow}>
+            <View style={styles.triHeader}>
+              <Text
+                variant="labelLarge"
+                style={{ color: accentColor, fontWeight: "700" }}
+              >
+                Triangle {r.index + 1}
+              </Text>
+              <Text variant="labelMedium" style={{ color: labelColor }}>
+                {pointLabel(ai)} – {pointLabel(bi)} – {pointLabel(ci)}
+              </Text>
+            </View>
+
+            {/* Side lengths */}
+            <View style={styles.sidesRow}>
+              {([0, 1, 2] as const).map((s) => (
+                <View key={s} style={styles.sideCell}>
+                  <Text variant="labelSmall" style={{ color: labelColor }}>
+                    {s === 0
+                      ? `${pointLabel(ai)}→${pointLabel(bi)}`
+                      : s === 1
+                        ? `${pointLabel(bi)}→${pointLabel(ci)}`
+                        : `${pointLabel(ci)}→${pointLabel(ai)}`}
+                  </Text>
+                  <Text
+                    variant="bodySmall"
+                    style={{
+                      color:
+                        r.sides[s] != null ? valueColor : theme.colors.error,
+                      fontWeight: "600",
+                    }}
+                  >
+                    {sideLabel(r.sides[s])}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            {complete && r.areaSqFt != null && r.areaSqM != null ? (
+              <View style={styles.areaBlock}>
+                <View style={styles.areaRow}>
+                  <Text variant="labelSmall" style={{ color: labelColor }}>
+                    Area
+                  </Text>
+                  <Text
+                    variant="bodyMedium"
+                    style={{ color: valueColor, fontWeight: "700" }}
+                  >
+                    {r.areaSqFt.toFixed(2)} sq ft
+                    {"  "}
+                    <Text style={{ color: labelColor, fontWeight: "400" }}>
+                      ({r.areaSqM.toFixed(2)} m²)
+                    </Text>
+                  </Text>
+                </View>
+              </View>
+            ) : allSidesPresent ? (
+              <Text
+                variant="bodySmall"
+                style={{ color: theme.colors.error, marginTop: 4 }}
+              >
+                Invalid triangle — these side lengths don't form a valid
+                triangle. Please re-check your measurements.
+              </Text>
+            ) : (
+              <Text
+                variant="bodySmall"
+                style={{ color: theme.colors.error, marginTop: 4 }}
+              >
+                Incomplete — tap triangle edges to add all 3 side lengths
+              </Text>
+            )}
+
+            <Divider style={{ marginTop: 10 }} />
+          </View>
+        );
+      })}
+
+      {/* Total area */}
+      {measuredCount > 0 && (
+        <View
+          style={[
+            styles.totalBlock,
+            { backgroundColor: theme.colors.primaryContainer },
+          ]}
+        >
+          <Text
+            variant="titleSmall"
+            style={{
+              color: theme.colors.onPrimaryContainer,
+              fontWeight: "700",
+            }}
+          >
+            Total Area
+            {measuredCount < triangles.length
+              ? ` (${measuredCount}/${triangles.length} complete)`
+              : ""}
+          </Text>
+          <View style={styles.totalRow}>
+            <Text
+              variant="bodyLarge"
+              style={{
+                color: theme.colors.onPrimaryContainer,
+                fontWeight: "800",
+              }}
+            >
+              {totalSqFt.toFixed(2)} sq ft
+            </Text>
+            <Text
+              variant="bodySmall"
+              style={{ color: theme.colors.onPrimaryContainer }}
+            >
+              {totalSqM.toFixed(2)} m²
+            </Text>
+          </View>
+
+          <UnitResultSection
+            title="Hill Region (Ropani System)"
+            icon="image-filter-hdr"
+            unitKeys={AREA_UNIT_GROUPS.hill}
+            results={areaResults}
+            fromUnit="ropani"
+            formatValue={formatValue}
+            getUnitLabel={getUnitLabel}
+          />
+          <UnitResultSection
+            title="Terai Region (Bigha System)"
+            icon="sprout"
+            unitKeys={AREA_UNIT_GROUPS.terai}
+            results={areaResults}
+            fromUnit="bigha"
+            formatValue={formatValue}
+            getUnitLabel={getUnitLabel}
+          />
+          <UnitResultSection
+            title="Standard Units"
+            icon="ruler-square"
+            unitKeys={AREA_UNIT_GROUPS.standard}
+            results={areaResults}
+            fromUnit="square_feet"
+            formatValue={formatValue}
+            getUnitLabel={getUnitLabel}
+          />
+        </View>
+      )}
+
+      {measuredCount === 0 && (
+        <Text
+          variant="bodySmall"
+          style={{ color: labelColor, textAlign: "center", marginTop: 4 }}
+        >
+          Create triangles and enter their side lengths to see area
+          calculations.
+        </Text>
+      )}
+    </Surface>
+  );
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  scrollContainer: {
+    flex: 1,
+  },
+  container: {
+    paddingBottom: 20,
+  },
+  plotterToolbar: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 10,
+  },
+  toolbarBtn: {
+    alignSelf: "flex-start",
+  },
+  title: {
+    fontWeight: "bold",
+    marginBottom: 8,
+  },
+  canvasContainer: {
+    height: 480,
+    borderRadius: 8,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#ccc",
+    backgroundColor: "white",
+  },
+  savedImage: {
+    flex: 1,
+    height: 480,
+    width: "100%",
+  },
+  savedOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 8,
+    alignItems: "center",
+  },
+  savedIndicator: {
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 8,
+    alignItems: "center",
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 12,
+  },
+  button: {
+    flex: 1,
+  },
+  // Area details panel
+  detailsPanel: {
+    marginTop: 16,
+    borderRadius: 12,
+    padding: 16,
+  },
+  detailsTitle: {
+    fontWeight: "700",
+    marginBottom: 12,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  triRow: {
+    marginBottom: 4,
+  },
+  triHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  sidesRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 6,
+  },
+  sideCell: {
+    flex: 1,
+    gap: 2,
+  },
+  areaBlock: {
+    gap: 3,
+    marginBottom: 4,
+  },
+  areaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  totalBlock: {
+    marginTop: 14,
+    borderRadius: 10,
+    padding: 14,
+    gap: 6,
+  },
+  totalRow: {
+    flexDirection: "row",
+    gap: 12,
+    alignItems: "baseline",
+  },
+  totalUnitBox: {
+    gap: 2,
+  },
+});
