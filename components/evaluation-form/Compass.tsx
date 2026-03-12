@@ -150,6 +150,7 @@ const styles = StyleSheet.create({
   },
   buttonWrapper: {
     paddingHorizontal: 20,
+    zIndex: 1200,
   },
   alignedButton: {
     borderRadius: 10,
@@ -160,5 +161,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     letterSpacing: 0.5,
+    zIndex: 1200,
   },
 });

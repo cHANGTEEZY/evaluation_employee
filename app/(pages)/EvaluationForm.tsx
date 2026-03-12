@@ -152,9 +152,9 @@ const stepTitles: Record<number, string> = {
   1: "Basic Details",
   2: "Property Details",
   3: "Building & Documents",
-  4: "Payment & Details",
-  5: "Site Plan",
-  6: "Property Images",
+  4: "Site Plan",
+  5: "Property Images",
+  6: "Payment & Details",
 };
 
 const step0Fields: FieldPath<ValuationFormValues>[] = [];
@@ -192,7 +192,7 @@ const EvaluationForm = () => {
   const inset = useSafeAreaInsets();
   const router = useRouter();
 
-  const USE_DEMO_DEFAULTS = false;
+  const USE_DEMO_DEFAULTS = true;
 
   const form = useForm<ValuationFormValues>({
     resolver: zodResolver(valuationSchema) as Resolver<ValuationFormValues>,
@@ -607,25 +607,25 @@ const EvaluationForm = () => {
       case 3:
         return <Step3 />;
       case 4:
-        return <Step4 />;
-      case 5:
         return (
-          <Step5
+          <Step4
             onDrawingSaved={(uri) => {
               form.setValue("site_plan_drawing", uri);
               setDrawingSaved(true);
             }}
           />
         );
-      case 6:
+      case 5:
         return (
-          <Step6
+          <Step5
             onImagesChange={(images) => {
               setPropertyImages(images);
               form.setValue("property_images", images);
             }}
           />
         );
+      case 6:
+        return <Step6 />;
       default:
         return null;
     }

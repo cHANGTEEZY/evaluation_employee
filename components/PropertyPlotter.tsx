@@ -450,19 +450,55 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
             const b = verts[(s + 1) % 3];
             if (distToSegment(tapPt, a, b) < HIT_EDGE_PX) {
               const existing = tri.sides[s as 0 | 1 | 2];
+
+              // Convert existing measurement to current unit system for the dialog
+              let dialogFeet = "";
+              let dialogInches = "";
+              let dialogMeters = "";
+              let dialogCentimeters = "";
+
+              if (existing) {
+                if (measureUnitRef.current === "metric") {
+                  // Need metric values — convert from imperial if necessary
+                  const totalMeters =
+                    existing.meters ??
+                    (existing.totalFt != null
+                      ? existing.totalFt * 0.3048
+                      : (existing.feet + existing.inches / 12) * 0.3048);
+                  if (totalMeters > 0) {
+                    dialogMeters = String(Math.floor(totalMeters));
+                    dialogCentimeters = String(
+                      Math.round((totalMeters % 1) * 100),
+                    );
+                  }
+                } else {
+                  // Need imperial values — convert from metric if necessary
+                  const totalFt =
+                    existing.totalFt ??
+                    (existing.meters != null
+                      ? existing.meters / 0.3048
+                      : existing.feet + existing.inches / 12);
+                  if (totalFt > 0) {
+                    let feet = Math.floor(totalFt);
+                    let inches = Math.round((totalFt - feet) * 12);
+                    // Handle case where rounding gives 12+ inches
+                    if (inches >= 12) {
+                      feet += Math.floor(inches / 12);
+                      inches = inches % 12;
+                    }
+                    dialogFeet = String(feet);
+                    dialogInches = String(inches);
+                  }
+                }
+              }
+
               setDistDialog({
                 triId: tri.id,
                 sideIdx: s as 0 | 1 | 2,
-                feet: existing?.feet ? String(existing.feet) : "",
-                inches: existing?.inches ? String(existing.inches) : "",
-                meters:
-                  existing?.meters != null
-                    ? String(Math.floor(existing.meters))
-                    : "",
-                centimeters:
-                  existing?.meters != null
-                    ? String(Math.round((existing.meters % 1) * 100))
-                    : "",
+                feet: dialogFeet,
+                inches: dialogInches,
+                meters: dialogMeters,
+                centimeters: dialogCentimeters,
               });
               return;
             }
@@ -1113,9 +1149,7 @@ function PlotterHint({
     hint = "Select 2 more points to form a triangle";
   else if (selectedCount === 2) hint = "Select 1 more point to form a triangle";
   else if (selectedCount >= 3) hint = "Tap 'Create Triangle' above to confirm";
-  else if (triangleCount > 0)
-    hint =
-      "Tap an edge to enter its real-world length • tap × to delete a triangle";
+  else if (triangleCount > 0) hint = "";
 
   return (
     <Svg width="100%" height={18} style={styles.hintSvg}>
