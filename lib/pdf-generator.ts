@@ -59,194 +59,292 @@ const generateReceiptHtml = (data: PaymentReceiptData): string => {
           box-sizing: border-box;
         }
         body {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
           padding: 40px;
-          color: #333;
+          color: #1a1a1a;
+          background: #ffffff;
+        }
+        .receipt-container {
+          max-width: 800px;
+          margin: 0 auto;
+          border: 2px solid #e0e0e0;
+          border-radius: 12px;
+          overflow: hidden;
         }
         .header {
+          background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+          color: white;
+          padding: 40px 30px;
           text-align: center;
-          border-bottom: 2px solid #2196F3;
-          padding-bottom: 20px;
+          position: relative;
+        }
+        .logo-section {
+          margin-bottom: 20px;
+        }
+        .logo-text {
+          font-size: 42px;
+          font-weight: 900;
+          letter-spacing: 2px;
+          text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+          margin-bottom: 5px;
+        }
+        .logo-icon {
+          font-size: 50px;
+          margin-bottom: 10px;
+        }
+        .header-subtitle {
+          font-size: 16px;
+          font-weight: 300;
+          letter-spacing: 1px;
+          opacity: 0.95;
+          margin-top: 8px;
+        }
+        .receipt-title {
+          font-size: 24px;
+          font-weight: 600;
+          margin-top: 20px;
+          letter-spacing: 3px;
+          border-top: 2px solid rgba(255,255,255,0.3);
+          padding-top: 15px;
+        }
+        .content {
+          padding: 30px;
+        }
+        .receipt-meta {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 20px;
           margin-bottom: 30px;
-        }
-        .header h1 {
-          color: #2196F3;
-          font-size: 28px;
-          margin-bottom: 8px;
-        }
-        .header p {
-          color: #666;
-          font-size: 14px;
-        }
-        .receipt-info {
-          display: flex;
-          justify-content: space-between;
-          margin-bottom: 30px;
-          padding: 15px;
-          background: #f5f5f5;
+          padding: 20px;
+          background: #f8fafc;
           border-radius: 8px;
+          border-left: 4px solid #3b82f6;
         }
-        .receipt-info div {
+        .meta-item {
           text-align: left;
         }
-        .receipt-info label {
-          font-size: 12px;
-          color: #666;
-          display: block;
-          margin-bottom: 4px;
-        }
-        .receipt-info span {
-          font-size: 16px;
+        .meta-label {
+          font-size: 11px;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 6px;
           font-weight: 600;
+        }
+        .meta-value {
+          font-size: 15px;
+          font-weight: 600;
+          color: #1e293b;
+        }
+        .section-title {
+          font-size: 14px;
+          font-weight: 700;
+          color: #1e3a8a;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin: 30px 0 15px 0;
+          padding-bottom: 8px;
+          border-bottom: 2px solid #e2e8f0;
         }
         .table {
           width: 100%;
           border-collapse: collapse;
-          margin-bottom: 30px;
+          margin-bottom: 20px;
         }
-        .table th, .table td {
-          padding: 12px 16px;
-          text-align: left;
-          border-bottom: 1px solid #eee;
-        }
-        .table th {
-          background: #f5f5f5;
-          font-weight: 600;
-          color: #666;
+        .table tr {
+          border-bottom: 1px solid #e2e8f0;
         }
         .table td {
+          padding: 16px 12px;
           font-size: 15px;
         }
-        .table .amount {
-          text-align: right;
+        .table td:first-child {
+          color: #475569;
           font-weight: 500;
         }
-        .table .total-row {
-          background: #e3f2fd;
-          font-weight: 700;
+        .table td:last-child {
+          text-align: right;
+          font-weight: 600;
+          color: #1e293b;
         }
-        .table .total-row td {
-          font-size: 16px;
-          color: #1976D2;
+        .table .spacer-row {
+          height: 8px;
+          background: transparent;
+          border: none;
         }
-        .table .due-row {
-          background: #ffebee;
-        }
-        .table .due-row td {
-          color: #c62828;
+        .table .highlight-row {
+          background: #f1f5f9;
           font-weight: 600;
         }
-        .footer {
-          margin-top: 40px;
-          padding-top: 20px;
-          border-top: 1px solid #eee;
+        .table .total-row {
+          background: #dbeafe;
+          border-top: 2px solid #3b82f6;
+          border-bottom: 2px solid #3b82f6;
+        }
+        .table .total-row td {
+          padding: 18px 12px;
+          font-size: 18px;
+          font-weight: 700;
+          color: #1e3a8a;
+        }
+        .table .due-row {
+          background: #fee2e2;
+          border-left: 4px solid #dc2626;
+        }
+        .table .due-row td {
+          color: #991b1b;
+          font-weight: 700;
+          font-size: 16px;
+        }
+        .payment-badge {
+          display: inline-block;
+          background: #10b981;
+          color: white;
+          padding: 8px 20px;
+          border-radius: 20px;
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: 1px;
+          margin: 25px auto;
           text-align: center;
-          color: #999;
-          font-size: 12px;
+        }
+        .status-section {
+          text-align: center;
+          padding: 20px;
+          margin: 20px 0;
         }
         .stamp {
-          margin: 30px auto;
-          width: 80px;
-          height: 80px;
-          border: 2px solid #4CAF50;
-          border-radius: 50%;
-          display: flex;
+          display: inline-flex;
           align-items: center;
           justify-content: center;
-          color: #4CAF50;
-          font-weight: bold;
-          font-size: 12px;
+          width: 120px;
+          height: 120px;
+          border: 4px solid #10b981;
+          border-radius: 50%;
+          color: #10b981;
+          font-weight: 900;
+          font-size: 22px;
+          letter-spacing: 2px;
+          transform: rotate(-15deg);
+          margin: 10px auto;
+        }
+        .footer {
+          background: #f8fafc;
+          padding: 25px 30px;
           text-align: center;
+          border-top: 2px solid #e2e8f0;
         }
-        .signature-section {
-          display: flex;
-          justify-content: space-between;
-          margin-top: 60px;
+        .footer-text {
+          color: #64748b;
+          font-size: 11px;
+          line-height: 1.6;
+          margin-bottom: 8px;
         }
-        .signature-box {
-          text-align: center;
-          width: 40%;
-        }
-        .signature-line {
-          border-top: 1px solid #333;
-          padding-top: 8px;
-          margin-top: 50px;
+        .footer-contact {
+          color: #475569;
           font-size: 12px;
-          color: #666;
+          font-weight: 600;
+          margin-top: 15px;
+        }
+        .thank-you {
+          font-size: 16px;
+          font-weight: 600;
+          color: #1e3a8a;
+          margin-bottom: 15px;
         }
       </style>
     </head>
     <body>
-      <div class="header">
-        <h1>PAYMENT RECEIPT</h1>
-        <p>Property Valuation Service</p>
-      </div>
-
-      <div class="receipt-info">
-        <div>
-          <label>Reference No.</label>
-          <span>${data.refNo || "N/A"}</span>
+      <div class="receipt-container">
+        <div class="header">
+          <div class="logo-section">
+            <div class="logo-icon">🏛️</div>
+            <div class="logo-text">MR. VALUATOR</div>
+            <div class="header-subtitle">Professional Property Valuation Services</div>
+          </div>
+          <div class="receipt-title">PAYMENT RECEIPT</div>
         </div>
-        <div>
-          <label>Client Name</label>
-          <span>${data.clientName || "N/A"}</span>
+
+        <div class="content">
+          <div class="receipt-meta">
+            <div class="meta-item">
+              <div class="meta-label">Receipt No.</div>
+              <div class="meta-value">${data.refNo || "N/A"}</div>
+            </div>
+            <div class="meta-item">
+              <div class="meta-label">Client Name</div>
+              <div class="meta-value">${data.clientName || "N/A"}</div>
+            </div>
+            <div class="meta-item">
+              <div class="meta-label">Date</div>
+              <div class="meta-value">${formatDate(data.valuationDate)}</div>
+            </div>
+          </div>
+
+          <div class="section-title">Payment Details</div>
+          
+          <table class="table">
+            <tbody>
+              <tr>
+                <td>Site Charge (Total)</td>
+                <td>${formatCurrency(data.siteCharge)}</td>
+              </tr>
+              <tr class="spacer-row">
+                <td colspan="2"></td>
+              </tr>
+              <tr class="highlight-row">
+                <td>💵 Cash Payment</td>
+                <td>${formatCurrency(data.cashPayment)}</td>
+              </tr>
+              <tr class="highlight-row">
+                <td>💳 Online Payment ${
+                  data.onlinePayment > 0
+                    ? `(${getOnlinePaymentModeLabel(data.onlinePaymentMode)})`
+                    : ""
+                }</td>
+                <td>${formatCurrency(data.onlinePayment)}</td>
+              </tr>
+              <tr class="total-row">
+                <td>Total Amount Received</td>
+                <td>${formatCurrency(totalReceived)}</td>
+              </tr>
+              ${
+                data.pendingDue > 0
+                  ? `
+              <tr class="due-row">
+                <td>⚠️ Pending Due</td>
+                <td>${formatCurrency(data.pendingDue)}</td>
+              </tr>
+              `
+                  : ""
+              }
+            </tbody>
+          </table>
+
+          <div class="status-section">
+            <div class="stamp">PAID</div>
+            <div class="payment-badge">✓ PAYMENT CONFIRMED</div>
+          </div>
         </div>
-        <div>
-          <label>Date</label>
-          <span>${formatDate(data.valuationDate)}</span>
+
+        <div class="footer">
+          <div class="thank-you">Thank you for choosing Mr. Valuator!</div>
+          <div class="footer-text">
+            This is a computer-generated receipt and does not require a signature.
+          </div>
+          <div class="footer-text">
+            Generated on: ${new Date().toLocaleString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </div>
+          <div class="footer-contact">
+            For queries, please contact: support@mrvaluator.com | +977-XXXX-XXXX
+          </div>
         </div>
-      </div>
-
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Description</th>
-            <th class="amount">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Site Charge (Total)</td>
-            <td class="amount">${formatCurrency(data.siteCharge)}</td>
-          </tr>
-          <tr>
-            <td colspan="2" style="height: 10px; background: transparent;"></td>
-          </tr>
-          <tr>
-            <td>Cash Payment</td>
-            <td class="amount">${formatCurrency(data.cashPayment)}</td>
-          </tr>
-          <tr>
-            <td>Online Payment ${
-              data.onlinePayment > 0
-                ? `(${getOnlinePaymentModeLabel(data.onlinePaymentMode)})`
-                : ""
-            }</td>
-            <td class="amount">${formatCurrency(data.onlinePayment)}</td>
-          </tr>
-          <tr class="total-row">
-            <td>Total Received</td>
-            <td class="amount">${formatCurrency(totalReceived)}</td>
-          </tr>
-          ${
-            data.pendingDue > 0
-              ? `
-          <tr class="due-row">
-            <td>Pending Due</td>
-            <td class="amount">${formatCurrency(data.pendingDue)}</td>
-          </tr>
-          `
-              : ""
-          }
-        </tbody>
-      </table>
-
-      <div class="stamp">PAID</div>
-
-
-      <div class="footer">
-        <p>This is a computer-generated receipt.</p>
-        <p>Generated on: ${new Date().toLocaleString()}</p>
       </div>
     </body>
     </html>
