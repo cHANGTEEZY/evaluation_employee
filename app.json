@@ -4,7 +4,7 @@
     "slug": "Mr. Valuator",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/app_icon.jpeg",
+    "icon": "./assets/images/app_icon.png",
     "scheme": "Mr. Valuatorapp",
     "userInterfaceStyle": "automatic",
     "splash": {
@@ -26,7 +26,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/valuator.icon/Assets/app_icon.jpeg",
+        "foregroundImage": "./assets/valuator.icon/Assets/app_icon.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.changteezy.exporouterexample",
@@ -48,12 +48,6 @@
         "expo-local-authentication",
         {
           "faceIDPermission": "Allow $(PRODUCT_NAME) to use Face ID."
-        }
-      ],
-      [
-        "expo-asset",
-        {
-          "assets": ["path/to/file.png", "path/to/directory"]
         }
       ],
       [
