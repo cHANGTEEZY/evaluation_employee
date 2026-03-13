@@ -4,7 +4,7 @@ import React, {
   useMemo,
   useRef,
   useState,
-} from "react";
+} from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -13,7 +13,7 @@ import {
   Keyboard,
   Linking,
   Platform,
-} from "react-native";
+} from 'react-native';
 import {
   Searchbar,
   Button,
@@ -24,12 +24,12 @@ import {
   ActivityIndicator,
   Divider,
   Chip,
-} from "react-native-paper";
-import { useFormContext } from "react-hook-form";
-import * as Location from "expo-location";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+} from 'react-native-paper';
+import { useFormContext } from 'react-hook-form';
+import * as Location from 'expo-location';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-import type { ValuationFormValues } from "../../constants/form-schema";
+import type { ValuationFormValues } from '../../constants/form-schema';
 import {
   MapView,
   MapViewRef,
@@ -39,15 +39,15 @@ import {
   LineLayer,
   CircleLayer,
   SymbolLayer,
-} from "@maplibre/maplibre-react-native";
+} from '@maplibre/maplibre-react-native';
 
 import {
   fetchPropertyEvaluation,
   parseLineGeometry,
   type PropertyEvaluationData,
-} from "../../lib/property-evaluation-api";
+} from '../../lib/property-evaluation-api';
 
-const GALLI_API_BASE = "https://route-init.gallimap.com/api/v1";
+const GALLI_API_BASE = 'https://route-init.gallimap.com/api/v1';
 const NEPAL_CENTER_LAT = 27.7;
 const NEPAL_CENTER_LNG = 85.3;
 // Default view: Kathmandu city level (not full-Nepal bounding box)
@@ -59,7 +59,7 @@ const ZOOM_WHEN_PINNED = 14;
 // Always-present empty GeoJSON prevents native ShapeSource from crashing
 // when layers are conditionally mounted/unmounted on the MapLibre bridge.
 const EMPTY_GEOJSON: GeoJSON.FeatureCollection = {
-  type: "FeatureCollection",
+  type: 'FeatureCollection',
   features: [],
 };
 
@@ -67,14 +67,14 @@ function getGalliAccessToken(): string {
   return (
     process.env.EXPO_PUBLIC_GALLI_MAPS_API_KEY ??
     process.env.GALLI_MAPS_API_KEY ??
-    ""
+    ''
   );
 }
 
 // Same as old working code: use Galli style for all platforms when token is set.
 // When token is missing, fallback so the map still loads (e.g. in dev without .env).
 const FALLBACK_MAP_STYLE =
-  "https://demotiles.maplibre.org/styles/osm-bright-gl-style/style.json";
+  'https://demotiles.maplibre.org/styles/osm-bright-gl-style/style.json';
 
 function getMapStyleUrl(): string {
   const token = getGalliAccessToken();
@@ -99,7 +99,7 @@ interface SearchResultItem {
 }
 
 interface GalliSearchFeature {
-  type: "Feature";
+  type: 'Feature';
   properties: {
     searchedItem: string;
     province: string;
@@ -136,13 +136,13 @@ function makeLineGeoJSON(
 ): GeoJSON.FeatureCollection | null {
   if (!coords || coords.length < 2) return null;
   return {
-    type: "FeatureCollection",
+    type: 'FeatureCollection',
     features: [
       {
-        type: "Feature",
+        type: 'Feature',
         properties: {},
         geometry: {
-          type: "LineString",
+          type: 'LineString',
           coordinates: coords,
         },
       },
@@ -160,29 +160,29 @@ function makeEvalPointsGeoJSON(
 
   if (data.heritage?.geometry) {
     features.push({
-      type: "Feature",
-      properties: { kind: "heritage", label: data.heritage.name ?? "Heritage" },
-      geometry: { type: "Point", coordinates: data.heritage.geometry },
+      type: 'Feature',
+      properties: { kind: 'heritage', label: data.heritage.name ?? 'Heritage' },
+      geometry: { type: 'Point', coordinates: data.heritage.geometry },
     });
   }
 
   if (data.disasters) {
     for (const d of data.disasters) {
       if (d.geometry) {
-        const kind = d.disastertype === "Flood" ? "flood" : "landslide";
+        const kind = d.disastertype === 'Flood' ? 'flood' : 'landslide';
         features.push({
-          type: "Feature",
+          type: 'Feature',
           properties: {
             kind,
             label: d.disastertype,
           },
-          geometry: { type: "Point", coordinates: d.geometry },
+          geometry: { type: 'Point', coordinates: d.geometry },
         });
       }
     }
   }
 
-  return { type: "FeatureCollection", features };
+  return { type: 'FeatureCollection', features };
 }
 
 // Threshold for auto-populating risk fields (km)
@@ -202,14 +202,14 @@ const Step0 = () => {
     lat: number;
     lng: number;
   } | null>(() => {
-    const lat = getValues("latitude");
-    const lng = getValues("longitude");
-    return typeof lat === "number" && typeof lng === "number"
+    const lat = getValues('latitude');
+    const lng = getValues('longitude');
+    return typeof lat === 'number' && typeof lng === 'number'
       ? { lat, lng }
       : null;
   });
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -234,9 +234,19 @@ const Step0 = () => {
   const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // AbortController so a new commit cancels any in-flight API requests.
   const commitAbortRef = useRef<AbortController | null>(null);
-  // Guards against the feedback loop: programmatic flyTo → onRegionDidChange → scheduleSettle.
-  // Set true before any programmatic camera move, cleared after the resulting regionDidChange.
-  const isProgrammaticMoveRef = useRef(false);
+  // Flag: true while a programmatic camera move is in progress.
+  // While true, handleRegionDidChange is completely suppressed — this prevents the
+  // feedback loop where Android fires onRegionDidChange multiple times (mid-animation
+  // AND on completion), which previously caused infinite fetching & pin snap-back.
+  const programmaticMoveActiveRef = useRef(false);
+  // Generation counter — incremented on each flyToCoordinate call.
+  // Prevents stale programmatic commits from executing after a newer move has started.
+  const moveGenerationRef = useRef(0);
+  // Separate timer for the autoCommit inside flyToCoordinate — intentionally NOT stored in
+  // settleTimerRef so that scheduleSettle (called by user-gesture events) cannot cancel it.
+  const programmaticCommitTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
 
   // The single function that does ALL work after settle
   const commitLocation = useCallback(
@@ -248,8 +258,8 @@ const Step0 = () => {
       const { signal } = controller;
 
       // 1. Commit coordinates to form (skip validation — only matters at submit)
-      setValue("latitude", lat, { shouldDirty: true });
-      setValue("longitude", lng, { shouldDirty: true });
+      setValue('latitude', lat, { shouldDirty: true });
+      setValue('longitude', lng, { shouldDirty: true });
       setCommittedCoords({ lat, lng });
       setIsMapMoving(false);
 
@@ -260,11 +270,11 @@ const Step0 = () => {
           try {
             const res = await fetch(
               `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
-              { headers: { "User-Agent": "EvaluationApp/1.0" }, signal },
+              { headers: { 'User-Agent': 'EvaluationApp/1.0' }, signal },
             );
             if (!res.ok) return;
             const data = await res.json();
-            if (!signal.aborted) setReverseAddress(data?.display_name ?? "");
+            if (!signal.aborted) setReverseAddress(data?.display_name ?? '');
           } catch {
             // aborted or network error — ignore
           }
@@ -273,7 +283,7 @@ const Step0 = () => {
         try {
           const url = `${GALLI_API_BASE}/reverse/generalReverse?accessToken=${encodeURIComponent(token)}&lat=${lat}&lng=${lng}`;
           const res = await fetch(url, { signal });
-          if (!res.ok) throw new Error("galli failed");
+          if (!res.ok) throw new Error('galli failed');
           const json = (await res.json()) as {
             success?: boolean;
             data?: GalliReverseData;
@@ -291,7 +301,7 @@ const Step0 = () => {
           ].filter(Boolean);
           if (!signal.aborted)
             setReverseAddress(
-              parts.length ? parts.join(", ") : "Address not found",
+              parts.length ? parts.join(', ') : 'Address not found',
             );
         } catch {
           if (signal.aborted) return;
@@ -299,12 +309,12 @@ const Step0 = () => {
           try {
             const res = await fetch(
               `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
-              { headers: { "User-Agent": "EvaluationApp/1.0" }, signal },
+              { headers: { 'User-Agent': 'EvaluationApp/1.0' }, signal },
             );
             if (!res.ok) return;
             const data = await res.json();
             if (!signal.aborted)
-              setReverseAddress(data?.display_name ?? "Address not found");
+              setReverseAddress(data?.display_name ?? 'Address not found');
           } catch {
             // aborted or network error — ignore
           }
@@ -320,42 +330,42 @@ const Step0 = () => {
 
           if (data) {
             setEvalData(data);
-            setValue("property_evaluation_data", JSON.stringify(data), {
+            setValue('property_evaluation_data', JSON.stringify(data), {
               shouldDirty: true,
             });
 
-            if (data.water?.type === "river") {
-              setValue("river_side", true, { shouldDirty: true });
+            if (data.water?.type === 'river') {
+              setValue('river_side', true, { shouldDirty: true });
             }
             if (data.transmissionline) {
-              setValue("high_tension_area", true, { shouldDirty: true });
+              setValue('high_tension_area', true, { shouldDirty: true });
             }
             if (
               data.heritage &&
               data.heritage.distance < RISK_DISTANCE_THRESHOLD_KM
             ) {
-              setValue("heritage_memorial_site", true, { shouldDirty: true });
+              setValue('heritage_memorial_site', true, { shouldDirty: true });
             }
             const hasNearbyLandslide = data.disasters?.some(
-              (d) =>
-                d.disastertype === "Landslide" &&
+              d =>
+                d.disastertype === 'Landslide' &&
                 d.distance < RISK_DISTANCE_THRESHOLD_KM,
             );
             if (hasNearbyLandslide) {
-              setValue("landslide_prone_area", true, { shouldDirty: true });
+              setValue('landslide_prone_area', true, { shouldDirty: true });
             }
             const hasNearbyFlood = data.disasters?.some(
-              (d) =>
-                d.disastertype === "Flood" &&
+              d =>
+                d.disastertype === 'Flood' &&
                 d.distance < RISK_DISTANCE_THRESHOLD_KM,
             );
             if (hasNearbyFlood) {
-              setValue("flood_prone_area", true, { shouldDirty: true });
+              setValue('flood_prone_area', true, { shouldDirty: true });
             }
           }
         } catch (err) {
           if (!signal.aborted)
-            console.error("[Step0] Property eval error:", err);
+            console.error('[Step0] Property eval error:', err);
         } finally {
           if (!signal.aborted) setIsLoadingEval(false);
         }
@@ -377,8 +387,17 @@ const Step0 = () => {
   // feedback loop while still resolving address/eval data for programmatic moves.
   const flyToCoordinate = useCallback(
     (latitude: number, longitude: number, zoom?: number, autoCommit = true) => {
-      // Mark as programmatic so onRegionDidChange ignores the resulting event
-      isProgrammaticMoveRef.current = true;
+      const ANIM_DURATION = 500;
+      // On Android, onRegionDidChange fires multiple times per programmatic move
+      // (mid-animation AND on completion). The settle buffer must be long enough
+      // to outlast ALL of those spurious events before we clear the flag.
+      const SETTLE_BUFFER = Platform.OS === 'android' ? 1200 : 200;
+
+      // Block ALL onRegionDidChange events until the programmatic commit fires.
+      programmaticMoveActiveRef.current = true;
+      moveGenerationRef.current += 1;
+      const capturedGeneration = moveGenerationRef.current;
+
       // Cancel any pending user-gesture settle since we're overriding with a programmatic move
       if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
 
@@ -386,16 +405,33 @@ const Step0 = () => {
         cameraRef.current?.setCamera?.({
           centerCoordinate: [longitude, latitude],
           zoomLevel: zoom,
-          animationDuration: 500,
+          animationDuration: ANIM_DURATION,
         });
       } else {
-        cameraRef.current?.flyTo?.([longitude, latitude], 500);
+        cameraRef.current?.flyTo?.([longitude, latitude], ANIM_DURATION);
       }
       if (autoCommit) {
-        // Wait for the fly animation to finish, then commit
-        settleTimerRef.current = setTimeout(() => {
+        // Use a SEPARATE timer (programmaticCommitTimerRef, not settleTimerRef) so that
+        // scheduleSettle — triggered by spurious Android onRegionDidChange events — cannot
+        // accidentally cancel this commit and replace it with mid-animation coordinates.
+        if (programmaticCommitTimerRef.current) {
+          clearTimeout(programmaticCommitTimerRef.current);
+        }
+        programmaticCommitTimerRef.current = setTimeout(() => {
+          programmaticCommitTimerRef.current = null;
+          // Skip if a newer programmatic move has started since this was scheduled
+          if (moveGenerationRef.current !== capturedGeneration) return;
+          // Re-open the gate for user-gesture onRegionDidChange events
+          programmaticMoveActiveRef.current = false;
           commitLocationRef.current(latitude, longitude);
-        }, 600);
+        }, ANIM_DURATION + SETTLE_BUFFER);
+      } else {
+        // No autoCommit — clear the flag after the animation + buffer
+        setTimeout(() => {
+          if (moveGenerationRef.current === capturedGeneration) {
+            programmaticMoveActiveRef.current = false;
+          }
+        }, ANIM_DURATION + SETTLE_BUFFER);
       }
     },
     [],
@@ -423,6 +459,9 @@ const Step0 = () => {
   useEffect(() => {
     return () => {
       if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
+      if (programmaticCommitTimerRef.current) {
+        clearTimeout(programmaticCommitTimerRef.current);
+      }
       commitAbortRef.current?.abort();
     };
   }, []);
@@ -431,7 +470,7 @@ const Step0 = () => {
   const handleMapPress = useCallback(
     (feature: GeoJSON.Feature) => {
       const geom = feature?.geometry;
-      if (geom?.type === "Point" && Array.isArray(geom.coordinates)) {
+      if (geom?.type === 'Point' && Array.isArray(geom.coordinates)) {
         const longitude = geom.coordinates[0];
         const latitude = geom.coordinates[1];
         flyToCoordinate(latitude, longitude, ZOOM_WHEN_PINNED);
@@ -442,16 +481,23 @@ const Step0 = () => {
 
   // ── Map region change handler ───────────────────────────────────
   const handleRegionDidChange = useCallback(
-    (feature: GeoJSON.Feature) => {
-      // Skip if this event was caused by a programmatic flyTo/setCamera.
-      // This breaks the infinite loop: flyTo → regionDidChange → scheduleSettle → commitLocation → repeat.
-      if (isProgrammaticMoveRef.current) {
-        isProgrammaticMoveRef.current = false;
+    (feature: GeoJSON.Feature<GeoJSON.Point, { isUserInteraction?: boolean }>) => {
+      // PRIMARY GUARD: MapLibre provides `isUserInteraction` in the event properties.
+      // On Android, programmatic camera moves (flyTo/setCamera) fire onRegionDidChange
+      // multiple times with isUserInteraction=false. Only respond to genuine user gestures.
+      const isUser = feature?.properties?.isUserInteraction;
+      if (isUser === false) {
+        return;
+      }
+
+      // SECONDARY GUARD: flag set by flyToCoordinate — catches any edge case where
+      // isUserInteraction might not be present or is unreliable.
+      if (programmaticMoveActiveRef.current) {
         return;
       }
 
       const geom = feature?.geometry;
-      if (geom?.type === "Point" && Array.isArray(geom.coordinates)) {
+      if (geom?.type === 'Point' && Array.isArray(geom.coordinates)) {
         const lng = geom.coordinates[0];
         const lat = geom.coordinates[1];
         scheduleSettle(lat, lng);
@@ -466,18 +512,18 @@ const Step0 = () => {
     const query = searchQuery.trim();
     if (query.length < 3) {
       Alert.alert(
-        "Minimum 3 characters",
-        "Please enter at least 3 characters to search.",
+        'Minimum 3 characters',
+        'Please enter at least 3 characters to search.',
       );
       return;
     }
     setIsSearching(true);
     setShowResults(true);
     Keyboard.dismiss();
-    const formLat = getValues("latitude");
-    const formLng = getValues("longitude");
-    const lat = typeof formLat === "number" ? formLat : NEPAL_CENTER_LAT;
-    const lng = typeof formLng === "number" ? formLng : NEPAL_CENTER_LNG;
+    const formLat = getValues('latitude');
+    const formLng = getValues('longitude');
+    const lat = typeof formLat === 'number' ? formLat : NEPAL_CENTER_LAT;
+    const lng = typeof formLng === 'number' ? formLng : NEPAL_CENTER_LNG;
 
     const tryGalli = async (): Promise<SearchResultItem[] | null> => {
       const token = getGalliAccessToken();
@@ -507,7 +553,7 @@ const Step0 = () => {
     const tryNominatim = async (): Promise<SearchResultItem[]> => {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=np&limit=5`,
-        { headers: { "User-Agent": "EvaluationApp/1.0" } },
+        { headers: { 'User-Agent': 'EvaluationApp/1.0' } },
       );
       if (!res.ok) return [];
       const data: Array<{
@@ -517,19 +563,19 @@ const Step0 = () => {
         lon: string;
         address?: { state?: string; city?: string; municipality?: string };
       }> = await res.json();
-      return data.map((r) => {
-        const parts = r.display_name.split(",").map((p) => p.trim());
+      return data.map(r => {
+        const parts = r.display_name.split(',').map(p => p.trim());
         return {
           id: String(r.place_id),
           name: parts[0] || r.display_name,
-          district: r.address?.state ?? parts[1] ?? "",
+          district: r.address?.state ?? parts[1] ?? '',
           municipality:
-            r.address?.city ?? r.address?.municipality ?? parts[2] ?? "",
-          province: "",
-          ward: "",
-          distance: "",
-          geometry: "",
-          nameLower: "",
+            r.address?.city ?? r.address?.municipality ?? parts[2] ?? '',
+          province: '',
+          ward: '',
+          distance: '',
+          geometry: '',
+          nameLower: '',
           lat: r.lat,
           lon: r.lon,
         };
@@ -545,12 +591,12 @@ const Step0 = () => {
       const nominatimResults = await tryNominatim();
       setSearchResults(nominatimResults);
       if (nominatimResults.length === 0) {
-        Alert.alert("No results", "No places found. Try a different search.");
+        Alert.alert('No results', 'No places found. Try a different search.');
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Search failed";
-      Alert.alert("Search Error", message);
-      console.error("Search error:", error);
+      const message = error instanceof Error ? error.message : 'Search failed';
+      Alert.alert('Search Error', message);
+      console.error('Search error:', error);
     } finally {
       setIsSearching(false);
     }
@@ -559,7 +605,7 @@ const Step0 = () => {
   const handleSelectPlace = useCallback(
     async (item: SearchResultItem) => {
       setShowResults(false);
-      setSearchQuery("");
+      setSearchQuery('');
       setSearchResults([]);
 
       if (item.lat != null && item.lon != null) {
@@ -573,16 +619,16 @@ const Step0 = () => {
       const token = getGalliAccessToken();
       if (!token) {
         Alert.alert(
-          "Configuration",
-          "Galli Maps token not set. Pick a location on the map or use current location.",
+          'Configuration',
+          'Galli Maps token not set. Pick a location on the map or use current location.',
         );
         return;
       }
       setIsResolvingCoordinates(true);
-      const formLat = getValues("latitude");
-      const formLng = getValues("longitude");
-      const lat = typeof formLat === "number" ? formLat : NEPAL_CENTER_LAT;
-      const lng = typeof formLng === "number" ? formLng : NEPAL_CENTER_LNG;
+      const formLat = getValues('latitude');
+      const formLng = getValues('longitude');
+      const lat = typeof formLat === 'number' ? formLat : NEPAL_CENTER_LAT;
+      const lng = typeof formLng === 'number' ? formLng : NEPAL_CENTER_LNG;
       try {
         const baseParams = `name=${encodeURIComponent(item.name)}&currentLat=${lat}&currentLng=${lng}`;
         let url = `${GALLI_API_BASE}/search/currentLocation?accessToken=${encodeURIComponent(token)}&${baseParams}`;
@@ -600,7 +646,7 @@ const Step0 = () => {
           json = JSON.parse(text);
         } catch {
           throw new Error(
-            response.ok ? "Invalid response" : `HTTP ${response.status}`,
+            response.ok ? 'Invalid response' : `HTTP ${response.status}`,
           );
         }
         if (!response.ok) {
@@ -613,14 +659,14 @@ const Step0 = () => {
           flyToCoordinate(latitude, longitude, ZOOM_WHEN_PINNED);
         } else {
           Alert.alert(
-            "No coordinates",
-            "Could not get coordinates for this place. Try another or pick on the map.",
+            'No coordinates',
+            'Could not get coordinates for this place. Try another or pick on the map.',
           );
         }
       } catch {
         Alert.alert(
-          "Search Error",
-          "Could not resolve location. Try again or pick on the map.",
+          'Search Error',
+          'Could not resolve location. Try again or pick on the map.',
         );
       } finally {
         setIsResolvingCoordinates(false);
@@ -635,11 +681,11 @@ const Step0 = () => {
       const serviceEnabled = await Location.hasServicesEnabledAsync();
       if (!serviceEnabled) {
         Alert.alert(
-          "Location Disabled",
-          "Please enable location services in device settings.",
+          'Location Disabled',
+          'Please enable location services in device settings.',
           [
-            { text: "Cancel", style: "cancel" },
-            { text: "Open Settings", onPress: () => Linking.openSettings() },
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
           ],
         );
         return;
@@ -649,14 +695,14 @@ const Step0 = () => {
       let { status, canAskAgain } =
         await Location.getForegroundPermissionsAsync();
 
-      if (status !== "granted") {
+      if (status !== 'granted') {
         if (canAskAgain === false) {
           Alert.alert(
-            "Location Permission",
-            "Location access was previously denied. Please enable it in app settings to use current location.",
+            'Location Permission',
+            'Location access was previously denied. Please enable it in app settings to use current location.',
             [
-              { text: "Cancel", style: "cancel" },
-              { text: "Open Settings", onPress: () => Linking.openSettings() },
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Open Settings', onPress: () => Linking.openSettings() },
             ],
           );
           return;
@@ -666,13 +712,13 @@ const Step0 = () => {
         status = newStatus;
       }
 
-      if (status !== "granted") {
+      if (status !== 'granted') {
         Alert.alert(
-          "Permission Denied",
-          "Location permission is needed to use your current position. You can enable it in app settings.",
+          'Permission Denied',
+          'Location permission is needed to use your current position. You can enable it in app settings.',
           [
-            { text: "Cancel", style: "cancel" },
-            { text: "Open Settings", onPress: () => Linking.openSettings() },
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
           ],
         );
         return;
@@ -683,18 +729,32 @@ const Step0 = () => {
       });
       const lat = location.coords.latitude;
       const lng = location.coords.longitude;
-      // Fly to coordinate — onRegionDidChange will trigger commitLocation via scheduleSettle
+
+      // Validate that GPS coordinates are within Nepal bounds.
+      // Galli Maps only serves Nepal tiles — flying to out-of-bounds coordinates
+      // (e.g. Android emulator defaults to California) would show a blank map
+      // and cause API 400 errors.
+      const [swLng, swLat] = NEPAL_BOUNDS.sw;
+      const [neLng, neLat] = NEPAL_BOUNDS.ne;
+      if (lat < swLat || lat > neLat || lng < swLng || lng > neLng) {
+        Alert.alert(
+          'Location Outside Nepal',
+          'Your current GPS location is outside Nepal. This app only supports locations within Nepal. Please search for a location or tap on the map instead.',
+        );
+        return;
+      }
+
       flyToCoordinate(lat, lng, ZOOM_WHEN_PINNED);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Could not get your location.";
-      console.warn("[Step0] Use current location error:", err);
+        err instanceof Error ? err.message : 'Could not get your location.';
+      console.warn('[Step0] Use current location error:', err);
       Alert.alert(
-        "Location Error",
+        'Location Error',
         `${message} Try again or pick a location on the map.`,
         [
-          { text: "OK" },
-          { text: "Open Settings", onPress: () => Linking.openSettings() },
+          { text: 'OK' },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
         ],
       );
     } finally {
@@ -707,7 +767,7 @@ const Step0 = () => {
   // On edit mode, hydrate evalData from the stored form field (runs before initial fly)
   useEffect(() => {
     if (evalData) return;
-    const stored = getValues("property_evaluation_data");
+    const stored = getValues('property_evaluation_data');
     if (stored) {
       try {
         setEvalData(JSON.parse(stored));
@@ -721,9 +781,9 @@ const Step0 = () => {
   // flyToCoordinate auto-commits (fetches address + eval) unless data is already hydrated.
   useEffect(() => {
     if (hasFlewToInitialPin.current) return;
-    const lat = getValues("latitude");
-    const lng = getValues("longitude");
-    if (typeof lat === "number" && typeof lng === "number") {
+    const lat = getValues('latitude');
+    const lng = getValues('longitude');
+    if (typeof lat === 'number' && typeof lng === 'number') {
       hasFlewToInitialPin.current = true;
       // If evalData was hydrated from storage above, skip the API fetch
       flyToCoordinate(lat, lng, ZOOM_WHEN_PINNED);
@@ -731,6 +791,28 @@ const Step0 = () => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Map overlay GeoJSON ─────────────────────────────────────────────
+
+  // Memoize the map style URL so that rapid state updates (location loading,
+  // eval fetching, etc.) don't pass a new string reference to MapView on every
+  // render — on Android this can cause the map tiles to reload mid-session.
+  const mapStyleUrl = useMemo(() => getMapStyleUrl(), []);
+
+  // CRITICAL FIX (Android): Freeze Camera defaultSettings to mount-time values.
+  // On Android, passing a new object literal on every render causes the native Camera
+  // to re-apply the settings, firing onRegionDidChange (which calls commitLocation →
+  // setCommittedCoords → re-render → new defaultSettings object → loop).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const initialCameraSettings = useMemo(() => {
+    const lat = getValues('latitude');
+    const lng = getValues('longitude');
+    const hasCoords = typeof lat === 'number' && typeof lng === 'number';
+    return {
+      zoomLevel: hasCoords ? ZOOM_WHEN_PINNED : DEFAULT_ZOOM,
+      centerCoordinate: hasCoords
+        ? [lng, lat]
+        : [KATHMANDU_LNG, KATHMANDU_LAT],
+    };
+  }, []); // Empty deps — only computed once at mount
 
   const waterGeoJSON = useMemo(
     () =>
@@ -775,15 +857,15 @@ const Step0 = () => {
 
       {showResults && searchResults.length > 0 && (
         <Surface style={styles.searchResults} elevation={3}>
-          {searchResults.map((result) => (
+          {searchResults.map(result => (
             <List.Item
               key={result.id}
               title={result.name}
               description={[result.district, result.municipality]
                 .filter(Boolean)
-                .join(", ")}
+                .join(', ')}
               onPress={() => handleSelectPlace(result)}
-              left={(props) => <List.Icon {...props} icon="map-marker" />}
+              left={props => <List.Icon {...props} icon="map-marker" />}
               titleNumberOfLines={1}
               descriptionNumberOfLines={2}
             />
@@ -796,9 +878,7 @@ const Step0 = () => {
           <List.Item
             title="No results found"
             description="Try at least 3 characters (Galli Maps)"
-            left={(props) => (
-              <List.Icon {...props} icon="alert-circle-outline" />
-            )}
+            left={props => <List.Icon {...props} icon="alert-circle-outline" />}
           />
         </Surface>
       )}
@@ -823,7 +903,7 @@ const Step0 = () => {
       <View style={styles.mapContainer}>
         <MapView
           ref={mapRef}
-          mapStyle={getMapStyleUrl()}
+          mapStyle={mapStyleUrl}
           logoEnabled={false}
           attributionEnabled={true}
           compassViewMargins={{ x: 23, y: 16 }}
@@ -835,44 +915,39 @@ const Step0 = () => {
           <Camera
             ref={cameraRef}
             maxBounds={NEPAL_BOUNDS}
-            defaultSettings={{
-              zoomLevel: hasValidCoordinates ? ZOOM_WHEN_PINNED : DEFAULT_ZOOM,
-              centerCoordinate: committedCoords
-                ? [committedCoords.lng, committedCoords.lat]
-                : [KATHMANDU_LNG, KATHMANDU_LAT],
-            }}
+            defaultSettings={initialCameraSettings}
           />
 
           <ShapeSource id="eval-points-source" shape={evalPointsGeoJSON}>
             <CircleLayer
               id="heritage-circles"
-              filter={["==", ["get", "kind"], "heritage"]}
+              filter={['==', ['get', 'kind'], 'heritage']}
               style={{
                 circleRadius: 10,
-                circleColor: "#6A1B9A",
-                circleStrokeColor: "#ffffff",
+                circleColor: '#6A1B9A',
+                circleStrokeColor: '#ffffff',
                 circleStrokeWidth: 2,
                 circleOpacity: evalPointsGeoJSON.features.length > 0 ? 1 : 0,
               }}
             />
             <CircleLayer
               id="flood-circles"
-              filter={["==", ["get", "kind"], "flood"]}
+              filter={['==', ['get', 'kind'], 'flood']}
               style={{
                 circleRadius: 8,
-                circleColor: "#1565C0",
-                circleStrokeColor: "#ffffff",
+                circleColor: '#1565C0',
+                circleStrokeColor: '#ffffff',
                 circleStrokeWidth: 2,
                 circleOpacity: evalPointsGeoJSON.features.length > 0 ? 1 : 0,
               }}
             />
             <CircleLayer
               id="landslide-circles"
-              filter={["==", ["get", "kind"], "landslide"]}
+              filter={['==', ['get', 'kind'], 'landslide']}
               style={{
                 circleRadius: 8,
-                circleColor: "#c62828",
-                circleStrokeColor: "#ffffff",
+                circleColor: '#c62828',
+                circleStrokeColor: '#ffffff',
                 circleStrokeWidth: 2,
                 circleOpacity: evalPointsGeoJSON.features.length > 0 ? 1 : 0,
               }}
@@ -881,14 +956,14 @@ const Step0 = () => {
             <SymbolLayer
               id="eval-point-labels"
               style={{
-                textField: ["get", "label"],
+                textField: ['get', 'label'],
                 textSize: 11,
-                textColor: "#ffffff",
-                textHaloColor: "rgba(0,0,0,0.75)",
+                textColor: '#ffffff',
+                textHaloColor: 'rgba(0,0,0,0.75)',
                 textHaloWidth: 1.5,
                 textOffset: [0, -2.2],
-                textAnchor: "bottom",
-                textFont: ["Open Sans Bold", "Arial Unicode MS Bold"],
+                textAnchor: 'bottom',
+                textFont: ['Open Sans Bold', 'Arial Unicode MS Bold'],
                 textAllowOverlap: true,
                 textOpacity: evalPointsGeoJSON.features.length > 0 ? 1 : 0,
               }}
@@ -900,7 +975,7 @@ const Step0 = () => {
             <LineLayer
               id="water-line"
               style={{
-                lineColor: "#1565C0",
+                lineColor: '#1565C0',
                 lineWidth: 3,
                 lineOpacity: waterGeoJSON ? 0.8 : 0,
               }}
@@ -915,7 +990,7 @@ const Step0 = () => {
             <LineLayer
               id="transmission-line"
               style={{
-                lineColor: "#E65100",
+                lineColor: '#E65100',
                 lineWidth: 2.5,
                 lineOpacity: transmissionGeoJSON ? 0.8 : 0,
                 lineDasharray: [4, 2],
@@ -935,7 +1010,7 @@ const Step0 = () => {
             <View style={styles.mapLoadingPill}>
               <ActivityIndicator size={14} color="#ffffff" />
               <Text style={styles.mapLoadingText}>
-                {isMapMoving ? "Locating..." : "Fetching data..."}
+                {isMapMoving ? 'Locating...' : 'Fetching data...'}
               </Text>
             </View>
           </View>
@@ -956,7 +1031,7 @@ const Step0 = () => {
             </View>
             <View style={styles.legendItem}>
               <View
-                style={[styles.legendDot, { backgroundColor: "#6A1B9A" }]}
+                style={[styles.legendDot, { backgroundColor: '#6A1B9A' }]}
               />
               <Text variant="labelSmall" style={styles.legendText}>
                 Heritage
@@ -964,7 +1039,7 @@ const Step0 = () => {
             </View>
             <View style={styles.legendItem}>
               <View
-                style={[styles.legendDot, { backgroundColor: "#1565C0" }]}
+                style={[styles.legendDot, { backgroundColor: '#1565C0' }]}
               />
               <Text variant="labelSmall" style={styles.legendText}>
                 Flood
@@ -972,7 +1047,7 @@ const Step0 = () => {
             </View>
             <View style={styles.legendItem}>
               <View
-                style={[styles.legendDot, { backgroundColor: "#c62828" }]}
+                style={[styles.legendDot, { backgroundColor: '#c62828' }]}
               />
               <Text variant="labelSmall" style={styles.legendText}>
                 Landslide
@@ -980,7 +1055,7 @@ const Step0 = () => {
             </View>
             <View style={styles.legendItem}>
               <View
-                style={[styles.legendLine, { backgroundColor: "#1565C0" }]}
+                style={[styles.legendLine, { backgroundColor: '#1565C0' }]}
               />
               <Text variant="labelSmall" style={styles.legendText}>
                 Water
@@ -988,7 +1063,7 @@ const Step0 = () => {
             </View>
             <View style={styles.legendItem}>
               <View
-                style={[styles.legendLine, { backgroundColor: "#E65100" }]}
+                style={[styles.legendLine, { backgroundColor: '#E65100' }]}
               />
               <Text variant="labelSmall" style={styles.legendText}>
                 Power
@@ -1007,13 +1082,13 @@ const Step0 = () => {
               title="Address"
               description={reverseAddress}
               descriptionNumberOfLines={3}
-              left={(props) => <List.Icon {...props} icon="map-marker" />}
+              left={props => <List.Icon {...props} icon="map-marker" />}
             />
           )}
           <List.Item
             title="Coordinates"
             description={`Lat: ${committedCoords.lat.toFixed(6)}, Long: ${committedCoords.lng.toFixed(6)}`}
-            left={(props) => <List.Icon {...props} icon="crosshairs-gps" />}
+            left={props => <List.Icon {...props} icon="crosshairs-gps" />}
           />
         </Surface>
       )}
@@ -1054,7 +1129,7 @@ const Step0 = () => {
                 <List.Item
                   title="Province"
                   description={evalData.newward.state}
-                  left={(props) => (
+                  left={props => (
                     <List.Icon {...props} icon="map-marker-radius" />
                   )}
                   titleStyle={styles.readOnlyTitle}
@@ -1064,7 +1139,7 @@ const Step0 = () => {
                 <List.Item
                   title="District"
                   description={evalData.newward.district}
-                  left={(props) => (
+                  left={props => (
                     <List.Icon {...props} icon="office-building" />
                   )}
                   titleStyle={styles.readOnlyTitle}
@@ -1073,8 +1148,8 @@ const Step0 = () => {
                 <Divider />
                 <List.Item
                   title="Municipality / VDC"
-                  description={`${evalData.newward["municipality/vdc"]} (${evalData.newward["municipality/vdc_type"]})`}
-                  left={(props) => <List.Icon {...props} icon="city" />}
+                  description={`${evalData.newward['municipality/vdc']} (${evalData.newward['municipality/vdc_type']})`}
+                  left={props => <List.Icon {...props} icon="city" />}
                   titleStyle={styles.readOnlyTitle}
                   descriptionStyle={styles.readOnlyDesc}
                 />
@@ -1082,7 +1157,7 @@ const Step0 = () => {
                 <List.Item
                   title="Ward"
                   description={String(evalData.newward.ward)}
-                  left={(props) => <List.Icon {...props} icon="numeric" />}
+                  left={props => <List.Icon {...props} icon="numeric" />}
                   titleStyle={styles.readOnlyTitle}
                   descriptionStyle={styles.readOnlyDesc}
                 />
@@ -1100,7 +1175,7 @@ const Step0 = () => {
                 <List.Item
                   title="District"
                   description={evalData.oldward.district}
-                  left={(props) => (
+                  left={props => (
                     <List.Icon {...props} icon="office-building" />
                   )}
                   titleStyle={styles.readOnlyTitle}
@@ -1110,7 +1185,7 @@ const Step0 = () => {
                 <List.Item
                   title="Zone"
                   description={evalData.oldward.zone}
-                  left={(props) => <List.Icon {...props} icon="earth" />}
+                  left={props => <List.Icon {...props} icon="earth" />}
                   titleStyle={styles.readOnlyTitle}
                   descriptionStyle={styles.readOnlyDesc}
                 />
@@ -1118,7 +1193,7 @@ const Step0 = () => {
                 <List.Item
                   title="VDC"
                   description={evalData.oldward.vdc}
-                  left={(props) => <List.Icon {...props} icon="city-variant" />}
+                  left={props => <List.Icon {...props} icon="city-variant" />}
                   titleStyle={styles.readOnlyTitle}
                   descriptionStyle={styles.readOnlyDesc}
                 />
@@ -1126,7 +1201,7 @@ const Step0 = () => {
                 <List.Item
                   title="Ward"
                   description={String(evalData.oldward.ward)}
-                  left={(props) => <List.Icon {...props} icon="numeric" />}
+                  left={props => <List.Icon {...props} icon="numeric" />}
                   titleStyle={styles.readOnlyTitle}
                   descriptionStyle={styles.readOnlyDesc}
                 />
@@ -1142,9 +1217,9 @@ const Step0 = () => {
                   Conservation Area
                 </List.Subheader>
                 <List.Item
-                  title={evalData.conservation_area.name.replace(/_/g, " ")}
+                  title={evalData.conservation_area.name.replace(/_/g, ' ')}
                   description={`Distance: ${evalData.conservation_area.distance.toFixed(2)} km`}
-                  left={(props) => <List.Icon {...props} icon="pine-tree" />}
+                  left={props => <List.Icon {...props} icon="pine-tree" />}
                   titleStyle={styles.readOnlyTitle}
                   descriptionStyle={styles.readOnlyDesc}
                   titleNumberOfLines={2}
@@ -1163,7 +1238,7 @@ const Step0 = () => {
                 <List.Item
                   title={evalData.heritage.name}
                   description={`Distance: ${evalData.heritage.distance.toFixed(4)} km`}
-                  left={(props) => <List.Icon {...props} icon="castle" />}
+                  left={props => <List.Icon {...props} icon="castle" />}
                   titleStyle={styles.readOnlyTitle}
                   descriptionStyle={styles.readOnlyDesc}
                   titleNumberOfLines={2}
@@ -1191,12 +1266,12 @@ const Step0 = () => {
                         `Distance: ${d.distance.toFixed(2)} km`,
                       ]
                         .filter(Boolean)
-                        .join("\n")}
-                      left={(props) => (
+                        .join('\n')}
+                      left={props => (
                         <List.Icon
                           {...props}
                           icon={
-                            d.disastertype === "Flood" ? "waves" : "terrain"
+                            d.disastertype === 'Flood' ? 'waves' : 'terrain'
                           }
                         />
                       )}
@@ -1225,8 +1300,8 @@ const Step0 = () => {
                     evalData.water.tunnel && `Tunnel: ${evalData.water.tunnel}`,
                   ]
                     .filter(Boolean)
-                    .join("\n")}
-                  left={(props) => <List.Icon {...props} icon="water" />}
+                    .join('\n')}
+                  left={props => <List.Icon {...props} icon="water" />}
                   titleStyle={styles.readOnlyTitle}
                   descriptionStyle={styles.readOnlyDesc}
                   descriptionNumberOfLines={4}
@@ -1256,8 +1331,8 @@ const Step0 = () => {
                       `Power: ${evalData.transmissionline.power}`,
                   ]
                     .filter(Boolean)
-                    .join("\n")}
-                  left={(props) => (
+                    .join('\n')}
+                  left={props => (
                     <List.Icon {...props} icon="transmission-tower" />
                   )}
                   titleStyle={styles.readOnlyTitle}
@@ -1277,7 +1352,7 @@ const Step0 = () => {
               Auto-detected risk factors (editable in Step 3):
             </Text>
             <View style={styles.chipRow}>
-              {evalData.water?.type === "river" && (
+              {evalData.water?.type === 'river' && (
                 <Chip icon="waves" compact style={styles.riskChip}>
                   Riverside
                 </Chip>
@@ -1294,8 +1369,8 @@ const Step0 = () => {
                   </Chip>
                 )}
               {evalData.disasters?.some(
-                (d) =>
-                  d.disastertype === "Landslide" &&
+                d =>
+                  d.disastertype === 'Landslide' &&
                   d.distance < RISK_DISTANCE_THRESHOLD_KM,
               ) && (
                 <Chip icon="terrain" compact style={styles.riskChip}>
@@ -1303,8 +1378,8 @@ const Step0 = () => {
                 </Chip>
               )}
               {evalData.disasters?.some(
-                (d) =>
-                  d.disastertype === "Flood" &&
+                d =>
+                  d.disastertype === 'Flood' &&
                   d.distance < RISK_DISTANCE_THRESHOLD_KM,
               ) && (
                 <Chip icon="waves" compact style={styles.riskChip}>
@@ -1330,7 +1405,7 @@ const styles = StyleSheet.create({
   searchResults: {
     marginBottom: 8,
     borderRadius: 12,
-    overflow: "hidden",
+    overflow: 'hidden',
     maxHeight: 220,
   },
   currentLocationButton: {
@@ -1341,17 +1416,17 @@ const styles = StyleSheet.create({
     height: 460,
     marginHorizontal: -20,
     marginBottom: 8,
-    overflow: Platform.OS === "android" ? "hidden" : "visible",
+    overflow: Platform.OS === 'android' ? 'hidden' : 'visible',
   },
   mapView: {
     flex: 1,
-    width: "100%",
-    height: "100%",
+    width: '100%',
+    height: '100%',
   },
   centerPinOverlay: {
-    position: "absolute",
-    top: "50%",
-    left: "50%",
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
     // The icon is 44x44; offset by half to center the tip on the map center.
     // map-marker icon has its tip at the bottom-center, so shift up by full height
     // and left by half width.
@@ -1359,62 +1434,62 @@ const styles = StyleSheet.create({
     marginTop: -44,
   },
   mapLoadingOverlay: {
-    position: "absolute",
+    position: 'absolute',
     top: 14,
-    alignSelf: "center",
-    width: "100%",
-    alignItems: "center",
+    alignSelf: 'center',
+    width: '100%',
+    alignItems: 'center',
   },
   mapLoadingPill: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
-    backgroundColor: "rgba(0,0,0,0.65)",
+    backgroundColor: 'rgba(0,0,0,0.65)',
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
   },
   mapLoadingText: {
-    color: "#ffffff",
+    color: '#ffffff',
     fontSize: 12,
-    fontWeight: "500",
+    fontWeight: '500',
   },
   markerPin: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#1976d2",
+    backgroundColor: '#1976d2',
     borderWidth: 3,
-    borderColor: "#fff",
+    borderColor: '#fff',
   },
   mapLegendOverlay: {
-    position: "absolute",
+    position: 'absolute',
     bottom: 12,
     left: 12,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    flexDirection: "row",
-    flexWrap: "wrap",
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
-    alignItems: "center",
-    maxWidth: "95%",
+    alignItems: 'center',
+    maxWidth: '95%',
   },
   addressBlock: {
     marginBottom: 16,
     borderRadius: 12,
-    overflow: "hidden",
+    overflow: 'hidden',
   },
 
   // Map legend items
   legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
   },
   legendText: {
-    color: "#ffffff",
+    color: '#ffffff',
   },
   legendDot: {
     width: 9,
@@ -1429,9 +1504,9 @@ const styles = StyleSheet.create({
 
   // Eval loading
   evalLoading: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 16,
   },
 
@@ -1440,7 +1515,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   evalSectionTitle: {
-    fontWeight: "bold",
+    fontWeight: 'bold',
     marginBottom: 2,
   },
   evalCard: {
@@ -1448,11 +1523,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   evalCardInner: {
-    overflow: "hidden",
+    overflow: 'hidden',
     borderRadius: 12,
   },
   cardHeader: {
-    fontWeight: "700",
+    fontWeight: '700',
     fontSize: 14,
   },
   readOnlyTitle: {
@@ -1461,7 +1536,7 @@ const styles = StyleSheet.create({
   },
   readOnlyDesc: {
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: '500',
   },
 
   // Auto-risk chips
@@ -1470,8 +1545,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   chipRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   riskChip: {

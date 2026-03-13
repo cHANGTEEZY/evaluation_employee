@@ -51,6 +51,12 @@
         }
       ],
       [
+        "expo-asset",
+        {
+          "assets": ["path/to/file.png", "path/to/directory"]
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#000000",
