@@ -1,4 +1,11 @@
-import { StyleSheet, View, Alert, Image, ScrollView, Text as RNText } from "react-native";
+import {
+  StyleSheet,
+  View,
+  Alert,
+  Image,
+  ScrollView,
+  Text as RNText,
+} from "react-native";
 import React, { useEffect, useRef, useState } from "react";
 import { Button, Divider, Surface, Text, useTheme } from "react-native-paper";
 import { File, Paths } from "expo-file-system";
@@ -329,7 +336,6 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
           {savedUri ? "Resave" : "Save Drawing"}
         </Button>
       </View>
-
     </ScrollView>
   );
 };
@@ -346,6 +352,14 @@ type TextDataOverlayProps = {
 
 function TextDataOverlay({ data }: TextDataOverlayProps) {
   const { triangles } = data;
+
+  function rawValue(n: number | null | undefined): string {
+    if (n == null || !Number.isFinite(n)) return "0";
+    return n.toLocaleString(undefined, {
+      useGrouping: false,
+      maximumFractionDigits: 4,
+    });
+  }
 
   interface TriangleResult {
     tri: PlotTriangle;
@@ -414,8 +428,7 @@ function TextDataOverlay({ data }: TextDataOverlayProps) {
             </RNText>
             {r.areaSqFt != null && r.areaSqM != null ? (
               <RNText style={styles.textTriArea}>
-                → Area: {r.areaSqFt.toFixed(4)} sq ft ({r.areaSqM.toFixed(4)}{" "}
-                m²)
+                → Area: {rawValue(r.areaSqFt)} sq ft ({rawValue(r.areaSqM)} m²)
               </RNText>
             ) : (
               <RNText style={styles.textTriArea}>→ Area: Incomplete</RNText>
@@ -431,19 +444,30 @@ function TextDataOverlay({ data }: TextDataOverlayProps) {
           </RNText>
           <RNText style={styles.textTotalTitle}>TOTAL AREA</RNText>
           <RNText style={styles.textTotalData}>
-            {totalSqFt.toFixed(4)} sq ft | {totalSqM.toFixed(4)} m²
+            {rawValue(totalSqFt)} sq ft | {rawValue(totalSqM)} m²
           </RNText>
           <RNText style={styles.textTotalData}>
-            Ropani: {areaResults.ropani?.toFixed(6)} | Aana:{" "}
-            {areaResults.aana?.toFixed(6)}
+            Ropani: {rawValue(areaResults.ropani)} | Aana:{" "}
+            {rawValue(areaResults.aana)}
           </RNText>
           <RNText style={styles.textTotalData}>
-            Bigha: {areaResults.bigha?.toFixed(6)} | Katha:{" "}
-            {areaResults.katha?.toFixed(6)}
+            Paisa: {rawValue(areaResults.paisa)} | Dam:{" "}
+            {rawValue(areaResults.dam)}
           </RNText>
           <RNText style={styles.textTotalData}>
-            Acres: {areaResults.acres?.toFixed(6)} | Hectares:{" "}
-            {areaResults.hectares?.toFixed(6)}
+            Bigha: {rawValue(areaResults.bigha)} | Kattha:{" "}
+            {rawValue(areaResults.kattha)}
+          </RNText>
+          <RNText style={styles.textTotalData}>
+            Dhur: {rawValue(areaResults.dhur)} | Square Feet:{" "}
+            {rawValue(areaResults.square_feet)}
+          </RNText>
+          <RNText style={styles.textTotalData}>
+            Square Meter: {rawValue(areaResults.square_meter)} | Hectare:{" "}
+            {rawValue(areaResults.hectare)}
+          </RNText>
+          <RNText style={styles.textTotalData}>
+            Acre: {rawValue(areaResults.acre)}
           </RNText>
         </>
       )}
@@ -706,8 +730,6 @@ function MeasurementPanel({ data }: MeasurementPanelProps) {
     </Surface>
   );
 }
-
-
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 

@@ -107,9 +107,10 @@ function valuationToPayload(valuation: ValuationRow): Record<string, unknown> {
     document_photos: valuation.document_photos
       ? JSON.parse(valuation.document_photos)
       : undefined,
-    property_evaluation_data: valuation.property_evaluation_data
-      ? JSON.parse(valuation.property_evaluation_data)
-      : undefined,
+    // Pass through Galli Maps property evaluation data (JSON string) and
+    // site plan plotter data so the backend can expand them into sheet rows.
+    property_evaluation_data: valuation.property_evaluation_data ?? undefined,
+    site_plan_plotter_data: valuation.site_plan_plotter_data ?? undefined,
   };
 }
 

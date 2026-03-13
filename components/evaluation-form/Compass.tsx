@@ -95,7 +95,7 @@ const Compass = ({ onAligned }: CompassProps) => {
         Align the north compass{"\n"}with the blueprint header.
       </Text>
 
-      <View style={styles.compassContainer}>
+      <View style={styles.compassContainer} pointerEvents="none">
         <CompassRose />
       </View>
 
@@ -149,8 +149,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   buttonWrapper: {
-    paddingHorizontal: 20,
+    position: "absolute",
+    left: 20,
+    right: 20,
+    bottom: 0,
     zIndex: 1200,
+    elevation: 8,
   },
   alignedButton: {
     borderRadius: 10,
