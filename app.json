@@ -51,6 +51,12 @@
         }
       ],
       [
+        "expo-sensors",
+        {
+          "motionPermission": "Allow $(PRODUCT_NAME) to access your device motion"
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#000000",

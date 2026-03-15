@@ -74,6 +74,11 @@ const EvaliationFAB = () => {
             onPress: () => router.push("/(tabs)/sync"),
           },
           {
+            icon: "compass",
+            label: "Compass",
+            onPress: () => router.push("/(pages)/Compass"),
+          },
+          {
             icon: "file-document-edit",
             label: "New Valuation",
             onPress: handleNewValuation,
