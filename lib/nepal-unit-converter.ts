@@ -203,6 +203,62 @@ export function metersToLength(m: number): Record<LengthUnitKey, number> {
   };
 }
 
+// ─── Compound Nepali length (carry-style) ───────────────────────────────────
+
+export interface CompoundNepaliLength {
+  angul: number;
+  vitastaa: number;
+  haat: number;
+  gaj: number;
+  dand: number;
+  kos: number;
+}
+
+/**
+ * Convert meters into compound Nepali traditional length units (integers),
+ * carrying up only when the remainder crosses the next unit threshold.
+ *
+ * Unit relationships (from constants in this file):
+ * - 1 kos = 2000 dand
+ * - 1 dand = 4 haat
+ * - 1 gaj = 2 haat
+ * - 1 haat = 2 vitastaa = 24 angul
+ */
+export function metersToCompoundNepaliLength(m: number): CompoundNepaliLength {
+  if (!Number.isFinite(m) || m < 0) {
+    return { angul: 0, vitastaa: 0, haat: 0, gaj: 0, dand: 0, kos: 0 };
+  }
+
+  // Epsilon helps avoid off-by-one due to floating point rounding.
+  const eps = 1e-9;
+  const kosM = KOS_M;
+  const dandM = HAAT_M / DAND_PER_HAAT; // 4 haat
+  const gajM = GAJ_TO_HAAT * HAAT_M; // 2 haat
+  const vitastaaM = HAAT_M / VITASTAA_PER_HAAT; // 1/2 haat
+  const angulM = HAAT_M / ANGUL_PER_HAAT; // 1/24 haat
+
+  let remaining = m;
+
+  const kos = Math.floor((remaining + eps) / kosM);
+  remaining = Math.max(0, remaining - kos * kosM);
+
+  const dand = Math.floor((remaining + eps) / dandM);
+  remaining = Math.max(0, remaining - dand * dandM);
+
+  const gaj = Math.floor((remaining + eps) / gajM);
+  remaining = Math.max(0, remaining - gaj * gajM);
+
+  const haat = Math.floor((remaining + eps) / HAAT_M);
+  remaining = Math.max(0, remaining - haat * HAAT_M);
+
+  const vitastaa = Math.floor((remaining + eps) / vitastaaM);
+  remaining = Math.max(0, remaining - vitastaa * vitastaaM);
+
+  const angul = Math.floor((remaining + eps) / angulM);
+
+  return { angul, vitastaa, haat, gaj, dand, kos };
+}
+
 // ─── Compound area decomposition helpers ─────────────────────────────────────
 
 export interface CompoundHill {
@@ -256,6 +312,18 @@ export function sqFtToCompoundTerai(sqFt: number): CompoundTerai {
   const kattha = Math.floor(remAfterBigha / 20);
   const dhur = remAfterBigha % 20;
   return { bigha, kattha, dhur };
+}
+
+/** Convert square meters to integer Hill (Ropani) units (carry-style). */
+export function squareMetersToCompoundHill(m2: number): CompoundHill {
+  const sqFt = m2 / SQFT_M2;
+  return sqFtToCompoundHill(sqFt);
+}
+
+/** Convert square meters to integer Terai (Bigha) units (carry-style). */
+export function squareMetersToCompoundTerai(m2: number): CompoundTerai {
+  const sqFt = m2 / SQFT_M2;
+  return sqFtToCompoundTerai(sqFt);
 }
 
 /** Format Hill compound as a readable string, skipping zero values */

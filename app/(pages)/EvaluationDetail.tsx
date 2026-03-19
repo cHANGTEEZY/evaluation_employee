@@ -124,6 +124,8 @@ const EvaluationDetail = () => {
   };
 
   const formatBoolean = (value: number) => (value === 1 ? "Yes" : "No");
+  const landRateUnitDisplay =
+    valuation?.land_rate_unit === "kattha" ? "kattha" : "anna";
 
   if (loading) {
     return (
@@ -371,7 +373,7 @@ const EvaluationDetail = () => {
             />
             <Divider style={{ marginVertical: 12 }} />
             <InfoRow
-              label="Commercial Rate (per anna)"
+              label={`Commercial Rate (per ${landRateUnitDisplay})`}
               value={
                 valuation.commercial_rate_per_anna != null
                   ? `NPR ${valuation.commercial_rate_per_anna.toLocaleString()}`
@@ -379,7 +381,7 @@ const EvaluationDetail = () => {
               }
             />
             <InfoRow
-              label="Government Rate (per anna)"
+              label={`Government Rate (per ${landRateUnitDisplay})`}
               value={
                 valuation.government_rate_per_anna != null
                   ? `NPR ${valuation.government_rate_per_anna.toLocaleString()}`

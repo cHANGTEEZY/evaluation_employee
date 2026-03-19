@@ -19,6 +19,9 @@ import {
   squareMetersToArea,
   lengthToMeters,
   metersToLength,
+  metersToCompoundNepaliLength,
+  squareMetersToCompoundHill,
+  squareMetersToCompoundTerai,
 } from "../../lib/nepal-unit-converter";
 import type { AreaUnitKey } from "../../lib/nepal-unit-converter";
 import type { LengthUnitKey } from "../../lib/nepal-unit-converter";
@@ -28,12 +31,13 @@ function formatDisplayValue(n: number): string {
   if (Number.isInteger(n) && Math.abs(n) < 1e15) {
     return n.toLocaleString();
   }
-  const fixed = n.toFixed(6).replace(/\.?0+$/, "");
+  // Display with up to 2 decimal places for readability.
+  const fixed = n.toFixed(2).replace(/\.?0+$/, "");
   const num = parseFloat(fixed);
   if (Math.abs(num) >= 1000 || (Math.abs(num) < 0.0001 && num !== 0)) {
-    return num.toExponential(4).replace(/(\.\d*?)0+(e[+-]\d+)/i, "$1$2");
+    return num.toExponential(2).replace(/(\.\d*?)0+(e[+-]\d+)/i, "$1$2");
   }
-  return num.toLocaleString(undefined, { maximumFractionDigits: 6 });
+  return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 const NepalUnitConverter = () => {
@@ -41,6 +45,7 @@ const NepalUnitConverter = () => {
   const insets = useSafeAreaInsets();
 
   const [mode, setMode] = useState<ConverterMode>("area");
+  const [displayMode, setDisplayMode] = useState<"exact" | "relative">("exact");
   const [inputValue, setInputValue] = useState("1");
   const [fromUnitArea, setFromUnitArea] = useState<AreaUnitKey>("ropani");
   const [fromUnitLength, setFromUnitLength] = useState<LengthUnitKey>("haat");
@@ -50,19 +55,45 @@ const NepalUnitConverter = () => {
     return Number.isFinite(n) ? n : 0;
   }, [inputValue]);
 
-  const areaResults = useMemo(() => {
-    const m2 = areaToSquareMeters(numericValue, fromUnitArea);
-    return squareMetersToArea(m2);
+  const areaM2 = useMemo(() => {
+    return areaToSquareMeters(numericValue, fromUnitArea);
   }, [numericValue, fromUnitArea]);
+  const areaResultsExact = useMemo(() => {
+    return squareMetersToArea(areaM2);
+  }, [areaM2]);
+  const areaResultsRelative = useMemo(() => {
+    if (displayMode !== "relative") return areaResultsExact;
+    const hill = squareMetersToCompoundHill(areaM2);
+    const terai = squareMetersToCompoundTerai(areaM2);
+    return {
+      ...areaResultsExact,
+      ...hill,
+      ...terai,
+    };
+  }, [areaM2, areaResultsExact, displayMode]);
 
-  const lengthResults = useMemo(() => {
-    const m = lengthToMeters(numericValue, fromUnitLength);
-    return metersToLength(m);
+  const lengthM = useMemo(() => {
+    return lengthToMeters(numericValue, fromUnitLength);
   }, [numericValue, fromUnitLength]);
+  const lengthResultsExact = useMemo(() => {
+    return metersToLength(lengthM);
+  }, [lengthM]);
+  const lengthResultsRelative = useMemo(() => {
+    if (displayMode !== "relative") return lengthResultsExact;
+    const nepali = metersToCompoundNepaliLength(lengthM);
+    return {
+      ...lengthResultsExact,
+      ...nepali,
+    };
+  }, [displayMode, lengthM, lengthResultsExact]);
 
   const fromUnit = mode === "area" ? fromUnitArea : fromUnitLength;
   const units = mode === "area" ? AREA_UNITS : LENGTH_UNITS;
-  const results = mode === "area" ? areaResults : lengthResults;
+
+  function formatCompoundValue(n: number): string {
+    if (!Number.isFinite(n)) return "0";
+    return Math.trunc(n).toLocaleString();
+  }
 
   const handleModeChange = useCallback((newMode: ConverterMode) => {
     setMode(newMode);
@@ -84,16 +115,20 @@ const NepalUnitConverter = () => {
       if (mode === "area") {
         setFromUnitArea(unitKey as AreaUnitKey);
         setInputValue(
-          formatDisplayValue(areaResults[unitKey as AreaUnitKey] ?? 0),
+          formatDisplayValue(
+            areaResultsExact[unitKey as AreaUnitKey] ?? 0,
+          ),
         );
       } else {
         setFromUnitLength(unitKey as LengthUnitKey);
         setInputValue(
-          formatDisplayValue(lengthResults[unitKey as LengthUnitKey] ?? 0),
+          formatDisplayValue(
+            lengthResultsExact[unitKey as LengthUnitKey] ?? 0,
+          ),
         );
       }
     },
-    [mode, areaResults, lengthResults],
+    [mode, areaResultsExact, lengthResultsExact],
   );
 
   const handleNumericChange = useCallback((_num: number) => {
@@ -143,6 +178,63 @@ const NepalUnitConverter = () => {
       >
         <ModeToggle value={mode} onValueChange={handleModeChange} />
 
+        <View style={styles.displayModeToggleRow}>
+          <Pressable
+            onPress={() => setDisplayMode("exact")}
+            style={[
+              styles.displayModeBtn,
+              displayMode === "exact" && {
+                backgroundColor:
+                  theme.colors.primaryContainer ?? theme.colors.primary,
+                borderColor: theme.colors.primary,
+                borderWidth: 2,
+              },
+            ]}
+          >
+            <Text
+              variant="labelLarge"
+              style={[
+                styles.displayModeLabel,
+                {
+                  color:
+                    displayMode === "exact"
+                      ? theme.colors.onPrimaryContainer ?? theme.colors.onPrimary
+                      : theme.colors.onSurfaceVariant,
+                },
+              ]}
+            >
+              Exact
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setDisplayMode("relative")}
+            style={[
+              styles.displayModeBtn,
+              displayMode === "relative" && {
+                backgroundColor:
+                  theme.colors.primaryContainer ?? theme.colors.primary,
+                borderColor: theme.colors.primary,
+                borderWidth: 2,
+              },
+            ]}
+          >
+            <Text
+              variant="labelLarge"
+              style={[
+                styles.displayModeLabel,
+                {
+                  color:
+                    displayMode === "relative"
+                      ? theme.colors.onPrimaryContainer ?? theme.colors.onPrimary
+                      : theme.colors.onSurfaceVariant,
+                },
+              ]}
+            >
+              Relative
+            </Text>
+          </Pressable>
+        </View>
+
         <UnitInput
           value={inputValue}
           onValueChange={setInputValue}
@@ -158,9 +250,9 @@ const NepalUnitConverter = () => {
               title="Hill Region (Ropani System)"
               icon="image-filter-hdr"
               unitKeys={AREA_UNIT_GROUPS.hill}
-              results={areaResults}
+              results={areaResultsRelative}
               fromUnit={fromUnitArea}
-              formatValue={formatDisplayValue}
+              formatValue={displayMode === "relative" ? formatCompoundValue : formatDisplayValue}
               getUnitLabel={getAreaLabel}
               onUnitPress={handleUnitCardPress}
             />
@@ -168,9 +260,9 @@ const NepalUnitConverter = () => {
               title="Terai Region (Bigha System)"
               icon="sprout"
               unitKeys={AREA_UNIT_GROUPS.terai}
-              results={areaResults}
+              results={areaResultsRelative}
               fromUnit={fromUnitArea}
-              formatValue={formatDisplayValue}
+              formatValue={displayMode === "relative" ? formatCompoundValue : formatDisplayValue}
               getUnitLabel={getAreaLabel}
               onUnitPress={handleUnitCardPress}
             />
@@ -178,7 +270,7 @@ const NepalUnitConverter = () => {
               title="Standard Units"
               icon="ruler-square"
               unitKeys={AREA_UNIT_GROUPS.standard}
-              results={areaResults}
+              results={areaResultsExact}
               fromUnit={fromUnitArea}
               formatValue={formatDisplayValue}
               getUnitLabel={getAreaLabel}
@@ -193,9 +285,9 @@ const NepalUnitConverter = () => {
               title="Nepali Traditional Units"
               icon="ruler"
               unitKeys={LENGTH_UNIT_GROUPS.nepali}
-              results={lengthResults}
+              results={lengthResultsRelative}
               fromUnit={fromUnitLength}
-              formatValue={formatDisplayValue}
+              formatValue={displayMode === "relative" ? formatCompoundValue : formatDisplayValue}
               getUnitLabel={getLengthLabel}
               onUnitPress={handleUnitCardPress}
             />
@@ -203,7 +295,7 @@ const NepalUnitConverter = () => {
               title="Standard Units"
               icon="ruler-square"
               unitKeys={LENGTH_UNIT_GROUPS.standard}
-              results={lengthResults}
+              results={lengthResultsExact}
               fromUnit={fromUnitLength}
               formatValue={formatDisplayValue}
               getUnitLabel={getLengthLabel}
@@ -259,5 +351,22 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 24,
+  },
+  displayModeToggleRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 20,
+  },
+  displayModeBtn: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#ccc",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    alignItems: "center",
+  },
+  displayModeLabel: {
+    fontWeight: "700",
   },
 });

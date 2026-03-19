@@ -117,6 +117,8 @@ export const valuationSchema = z.object({
     .optional(),
 
   // ===== Land Rates =====
+  /** Unit interpretation for the land rate inputs below. */
+  land_rate_unit: z.enum(["anna", "kattha"]).default("anna"),
   commercial_rate_per_anna: z
     .number({ message: "Commercial rate must be a number" })
     .nonnegative("Commercial rate cannot be negative")
@@ -349,6 +351,7 @@ export const defaultValuationValues: Partial<ValuationFormValues> = {
   hold_type: "freehold",
 
   // Land rates
+  land_rate_unit: "anna",
   commercial_rate_per_anna: 2500000,
   government_rate_per_anna: 800000,
 

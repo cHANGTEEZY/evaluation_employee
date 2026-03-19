@@ -1296,6 +1296,8 @@ const Step0 = () => {
                   title={evalData.water.name || evalData.water.type}
                   description={[
                     `Type: ${evalData.water.type}`,
+                    evalData.water.distance != null &&
+                      `Distance: ${evalData.water.distance.toFixed(0)} m`,
                     evalData.water.bridge && `Bridge: ${evalData.water.bridge}`,
                     evalData.water.tunnel && `Tunnel: ${evalData.water.tunnel}`,
                   ]
@@ -1304,7 +1306,7 @@ const Step0 = () => {
                   left={props => <List.Icon {...props} icon="water" />}
                   titleStyle={styles.readOnlyTitle}
                   descriptionStyle={styles.readOnlyDesc}
-                  descriptionNumberOfLines={4}
+                  descriptionNumberOfLines={5}
                   titleNumberOfLines={2}
                 />
               </View>
@@ -1321,6 +1323,8 @@ const Step0 = () => {
                 <List.Item
                   title="Power Line"
                   description={[
+                    evalData.transmissionline.distance != null &&
+                      `Distance: ${evalData.transmissionline.distance.toFixed(0)} m`,
                     evalData.transmissionline.cables &&
                       `Cables: ${evalData.transmissionline.cables}`,
                     evalData.transmissionline.circuits &&
@@ -1337,7 +1341,26 @@ const Step0 = () => {
                   )}
                   titleStyle={styles.readOnlyTitle}
                   descriptionStyle={styles.readOnlyDesc}
-                  descriptionNumberOfLines={5}
+                  descriptionNumberOfLines={6}
+                />
+              </View>
+            </Surface>
+          )}
+
+          {/* World Heritage */}
+          {evalData.worldheritage && (
+            <Surface style={styles.evalCard} elevation={1}>
+              <View style={styles.evalCardInner}>
+                <List.Subheader style={styles.cardHeader}>
+                  World Heritage
+                </List.Subheader>
+                <List.Item
+                  title={evalData.worldheritage.name}
+                  description={`Distance: ${evalData.worldheritage.distance.toFixed(4)} km`}
+                  left={props => <List.Icon {...props} icon="bank" />}
+                  titleStyle={styles.readOnlyTitle}
+                  descriptionStyle={styles.readOnlyDesc}
+                  titleNumberOfLines={2}
                 />
               </View>
             </Surface>

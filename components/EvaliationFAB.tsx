@@ -11,6 +11,7 @@ const NOT_ALLOWED_SCREEN = [
   "/EvaluationDetail",
   "/forgot-password",
   "/login",
+  "/Compass",
 ];
 
 const EvaliationFAB = () => {

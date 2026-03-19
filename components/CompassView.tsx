@@ -1,24 +1,21 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  Animated,
-  Easing,
   ViewStyle,
+  Dimensions,
 } from "react-native";
-import { Magnetometer } from "expo-sensors";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
+import CompassHeading from "react-native-compass-heading";
 import * as Haptics from "expo-haptics";
 
-const MAGNETIC_DECLINATION = -0.5;
-
-const ALPHA = 0.15;
-
-function rawToHeading(x: number, y: number): number {
-  let angle = Math.atan2(y, x) * (180 / Math.PI);
-  return (((450 - angle) % 360) + MAGNETIC_DECLINATION + 360) % 360;
-}
-
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function shortestArc(from: number, to: number): number {
   const delta = ((to - from + 540) % 360) - 180;
   return from + delta;
@@ -26,173 +23,180 @@ function shortestArc(from: number, to: number): number {
 
 function getDirection(deg: number): string {
   const dirs = [
-    "N",
-    "NNE",
-    "NE",
-    "ENE",
-    "E",
-    "ESE",
-    "SE",
-    "SSE",
-    "S",
-    "SSW",
-    "SW",
-    "WSW",
-    "W",
-    "WNW",
-    "NW",
-    "NNW",
+    "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+    "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW",
   ];
   return dirs[Math.round(deg / 22.5) % 16];
 }
 
 const MAJOR_TICKS = ["N", "E", "S", "W"];
-const MINOR_LABELS = ["NE", "SE", "SW", "NW"];
 
+// ─── Props ────────────────────────────────────────────────────────────────────
 export interface CompassViewProps {
   size?: number;
-
   showReadout?: boolean;
-
   readoutBelowCompass?: boolean;
-
-  showRings?: boolean;
-
-  showCrosshair?: boolean;
   hapticOnNorth?: boolean;
-  showPointer?: boolean;
   style?: ViewStyle;
 }
 
+// ─── Component ────────────────────────────────────────────────────────────────
 export default function CompassView({
-  size = 280,
+  size = Dimensions.get("window").width * 0.9,
   showReadout = true,
   readoutBelowCompass = false,
-  showRings = true,
-  showCrosshair = true,
   hapticOnNorth = true,
-  showPointer = true,
   style,
 }: CompassViewProps) {
   const rotationRef = useRef(0);
-  const rawHeadingRef = useRef(0);
-  const animatedRot = useRef(new Animated.Value(0)).current;
+  const animatedRot = useSharedValue(0);
+
   const [displayHeading, setDisplayHeading] = useState(0);
   const [direction, setDirection] = useState("N");
-  const nearNorthRef = useRef(false);
-  const animatingRef = useRef<Animated.CompositeAnimation | null>(null);
+  const [sensorStatus, setSensorStatus] = useState<"loading" | "active" | "unavailable">("loading");
 
-  const animateTo = useCallback(
-    (target: number) => {
-      const dest = shortestArc(rotationRef.current, target);
-      rotationRef.current = dest;
-      animatingRef.current?.stop();
-      animatingRef.current = Animated.timing(animatedRot, {
-        toValue: -dest,
-        duration: 120,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      });
-      animatingRef.current.start(() => {
-        animatingRef.current = null;
-      });
-    },
-    [animatedRot],
-  );
+  const lastRoundedRef = useRef(-1);
+  const nearCardinalRef = useRef(false);
 
   useEffect(() => {
-    Magnetometer.setUpdateInterval(100);
-    const sub = Magnetometer.addListener(({ x, y }) => {
-      const raw = rawToHeading(x, y);
-      const prev = rawHeadingRef.current;
-      let delta = raw - prev;
-      if (delta > 180) delta -= 360;
-      if (delta < -180) delta += 360;
-      const filtered = (prev + ALPHA * delta + 360) % 360;
-      rawHeadingRef.current = filtered;
+    let mounted = true;
 
-      const rounded = Math.round(filtered);
-      setDisplayHeading(rounded);
-      setDirection(getDirection(filtered));
-      animateTo(filtered);
+    // react-native-compass-heading uses the OS native compass APIs:
+    //   iOS  → CLLocationManager (Core Location) — already tilt-compensated
+    //   Android → SensorManager.getRotationMatrix + getOrientation — also tilt-compensated
+    // `degree_update_rate` = minimum degree change to trigger a callback (1 = every 1°)
+    CompassHeading.start(1, ({ heading }: { heading: number }) => {
+      if (!mounted) return;
+
+      if (sensorStatus !== "active") setSensorStatus("active");
+
+      const dest = shortestArc(rotationRef.current, heading);
+      rotationRef.current = dest;
+
+      animatedRot.value = withTiming(-dest, {
+        duration: 80,
+        easing: Easing.out(Easing.quad),
+      });
+
+      const rounded = Math.round(heading);
+      if (rounded !== lastRoundedRef.current) {
+        setDisplayHeading(rounded);
+        setDirection(getDirection(heading));
+        lastRoundedRef.current = rounded;
+      }
 
       if (hapticOnNorth) {
-        const nearNorth = rounded <= 5 || rounded >= 355;
-        if (nearNorth && !nearNorthRef.current) {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        const isCardinal = rounded % 90 <= 2 || rounded % 90 >= 88;
+        if (isCardinal && !nearCardinalRef.current) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }
-        nearNorthRef.current = nearNorth;
+        nearCardinalRef.current = isCardinal;
       }
     });
-    return () => sub.remove();
-  }, [animateTo, hapticOnNorth]);
 
-  const roseRotate = animatedRot.interpolate({
-    inputRange: [-720, 720],
-    outputRange: ["-720deg", "720deg"],
-    extrapolate: "extend",
-  });
+    // If no heading arrives within 3s, sensor is unavailable
+    const timer = setTimeout(() => {
+      if (mounted && lastRoundedRef.current === -1) {
+        setSensorStatus("unavailable");
+      }
+    }, 3000);
 
-  const labelR = (118 / 280) * size;
-  const needleHeight = (70 / 280) * size;
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+      CompassHeading.stop();
+    };
+  }, [animatedRot, hapticOnNorth]);
 
-  const dynamicStyles = getDynamicStyles(size, needleHeight);
+  const animatedRoseStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${animatedRot.value}deg` }],
+  }));
 
-  const pointerTriangleBase = Math.round((14 / 280) * size);
-  const pointerTriangleHeight = Math.round((10 / 280) * size);
-  const pointerStemHeight = Math.round((10 / 280) * size);
-  const pointerStemWidth = Math.round((3 / 280) * size);
-
-  const pointerTopOffset = -(
-    pointerTriangleHeight +
-    pointerStemHeight +
-    Math.round((4 / 280) * size)
-  );
+  // ── Layout geometry ─────────────────────────────────────────────────────────
+  const R = size / 2;
+  const tickOuterRadius = R * 0.75;
+  const numberRadius = R * 0.92;
+  const cardinalRadius = R * 0.52;
 
   const compassContent = (
-    <>
-      {showRings && (
-        <>
-          <View style={[styles.outerRing, dynamicStyles.outerRing]} />
-          <View style={[styles.innerRing, dynamicStyles.innerRing]} />
-        </>
-      )}
+    <View style={[styles.compassContainer, { width: size, height: size }]}>
+      {/* Fixed top indicator */}
+      <View style={styles.fixedPointerContainer}>
+        <View style={styles.fixedPointer} />
+      </View>
 
+      {/* Fixed centre crosshair */}
+      <View style={styles.centerLevelContainer}>
+        <View style={styles.centerCircle} />
+        <View style={styles.centerCrosshairV} />
+        <View style={styles.centerCrosshairH} />
+      </View>
+
+      {/* Rotating compass rose */}
       <Animated.View
-        style={[
-          styles.rose,
-          dynamicStyles.rose,
-          { transform: [{ rotate: roseRotate }] },
-        ]}
+        style={[styles.rose, { width: size, height: size }, animatedRoseStyle]}
       >
-        {Array.from({ length: 72 }).map((_, i) => {
-          const isMajor = i % 18 === 0;
-          const isMinor = i % 9 === 0 && !isMajor;
+        {/* Tick marks every 2° */}
+        {Array.from({ length: 180 }).map((_, i) => {
+          const degree = i * 2;
+          const is30 = degree % 30 === 0;
+          const is10 = degree % 10 === 0;
           return (
             <View
-              key={i}
+              key={`tick-${degree}`}
               style={[
-                dynamicStyles.tick,
-                { transform: [{ rotate: `${i * 5}deg` }] },
-                isMajor && dynamicStyles.tickMajor,
-                isMinor && dynamicStyles.tickMinor,
+                styles.tickContainer,
+                {
+                  height: tickOuterRadius * 2,
+                  transform: [{ rotate: `${degree}deg` }],
+                },
               ]}
-            />
+            >
+              <View
+                style={[
+                  styles.tick,
+                  {
+                    width: is30 ? 2 : 1,
+                    height: is30 ? 16 : is10 ? 12 : 8,
+                  },
+                ]}
+              />
+            </View>
           );
         })}
 
+        {/* Degree numbers every 30° */}
+        {Array.from({ length: 12 }).map((_, i) => {
+          const degree = i * 30;
+          const angle = (degree * Math.PI) / 180;
+          const tx = Math.sin(angle) * numberRadius;
+          const ty = -Math.cos(angle) * numberRadius;
+          return (
+            <View
+              key={`num-${degree}`}
+              style={[
+                styles.numberContainer,
+                { transform: [{ translateX: tx }, { translateY: ty }] },
+              ]}
+            >
+              <Text style={styles.degreeNumberText}>{degree}</Text>
+              {degree === 0 && <View style={styles.redTriangle} />}
+            </View>
+          );
+        })}
+
+        {/* Cardinal labels */}
         {MAJOR_TICKS.map((label, i) => {
           const angle = i * 90;
           const rad = (angle * Math.PI) / 180;
-          const tx = Math.sin(rad) * labelR;
-          const ty = -Math.cos(rad) * labelR;
-          const isNorth = label === "N";
+          const tx = Math.sin(rad) * cardinalRadius;
+          const ty = -Math.cos(rad) * cardinalRadius;
           return (
             <Text
               key={label}
               style={[
-                dynamicStyles.cardinalLabel,
-                isNorth && dynamicStyles.northLabel,
+                styles.cardinalLabel,
+                label === "N" && styles.cardinalLabelNorth,
                 { transform: [{ translateX: tx }, { translateY: ty }] },
               ]}
             >
@@ -201,230 +205,45 @@ export default function CompassView({
           );
         })}
 
-        {MINOR_LABELS.map((label, i) => {
-          const angle = 45 + i * 90;
-          const rad = (angle * Math.PI) / 180;
-          const tx = Math.sin(rad) * labelR;
-          const ty = -Math.cos(rad) * labelR;
-          return (
-            <Text
-              key={label}
-              style={[
-                dynamicStyles.intercardinalLabel,
-                { transform: [{ translateX: tx }, { translateY: ty }] },
-              ]}
-            >
-              {label}
-            </Text>
-          );
-        })}
-
-        <View style={styles.needleContainer}>
-          <View style={[dynamicStyles.needleNorth, { height: needleHeight }]} />
-          <View style={[dynamicStyles.needleSouth, { height: needleHeight }]} />
-        </View>
+        <View style={styles.rotatingCrosshairV} />
+        <View style={styles.rotatingCrosshairH} />
       </Animated.View>
-
-      <View style={[dynamicStyles.centreDot, styles.centreDot]} />
-
-      {showCrosshair && (
-        <>
-          <View
-            style={[
-              styles.crosshair,
-              styles.crosshairV,
-              dynamicStyles.crosshairV,
-            ]}
-          />
-          <View
-            style={[
-              styles.crosshair,
-              styles.crosshairH,
-              dynamicStyles.crosshairH,
-            ]}
-          />
-        </>
-      )}
-
-      {/* ── Apple Maps-style fixed direction pointer ── */}
-      {showPointer && (
-        <View
-          style={[styles.pointerWrapper, { top: pointerTopOffset }]}
-          pointerEvents="none"
-        >
-          {/* Triangle chevron */}
-          <View
-            style={{
-              width: 0,
-              height: 0,
-              borderLeftWidth: pointerTriangleBase / 2,
-              borderRightWidth: pointerTriangleBase / 2,
-              borderTopWidth: 0,
-              borderBottomWidth: pointerTriangleHeight,
-              borderLeftColor: "transparent",
-              borderRightColor: "transparent",
-              borderBottomColor: "transparent",
-              borderTopColor: "transparent",
-              // flip: triangle points downward INTO the compass
-              transform: [{ rotate: "180deg" }],
-              borderStyle: "solid",
-              // We use borderTop trick for downward triangle instead:
-            }}
-          />
-          {/* Using a proper downward-pointing triangle via top border */}
-          <View style={{ marginTop: -pointerTriangleHeight }}>
-            <View
-              style={{
-                width: 0,
-                height: 0,
-                borderLeftWidth: pointerTriangleBase / 2,
-                borderRightWidth: pointerTriangleBase / 2,
-                borderTopWidth: pointerTriangleHeight,
-                borderLeftColor: "transparent",
-                borderRightColor: "transparent",
-                borderTopColor: "#007AFF",
-                borderStyle: "solid",
-              }}
-            />
-          </View>
-          {/* Stem below triangle */}
-          <View
-            style={{
-              width: pointerStemWidth,
-              height: pointerStemHeight,
-              backgroundColor: "#007AFF",
-              borderRadius: pointerStemWidth / 2,
-              marginTop: 0,
-            }}
-          />
-        </View>
-      )}
-
-      {showReadout && !readoutBelowCompass && (
-        <View style={styles.readout}>
-          <Text style={styles.degreesText}>{displayHeading}°</Text>
-          <Text style={styles.directionText}>{direction}</Text>
-        </View>
-      )}
-    </>
+    </View>
   );
 
-  if (readoutBelowCompass) {
-    return (
-      <View style={[styles.screen, styles.screenColumn, style]}>
-        <View
-          style={[styles.compassOnlyWrapper, { width: size, height: size }]}
-        >
-          {compassContent}
+  return (
+    <View style={[styles.screen, style]}>
+      {sensorStatus === "unavailable" && (
+        <View style={styles.sensorBanner}>
+          <Text style={styles.sensorBannerText}>
+            Compass not available on this device.{"\n"}
+            A physical device with a magnetic sensor is required.
+          </Text>
         </View>
-        {showReadout && (
-          <View style={styles.readoutBelow}>
-            <Text style={styles.degreesText}>{displayHeading}°</Text>
-            <Text style={styles.directionText}>{direction}</Text>
-          </View>
-        )}
+      )}
+
+      <View
+        style={
+          readoutBelowCompass ? styles.compassOnlyWrapper : styles.compassWrapper
+        }
+      >
+        {compassContent}
       </View>
-    );
-  }
 
-  return <View style={[styles.screen, style]}>{compassContent}</View>;
+      {showReadout && (
+        <View
+          style={readoutBelowCompass ? styles.readoutBelow : styles.readoutBottom}
+        >
+          <Text style={styles.readoutHeading}>
+            {displayHeading}° {direction}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
 }
 
-function getDynamicStyles(size: number, needleHeight: number) {
-  const outer = size + 60;
-  const inner = size + 20;
-  const crossLen = size + 80;
-  return StyleSheet.create({
-    outerRing: {
-      width: outer,
-      height: outer,
-      borderRadius: outer / 2,
-    },
-    innerRing: {
-      width: inner,
-      height: inner,
-      borderRadius: inner / 2,
-    },
-    rose: {
-      width: size,
-      height: size,
-      borderRadius: size / 2,
-    },
-    // tick: {
-    //   position: "absolute" as const,
-    //   top: 0,
-    //   width: 1,
-    //   height: Math.round((8 / 280) * size),
-    //   backgroundColor: "rgba(255,255,255,0.2)",
-    //   alignSelf: "center" as const,
-    // },
-    // tickMajor: {
-    //   width: 2,
-    //   height: Math.round((14 / 280) * size),
-    //   backgroundColor: "rgba(255,255,255,0.55)",
-    // },
-    // tickMinor: {
-    //   width: 1.5,
-    //   height: Math.round((10 / 280) * size),
-    //   backgroundColor: "rgba(255,255,255,0.35)",
-    // },
-    cardinalLabel: {
-      position: "absolute" as const,
-      color: "rgba(255,255,255,0.85)",
-      fontSize: Math.round((16 / 280) * size),
-      fontWeight: "700" as const,
-      letterSpacing: 1,
-      textAlign: "center" as const,
-      width: 30,
-      marginLeft: -2,
-      marginTop: -10,
-    },
-    northLabel: {
-      color: "#ff4040",
-      fontSize: Math.round((18 / 280) * size),
-    },
-    intercardinalLabel: {
-      position: "absolute" as const,
-      color: "rgba(255,255,255,0.4)",
-      fontSize: Math.round((11 / 280) * size),
-      fontWeight: "500" as const,
-      textAlign: "center" as const,
-      width: 28,
-      marginLeft: -14,
-      marginTop: -8,
-    },
-    needleNorth: {
-      width: 4,
-      backgroundColor: "#ff3030",
-      borderRadius: 2,
-      marginBottom: 2,
-      shadowColor: "#ff3030",
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.9,
-      shadowRadius: 6,
-    },
-    needleSouth: {
-      width: 4,
-      backgroundColor: "rgba(255,255,255,0.25)",
-      borderRadius: 2,
-      marginTop: 2,
-    },
-    centreDot: {
-      width: Math.round((12 / 280) * size),
-      height: Math.round((12 / 280) * size),
-      borderRadius: Math.round((6 / 280) * size),
-    },
-    crosshairV: {
-      width: 1,
-      height: crossLen,
-    },
-    crosshairH: {
-      width: crossLen,
-      height: 1,
-    },
-  });
-}
-
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -432,79 +251,142 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  screenColumn: {
-    flexDirection: "column",
+  compassWrapper: {
+    flex: 1,
     justifyContent: "center",
+    alignItems: "center",
   },
   compassOnlyWrapper: {
     justifyContent: "center",
     alignItems: "center",
   },
-  readoutBelow: {
+  compassContainer: {
     alignItems: "center",
-    marginTop: 12,
+    justifyContent: "center",
   },
-  outerRing: {
+  fixedPointerContainer: {
     position: "absolute",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    top: -15,
+    zIndex: 10,
+    alignItems: "center",
   },
-  innerRing: {
-    position: "absolute",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
+  fixedPointer: {
+    width: 3,
+    height: 35,
+    backgroundColor: "#fff",
+    borderRadius: 2,
   },
   rose: {
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.03)",
-    borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.12)",
   },
-  needleContainer: {
+  tickContainer: {
     position: "absolute",
+    width: 2,
     alignItems: "center",
   },
-  centreDot: {
-    position: "absolute",
+  tick: {
     backgroundColor: "#fff",
-    shadowColor: "#fff",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
   },
-  crosshair: {
+  numberContainer: {
     position: "absolute",
-    backgroundColor: "rgba(255,255,255,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  crosshairV: {
+  degreeNumberText: {
+    position: "absolute",
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "400",
+  },
+  redTriangle: {
+    position: "absolute",
+    top: 14,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderBottomWidth: 10,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    borderBottomColor: "#FF3B30",
+  },
+  cardinalLabel: {
+    position: "absolute",
+    color: "#fff",
+    fontSize: 28,
+    fontWeight: "500",
+  },
+  cardinalLabelNorth: {
+    color: "#FF3B30",
+    fontWeight: "700",
+  },
+  centerLevelContainer: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
+  },
+  centerCircle: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  centerCrosshairV: {
+    position: "absolute",
     width: 1,
+    height: 14,
+    backgroundColor: "rgba(255,255,255,0.7)",
   },
-  crosshairH: {
-    height: 1,
-  },
-  readout: {
+  centerCrosshairH: {
     position: "absolute",
-    bottom: "15%",
+    width: 14,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.7)",
+  },
+  rotatingCrosshairV: {
+    position: "absolute",
+    width: 1,
+    height: "100%",
+    backgroundColor: "rgba(255,255,255,0.15)",
+  },
+  rotatingCrosshairH: {
+    position: "absolute",
+    width: "100%",
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.15)",
+  },
+  readoutBelow: {
+    alignItems: "center",
+    marginTop: 40,
+  },
+  readoutBottom: {
+    position: "absolute",
+    bottom: 60,
     alignItems: "center",
   },
-  degreesText: {
-    color: "#ffffff",
-    fontSize: 48,
-    fontWeight: "200",
-    letterSpacing: -1,
+  readoutHeading: {
+    color: "#fff",
+    fontSize: 64,
+    fontWeight: "300",
     fontVariant: ["tabular-nums"],
   },
-  directionText: {
-    color: "rgba(255,255,255,0.5)",
-    fontSize: 18,
-    fontWeight: "500",
-    letterSpacing: 4,
-    marginTop: 4,
-  },
-
-  pointerWrapper: {
+  sensorBanner: {
     position: "absolute",
-    alignItems: "center",
+    top: 40,
+    left: 20,
+    right: 20,
+    backgroundColor: "rgba(255,60,60,0.85)",
+    borderRadius: 12,
+    padding: 16,
+    zIndex: 100,
+  },
+  sensorBannerText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+    lineHeight: 20,
   },
 });

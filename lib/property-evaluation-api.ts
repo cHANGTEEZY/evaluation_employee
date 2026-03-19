@@ -43,6 +43,7 @@ export interface WaterBody {
   bridge: string | null;
   tunnel: string | null;
   geometry: string; // stringified JSON array of coordinate arrays
+  distance?: number; // distance in meters
 }
 
 export interface TransmissionLine {
@@ -56,6 +57,12 @@ export interface TransmissionLine {
   voltage: string | null;
   wires: string | null;
   geometry: string; // stringified JSON array of coordinate arrays
+  distance?: number; // distance in meters
+}
+
+export interface WorldHeritage {
+  name: string;
+  distance: number; // distance in km
 }
 
 export interface PropertyEvaluationData {
@@ -67,6 +74,7 @@ export interface PropertyEvaluationData {
   oldvdc: OldVdc;
   water: WaterBody;
   transmissionline: TransmissionLine;
+  worldheritage?: WorldHeritage;
 }
 
 interface PropertyEvaluationResponse {

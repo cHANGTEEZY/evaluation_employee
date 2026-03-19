@@ -2,6 +2,7 @@
 //   "https://evaluationbackend-production.up.railway.app";
 
 export const BASE_API_URL =
+  process.env.EXPO_PUBLIC_API_URL ??
   "https://evaluation-backend-production-dac9.up.railway.app";
 
 /** Cookie name for admin API session (must match backend cookiePrefix "better-auth-admin"). */

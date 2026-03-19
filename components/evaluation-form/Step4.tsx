@@ -4,6 +4,7 @@ import {
   Alert,
   Image,
   ScrollView,
+  Pressable,
   Text as RNText,
 } from "react-native";
 import React, { useEffect, useRef, useState } from "react";
@@ -24,6 +25,8 @@ import {
   AREA_UNITS,
   AREA_UNIT_GROUPS,
   squareMetersToArea,
+  squareMetersToCompoundHill,
+  squareMetersToCompoundTerai,
 } from "../../lib/nepal-unit-converter";
 
 // ─── Heron's formula ─────────────────────────────────────────────────────────
@@ -97,6 +100,9 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
     selectedCount: 0,
     pointCount: 0,
   });
+  const [areaDisplayMode, setAreaDisplayMode] = useState<
+    "exact" | "relative"
+  >("exact");
 
   const plotterRef = useRef<PropertyPlotterRef>(null);
   const captureViewRef = useRef<ViewShot>(null);
@@ -293,13 +299,17 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
 
         {/* Structured text data overlay — captured in PNG */}
         {!showSavedPreview && hasTriangles && plotterData && (
-          <TextDataOverlay data={plotterData} />
+          <TextDataOverlay data={plotterData} displayMode={areaDisplayMode} />
         )}
       </ViewShot>
 
       {/* Measurement panel — visible on screen but NOT in PNG */}
       {!showSavedPreview && hasTriangles && plotterData && (
-        <MeasurementPanel data={plotterData} />
+        <MeasurementPanel
+          data={plotterData}
+          displayMode={areaDisplayMode}
+          onDisplayModeChange={setAreaDisplayMode}
+        />
       )}
 
       {!!savedUri && hasPoints && (
@@ -348,16 +358,17 @@ export default Step4;
 
 type TextDataOverlayProps = {
   data: PlotterData;
+  displayMode: "exact" | "relative";
 };
 
-function TextDataOverlay({ data }: TextDataOverlayProps) {
+function TextDataOverlay({ data, displayMode }: TextDataOverlayProps) {
   const { triangles } = data;
 
   function rawValue(n: number | null | undefined): string {
     if (n == null || !Number.isFinite(n)) return "0";
     return n.toLocaleString(undefined, {
       useGrouping: false,
-      maximumFractionDigits: 4,
+      maximumFractionDigits: 2,
     });
   }
 
@@ -388,7 +399,15 @@ function TextDataOverlay({ data }: TextDataOverlayProps) {
   const totalSqFt = results.reduce((sum, r) => sum + (r.areaSqFt ?? 0), 0);
   const measuredCount = results.filter((r) => r.areaSqFt != null).length;
   const totalSqM = totalSqFt * 0.09290304;
-  const areaResults = squareMetersToArea(totalSqM);
+  const areaResultsExact = squareMetersToArea(totalSqM);
+  const areaResults =
+    displayMode === "relative"
+      ? {
+          ...areaResultsExact,
+          ...squareMetersToCompoundHill(totalSqM),
+          ...squareMetersToCompoundTerai(totalSqM),
+        }
+      : areaResultsExact;
 
   function sideLabelFt(s: number | null): string {
     if (s == null) return "N/A";
@@ -481,9 +500,15 @@ function TextDataOverlay({ data }: TextDataOverlayProps) {
 
 type MeasurementPanelProps = {
   data: PlotterData;
+  displayMode: "exact" | "relative";
+  onDisplayModeChange: (mode: "exact" | "relative") => void;
 };
 
-function MeasurementPanel({ data }: MeasurementPanelProps) {
+function MeasurementPanel({
+  data,
+  displayMode,
+  onDisplayModeChange,
+}: MeasurementPanelProps) {
   const { triangles } = data;
   const theme = useTheme();
 
@@ -514,7 +539,15 @@ function MeasurementPanel({ data }: MeasurementPanelProps) {
   const totalSqFt = results.reduce((sum, r) => sum + (r.areaSqFt ?? 0), 0);
   const measuredCount = results.filter((r) => r.areaSqFt != null).length;
   const totalSqM = totalSqFt * 0.09290304;
-  const areaResults = squareMetersToArea(totalSqM);
+  const areaResultsExact = squareMetersToArea(totalSqM);
+  const areaResults =
+    displayMode === "relative"
+      ? {
+          ...areaResultsExact,
+          ...squareMetersToCompoundHill(totalSqM),
+          ...squareMetersToCompoundTerai(totalSqM),
+        }
+      : areaResultsExact;
 
   // Use theme colors for on-screen display
   const cardBg = theme.colors.surfaceVariant;
@@ -524,9 +557,9 @@ function MeasurementPanel({ data }: MeasurementPanelProps) {
 
   function formatValue(n: number): string {
     if (!Number.isFinite(n)) return "0";
-    const fixed = n.toFixed(4).replace(/\.?0+$/, "");
+    const fixed = n.toFixed(2).replace(/\.?0+$/, "");
     return parseFloat(fixed).toLocaleString(undefined, {
-      maximumFractionDigits: 4,
+      maximumFractionDigits: 2,
     });
   }
 
@@ -686,6 +719,64 @@ function MeasurementPanel({ data }: MeasurementPanelProps) {
             >
               {totalSqM.toFixed(4)} m²
             </Text>
+          </View>
+
+          <View style={styles.displayModeToggleRow}>
+            <Pressable
+              onPress={() => onDisplayModeChange("exact")}
+              style={[
+                styles.displayModeBtn,
+                displayMode === "exact" && {
+                  backgroundColor:
+                    theme.colors.primaryContainer ?? theme.colors.primary,
+                  borderColor: theme.colors.primary,
+                  borderWidth: 2,
+                },
+              ]}
+            >
+              <Text
+                variant="labelLarge"
+                style={[
+                  styles.displayModeLabel,
+                  {
+                    color:
+                      displayMode === "exact"
+                        ? theme.colors.onPrimaryContainer ?? theme.colors.onPrimary
+                        : theme.colors.onSurfaceVariant,
+                  },
+                ]}
+              >
+                Exact
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => onDisplayModeChange("relative")}
+              style={[
+                styles.displayModeBtn,
+                displayMode === "relative" && {
+                  backgroundColor:
+                    theme.colors.primaryContainer ?? theme.colors.primary,
+                  borderColor: theme.colors.primary,
+                  borderWidth: 2,
+                },
+              ]}
+            >
+              <Text
+                variant="labelLarge"
+                style={[
+                  styles.displayModeLabel,
+                  {
+                    color:
+                      displayMode === "relative"
+                        ? theme.colors.onPrimaryContainer ?? theme.colors.onPrimary
+                        : theme.colors.onSurfaceVariant,
+                  },
+                ]}
+              >
+                Relative
+              </Text>
+            </Pressable>
           </View>
 
           <UnitResultSection
@@ -896,5 +987,22 @@ const styles = StyleSheet.create({
   },
   totalUnitBox: {
     gap: 2,
+  },
+  displayModeToggleRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 12,
+  },
+  displayModeBtn: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#ccc",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: "center",
+  },
+  displayModeLabel: {
+    fontWeight: "700",
   },
 });

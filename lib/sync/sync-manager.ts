@@ -60,6 +60,7 @@ function valuationToPayload(valuation: ValuationRow): Record<string, unknown> {
     property_ownership_type: valuation.property_ownership_type,
     ownership_transferred_through: valuation.ownership_transferred_through,
     hold_type: valuation.hold_type,
+    land_rate_unit: valuation.land_rate_unit,
     commercial_rate_per_anna: valuation.commercial_rate_per_anna,
     government_rate_per_anna: valuation.government_rate_per_anna,
     building_type: valuation.building_type,

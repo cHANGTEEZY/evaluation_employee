@@ -11,7 +11,13 @@ export function generateId() {
 /** Normalize date to ISO string for DB; form/draft may send Date or string. */
 function toISODateString(v: unknown): string | null {
   if (v == null) return null;
-  if (v instanceof Date) return v.toISOString();
+  if (v instanceof Date) {
+    // Use local date components so the Nepal date is preserved (toISOString() shifts to UTC)
+    const yyyy = v.getFullYear();
+    const mm = String(v.getMonth() + 1).padStart(2, "0");
+    const dd = String(v.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
   if (typeof v === "string") return v;
   return null;
 }
@@ -76,6 +82,7 @@ export async function createValuationTable() {
     hold_type TEXT,
 
     -- Land Rates
+    land_rate_unit TEXT,
     commercial_rate_per_anna REAL,
     government_rate_per_anna REAL,
 
@@ -163,6 +170,13 @@ export async function createValuationTable() {
   }
   try {
     await db.execAsync(
+      "ALTER TABLE valuations ADD COLUMN land_rate_unit TEXT DEFAULT 'anna';",
+    );
+  } catch {
+    // ignore (likely: duplicate column name)
+  }
+  try {
+    await db.execAsync(
       "ALTER TABLE valuations ADD COLUMN document_photos TEXT;",
     );
   } catch {
@@ -231,7 +245,7 @@ export async function insertValuation(
       property_area_length, property_frontage_direction, property_narrowest_length, property_narrowest_direction,
       right_of_way, right_of_way_width_ft, motorable_access, electricity_available, drainage_near_property,
       property_type, property_ownership_type, ownership_transferred_through, hold_type,
-      commercial_rate_per_anna, government_rate_per_anna,
+      land_rate_unit, commercial_rate_per_anna, government_rate_per_anna,
       building_type, building_purpose, number_of_storeys, storey_height, building_age_years, building_rate_per_sqft, completion_date,
       landslide_prone_area, landslide_prone_area_setback, river_side, river_side_setback,
       high_tension_area, high_tension_area_setback, canal_area, canal_area_setback,
@@ -241,7 +255,7 @@ export async function insertValuation(
       documents, site_plan_note, site_plan_image, site_plan_plotter_data, property_images, document_photos,
       bank_name, bank_branch_name, city, tole_area,
       property_evaluation_data
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       employeeId,
@@ -279,6 +293,7 @@ export async function insertValuation(
       data.property_ownership_type ?? null,
       data.ownership_transferred_through ?? null,
       data.hold_type ?? null,
+      data.land_rate_unit ?? null,
       data.commercial_rate_per_anna ?? null,
       data.government_rate_per_anna ?? null,
       data.building_type ?? null,
@@ -436,6 +451,7 @@ export async function updateValuation(
       column: "ownership_transferred_through",
     },
     { key: "hold_type", column: "hold_type" },
+    { key: "land_rate_unit", column: "land_rate_unit" },
     { key: "commercial_rate_per_anna", column: "commercial_rate_per_anna" },
     { key: "government_rate_per_anna", column: "government_rate_per_anna" },
     { key: "building_type", column: "building_type" },
@@ -787,6 +803,7 @@ export interface ValuationRow {
   property_ownership_type: string | null;
   ownership_transferred_through: string | null;
   hold_type: string | null;
+  land_rate_unit: string | null;
   commercial_rate_per_anna: number | null;
   government_rate_per_anna: number | null;
   building_type: string | null;
@@ -952,6 +969,7 @@ export function rowToFormValues(
     ownership_transferred_through:
       row.ownership_transferred_through as ValuationFormValues["ownership_transferred_through"],
     hold_type: row.hold_type as ValuationFormValues["hold_type"],
+    land_rate_unit: (row.land_rate_unit as ValuationFormValues["land_rate_unit"]) ?? "anna",
     commercial_rate_per_anna: row.commercial_rate_per_anna ?? undefined,
     government_rate_per_anna: row.government_rate_per_anna ?? undefined,
     building_type: row.building_type as ValuationFormValues["building_type"],

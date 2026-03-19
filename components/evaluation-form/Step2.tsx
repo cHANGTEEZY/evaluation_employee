@@ -1,6 +1,6 @@
 import React from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
-import { Text } from "react-native-paper";
+import { ScrollView, StyleSheet, View, Pressable } from "react-native";
+import { Text, useTheme } from "react-native-paper";
 import { Controller, useFormContext } from "react-hook-form";
 import { Dropdown } from "react-native-paper-dropdown";
 import FormInput from "../ui/FormInput";
@@ -107,10 +107,13 @@ const riskAreaOptions = [
 ];
 
 const Step2 = () => {
+  const theme = useTheme();
   const { watch, setValue, control } = useFormContext();
   const accessRoadDirection = watch("access_road_direction");
   const roadType = watch("road_type");
   const rightOfWayWidthFt = watch("right_of_way_width_ft");
+  const landRateUnit = watch("land_rate_unit");
+  const selectedRateUnit = landRateUnit === "kattha" ? "kattha" : "anna";
 
   // Derive display value for Right of Way (m) select from stored number
   const rightOfWaySelectValue =
@@ -194,8 +197,9 @@ const Step2 = () => {
               options={RIGHT_OF_WAY_OPTIONS}
               value={rightOfWaySelectValue}
               onSelect={(v) => {
-                handleRightOfWaySelect(v);
-                onChange(v);
+                const next = v ?? "";
+                handleRightOfWaySelect(next);
+                onChange(next);
               }}
               mode="outlined"
             />
@@ -240,9 +244,67 @@ const Step2 = () => {
       <Text variant="titleMedium" style={styles.sectionTitle}>
         Land Rates
       </Text>
+      <View style={styles.unitToggleRow}>
+        <Pressable
+          onPress={() => setValue("land_rate_unit", "anna")}
+          style={[
+            styles.unitToggleBtn,
+            selectedRateUnit === "anna" && {
+              backgroundColor:
+                theme.colors.primaryContainer ?? theme.colors.primary,
+              borderColor: theme.colors.primary,
+              borderWidth: 2,
+            },
+          ]}
+        >
+          <Text
+            variant="labelLarge"
+            style={[
+              styles.unitToggleLabel,
+              {
+                color:
+                  selectedRateUnit === "anna"
+                    ? theme.colors.onPrimaryContainer ?? theme.colors.onPrimary
+                    : theme.colors.onSurfaceVariant,
+              },
+            ]}
+          >
+            Anna
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setValue("land_rate_unit", "kattha")}
+          style={[
+            styles.unitToggleBtn,
+            selectedRateUnit === "kattha" && {
+              backgroundColor:
+                theme.colors.primaryContainer ?? theme.colors.primary,
+              borderColor: theme.colors.primary,
+              borderWidth: 2,
+            },
+          ]}
+        >
+          <Text
+            variant="labelLarge"
+            style={[
+              styles.unitToggleLabel,
+              {
+                color:
+                  selectedRateUnit === "kattha"
+                    ? theme.colors.onPrimaryContainer ?? theme.colors.onPrimary
+                    : theme.colors.onSurfaceVariant,
+              },
+            ]}
+          >
+            Kattha
+          </Text>
+        </Pressable>
+      </View>
       <FormInput
         name="commercial_rate_per_anna"
-        label="Commercial Rate (per Anna)"
+        label={`Commercial Rate (per ${
+          selectedRateUnit === "anna" ? "Anna" : "Kattha"
+        })`}
         keyboardType="decimal-pad"
       />
 
@@ -289,6 +351,24 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 8,
     fontWeight: "bold",
+  },
+  unitToggleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 14,
+  },
+  unitToggleBtn: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#ccc",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    alignItems: "center",
+  },
+  unitToggleLabel: {
+    fontWeight: "700",
   },
   selectContainer: {
     marginBottom: 12,
