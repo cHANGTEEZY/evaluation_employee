@@ -1,0 +1,15 @@
+# Copy to android-release-key.properties at the repo root (same folder as package.json).
+# Paths are relative to android/app/ (Expo/RN default). Keystore at repo root → use ../../
+#
+# Generate a keystore (one-time), e.g.:
+#   keytool -genkeypair -v -storetype PKCS12 -keystore upload-keystore.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000
+#
+# storeFile=../../upload-keystore.jks
+# storePassword=your-store-password
+# keyAlias=upload
+# keyPassword=your-key-password
+
+storeFile=../../upload-keystore.jks
+storePassword=
+keyAlias=upload
+keyPassword=

@@ -155,7 +155,10 @@ export default function PhotoCaptureScreen({
               iconColor={theme.colors.onSurface}
               onPress={onClose}
             />
-            <Text variant="labelLarge" style={{ color: theme.colors.onSurface }}>
+            <Text
+              variant="labelLarge"
+              style={{ color: theme.colors.onSurface }}
+            >
               Close
             </Text>
           </Pressable>
@@ -193,7 +196,10 @@ export default function PhotoCaptureScreen({
                     : `${images.length} photos`}
                 </Text>
               </View>
-              <TouchableOpacity style={styles.controlButton} onPress={toggleFlash}>
+              <TouchableOpacity
+                style={styles.controlButton}
+                onPress={toggleFlash}
+              >
                 <IconButton icon={getFlashIcon()} size={24} />
               </TouchableOpacity>
             </View>
@@ -267,7 +273,9 @@ export default function PhotoCaptureScreen({
           variant="bodySmall"
           style={[
             styles.helperText,
-            minImages > 0 && images.length < minImages && styles.helperTextError,
+            minImages > 0 &&
+              images.length < minImages &&
+              styles.helperTextError,
           ]}
         >
           {helperText ?? defaultHelperText}
@@ -292,9 +300,7 @@ export default function PhotoCaptureScreen({
               icon="delete"
               iconColor="white"
               size={28}
-              onPress={() =>
-                previewImage && handleRemoveImage(previewImage)
-              }
+              onPress={() => previewImage && handleRemoveImage(previewImage)}
             />
           </View>
           {previewImage && (

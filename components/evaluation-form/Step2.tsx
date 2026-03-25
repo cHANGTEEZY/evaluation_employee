@@ -108,20 +108,40 @@ const riskAreaOptions = [
 
 const Step2 = () => {
   const theme = useTheme();
-  const { watch, setValue, control } = useFormContext();
+  const { watch, setValue, control, getValues } = useFormContext();
   const accessRoadDirection = watch("access_road_direction");
   const roadType = watch("road_type");
   const rightOfWayWidthFt = watch("right_of_way_width_ft");
+  /** Keeps "Other" selected in the dropdown before the user enters a width (width alone was always undefined → showed as None). */
+  const rightOfWayMUi = watch("right_of_way_m") ?? "";
   const landRateUnit = watch("land_rate_unit");
   const selectedRateUnit = landRateUnit === "kattha" ? "kattha" : "anna";
 
-  // Derive display value for Right of Way (m) select from stored number
-  const rightOfWaySelectValue =
-    rightOfWayWidthFt == null || rightOfWayWidthFt === undefined
-      ? ""
-      : [3, 4, 6, 8, 22, 50].includes(rightOfWayWidthFt)
-        ? String(rightOfWayWidthFt)
-        : "other";
+  const PRESET_ROW_WIDTHS = [3, 4, 6, 8, 22, 50] as const;
+
+  // Derive display value for Right of Way (m) from stored number and/or UI preset string
+  const rightOfWaySelectValue = (() => {
+    if (
+      rightOfWayWidthFt != null &&
+      rightOfWayWidthFt !== undefined &&
+      PRESET_ROW_WIDTHS.includes(
+        rightOfWayWidthFt as (typeof PRESET_ROW_WIDTHS)[number],
+      )
+    ) {
+      return String(rightOfWayWidthFt);
+    }
+    if (
+      rightOfWayWidthFt != null &&
+      rightOfWayWidthFt !== undefined &&
+      !PRESET_ROW_WIDTHS.includes(
+        rightOfWayWidthFt as (typeof PRESET_ROW_WIDTHS)[number],
+      )
+    ) {
+      return "other";
+    }
+    // No width yet — "other" is chosen only via right_of_way_m until a number is saved
+    return rightOfWayMUi === "other" ? "other" : "";
+  })();
 
   const handleRightOfWaySelect = (value: string) => {
     setValue("right_of_way_m", value);
@@ -130,6 +150,15 @@ const Step2 = () => {
       setValue("right_of_way", false);
     } else if (value === "other") {
       setValue("right_of_way", true);
+      // Switching from a preset to Other: clear the preset so the dropdown stays on Other and user can type a value
+      const w = getValues("right_of_way_width_ft");
+      if (
+        w != null &&
+        w !== undefined &&
+        PRESET_ROW_WIDTHS.includes(w as (typeof PRESET_ROW_WIDTHS)[number])
+      ) {
+        setValue("right_of_way_width_ft", undefined);
+      }
     } else {
       const num = Number(value);
       if (!Number.isNaN(num)) {
@@ -209,7 +238,8 @@ const Step2 = () => {
       {rightOfWaySelectValue === "other" && (
         <FormInput
           name="right_of_way_width_ft"
-          label="Right of Way (m) – specify"
+          label="Enter right of way width (m)"
+          placeholder="e.g. 10"
           keyboardType="decimal-pad"
         />
       )}

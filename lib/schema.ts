@@ -1,5 +1,8 @@
 import { getDb } from "./db";
-import type { ValuationFormValues } from "../constants/form-schema";
+import {
+  type ValuationFormValues,
+  normalizeBuildingRatePerSqftInput,
+} from "../constants/form-schema";
 import "react-native-get-random-values";
 import { v4 as uuidv4 } from "uuid";
 
@@ -979,7 +982,7 @@ export function rowToFormValues(
     storey_height: row.storey_height ?? undefined,
     building_age_years: row.building_age_years ?? undefined,
     building_rate_per_sqft: row.building_rate_per_sqft
-      ? JSON.parse(row.building_rate_per_sqft)
+      ? normalizeBuildingRatePerSqftInput(JSON.parse(row.building_rate_per_sqft))
       : undefined,
     completion_date: row.completion_date
       ? new Date(row.completion_date)

@@ -32,6 +32,8 @@ node_modules
 .idea
 
 .env
+# Android release signing (repo root; used by plugins/withAndroidReleaseSigning.js)
+android-release-key.properties
 # local env files
 .env.local
 .env.development.local

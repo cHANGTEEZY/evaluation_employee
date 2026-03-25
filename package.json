@@ -13,6 +13,9 @@
     "prebuild": "expo prebuild",
     "prebuild:clean": "expo prebuild --clean",
     "build:apk": "expo run:android --variant release",
+    "build:aab": "eas build --platform android --profile production",
+    "prebuild:android": "expo prebuild --platform android",
+    "build:aab:local": "expo prebuild --platform android && cd android && ./gradlew bundleRelease",
     "build:ios": "expo run:ios --configuration Release",
     "test": "jest --watchAll"
   },

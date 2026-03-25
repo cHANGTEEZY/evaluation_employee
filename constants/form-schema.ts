@@ -1,5 +1,23 @@
 import { z } from "zod";
 
+/**
+ * DB / JSON may store per-floor rates as strings. Coerce so Zod + edit submit don't fail until the user re-types.
+ */
+export function normalizeBuildingRatePerSqftInput(
+  raw: unknown,
+): (number | undefined)[] | undefined {
+  if (raw == null) return undefined;
+  if (!Array.isArray(raw)) return undefined;
+  return raw.map((x) => {
+    if (x === "" || x == null) return undefined;
+    if (typeof x === "number" && Number.isFinite(x)) {
+      return x >= 0 ? x : undefined;
+    }
+    const n = parseFloat(String(x));
+    return Number.isFinite(n) && n >= 0 ? n : undefined;
+  });
+}
+
 export const valuationSchema = z.object({
   // ===== Basic Details =====
   ref_no: z.string().optional(),
@@ -39,7 +57,7 @@ export const valuationSchema = z.object({
         "apartment_duplex",
         "construction_extension_renovation",
       ],
-      { message: "Please select a valuation purpose" }
+      { message: "Please select a valuation purpose" },
     )
     .optional(),
 
@@ -154,9 +172,10 @@ export const valuationSchema = z.object({
     .nonnegative("Building age cannot be negative")
     .optional(),
   /** Per-floor building rate (NPR per sq ft). Index 0 = Ground, 1 = 1st floor, etc. */
-  building_rate_per_sqft: z
-    .array(z.number().nonnegative().optional())
-    .optional(),
+  building_rate_per_sqft: z.preprocess(
+    normalizeBuildingRatePerSqftInput,
+    z.array(z.number().nonnegative().optional()).optional(),
+  ),
   completion_date: z.date({ message: "Please enter a valid date" }).optional(),
 
   // ===== Risk / Area =====
@@ -217,7 +236,7 @@ export const valuationSchema = z.object({
       ],
       {
         message: "Please select an online payment mode",
-      }
+      },
     )
     .optional(),
   payment_pending_due: z

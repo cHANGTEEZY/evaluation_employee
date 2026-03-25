@@ -100,9 +100,9 @@ const Step4 = ({ onDrawingSaved }: Step4Props) => {
     selectedCount: 0,
     pointCount: 0,
   });
-  const [areaDisplayMode, setAreaDisplayMode] = useState<
-    "exact" | "relative"
-  >("exact");
+  const [areaDisplayMode, setAreaDisplayMode] = useState<"exact" | "relative">(
+    "exact",
+  );
 
   const plotterRef = useRef<PropertyPlotterRef>(null);
   const captureViewRef = useRef<ViewShot>(null);
@@ -741,7 +741,8 @@ function MeasurementPanel({
                   {
                     color:
                       displayMode === "exact"
-                        ? theme.colors.onPrimaryContainer ?? theme.colors.onPrimary
+                        ? (theme.colors.onPrimaryContainer ??
+                          theme.colors.onPrimary)
                         : theme.colors.onSurfaceVariant,
                   },
                 ]}
@@ -769,7 +770,8 @@ function MeasurementPanel({
                   {
                     color:
                       displayMode === "relative"
-                        ? theme.colors.onPrimaryContainer ?? theme.colors.onPrimary
+                        ? (theme.colors.onPrimaryContainer ??
+                          theme.colors.onPrimary)
                         : theme.colors.onSurfaceVariant,
                   },
                 ]}
