@@ -9,6 +9,9 @@
       "distribution": "internal"
     },
     "preview": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://evaluation-backend-production-dac9.up.railway.app"
+      },
       "android": {
         "buildType": "apk"
       },
@@ -16,7 +19,8 @@
     },
     "production": {
       "env": {
-        "NODE_ENV": "production"
+        "NODE_ENV": "production",
+        "EXPO_PUBLIC_API_URL": "https://evaluation-backend-production-dac9.up.railway.app"
       },
       "android": {
         "buildType": "app-bundle",

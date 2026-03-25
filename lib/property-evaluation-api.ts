@@ -1,3 +1,5 @@
+import { getGalliMapsApiKey } from "../constants";
+
 export interface ConservationArea {
   distance: number;
   name: string;
@@ -83,14 +85,6 @@ interface PropertyEvaluationResponse {
   data: PropertyEvaluationData;
 }
 
-function getGalliAccessToken(): string {
-  return (
-    process.env.EXPO_PUBLIC_GALLI_MAPS_API_KEY ??
-    process.env.GALLI_MAPS_API_KEY ??
-    ""
-  );
-}
-
 const PROPERTY_EVAL_BASE =
   "https://route-dev.gallimap.com/reverse/propertyevaulation";
 
@@ -138,7 +132,7 @@ export async function fetchPropertyEvaluation(
   lat: number,
   lng: number,
 ): Promise<PropertyEvaluationData | null> {
-  const token = getGalliAccessToken();
+  const token = getGalliMapsApiKey();
   if (!token) {
     console.warn("[PropertyEval] No Galli Maps access token configured");
     return null;
