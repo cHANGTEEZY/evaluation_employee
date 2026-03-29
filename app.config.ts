@@ -3,15 +3,16 @@ import type { MapLibrePluginProps } from "@maplibre/maplibre-react-native";
 
 const MAPLIBRE = "@maplibre/maplibre-react-native";
 
-const DEFAULT_API_URL =
-  "https://evaluation-backend-production-dac9.up.railway.app";
+const DEV_API_URL = "http://localhost:3000";
+const PROD_API_URL = "https://evaluation-backend-production-dac9.up.railway.app";
 
-/** Resolved at build time (EAS injects env before config runs). Client reads via expo-constants `extra`. */
-function resolveApiUrl(): string {
+/** Resolved at build time (EAS injects env before config runs). Client reads via expo-constants `extra`.
+ *  Explicit env vars always win; otherwise leave undefined so the runtime __DEV__ fallback in constants/index.ts applies. */
+function resolveApiUrl(): string | undefined {
   return (
     process.env.EXPO_PUBLIC_API_URL?.trim() ||
     process.env.API_URL?.trim() ||
-    DEFAULT_API_URL
+    undefined
   );
 }
 

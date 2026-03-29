@@ -2,10 +2,10 @@
   "expo": {
     "name": "Mr. Valuator",
     "slug": "Evaluation",
-    "version": "1.0.0",
+    "version": "1.1",
     "orientation": "portrait",
     "icon": "./assets/images/app_icon.png",
-    "scheme": "Mr. Valuatorapp",
+    "scheme": "evaluationapp",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash.png",
@@ -14,8 +14,9 @@
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
+      "buildNumber": "2",
       "supportsTablet": true,
-      "bundleIdentifier": "com.changteezy.expo-router-example",
+      "bundleIdentifier": "com.mrvaulator.app",
       "icon": "./assets/valuator.icon/",
       "appleTeamId": "XPZVK3T5VQ",
       "infoPlist": {
@@ -25,6 +26,7 @@
       }
     },
     "android": {
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/valuator.icon/Assets/app_icon.png",
         "backgroundColor": "#ffffff"

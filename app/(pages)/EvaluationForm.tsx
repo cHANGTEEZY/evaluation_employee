@@ -183,16 +183,17 @@ const EvaluationForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(isEditMode);
   const [propertyImages, setPropertyImages] = useState<string[]>([]);
-  const [drawingSaved, setDrawingSaved] = useState(false);
+  const [_drawingSaved, setDrawingSaved] = useState(false);
   const [receiptUri, setReceiptUri] = useState<string | null>(null);
-  /** When user saves a draft (new form), we create/update a DB row and keep its id so they can come back to it from the evaluations list. */
+
+  //* When user saves a draft (new form), we create/update a DB row and keep its id so they can come back to it from the evaluations list. */
   const [draftValuationId, setDraftValuationId] = useState<string | null>(null);
 
   const theme = useTheme();
   const inset = useSafeAreaInsets();
   const router = useRouter();
 
-  const USE_DEMO_DEFAULTS = true;
+  const USE_DEMO_DEFAULTS = __DEV__ ? true : false;
 
   const form = useForm<ValuationFormValues>({
     resolver: zodResolver(valuationSchema) as Resolver<ValuationFormValues>,
