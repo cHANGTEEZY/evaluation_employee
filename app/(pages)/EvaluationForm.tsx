@@ -159,7 +159,7 @@ const stepTitles: Record<number, string> = {
 
 const step0Fields: FieldPath<ValuationFormValues>[] = [];
 
-const step1Fields: FieldPath<ValuationFormValues>[] = ["plot_no"];
+const step1Fields: FieldPath<ValuationFormValues>[] = ["client_name", "district", "plot_no"];
 
 const step2Fields: FieldPath<ValuationFormValues>[] = [];
 
@@ -193,7 +193,8 @@ const EvaluationForm = () => {
   const inset = useSafeAreaInsets();
   const router = useRouter();
 
-  const USE_DEMO_DEFAULTS = __DEV__ ? true : false;
+  // const USE_DEMO_DEFAULTS = __DEV__ ? true : false;
+  const USE_DEMO_DEFAULTS = false;
 
   const form = useForm<ValuationFormValues>({
     resolver: zodResolver(valuationSchema) as Resolver<ValuationFormValues>,
@@ -333,6 +334,12 @@ const EvaluationForm = () => {
   // Form values watched so we can compute if submit is allowed (same criteria as bottom Submit)
   const formValues = form.watch();
   const canSubmit = useMemo(() => {
+    // Must have mandatory fields for generating valid ref_no (no "Unknown_" prefix)
+    const hasRequiredFields =
+      (formValues.client_name ?? "").toString().trim().length > 0 &&
+      (formValues.district ?? "").toString().trim().length > 0 &&
+      (formValues.plot_no ?? "").toString().trim().length > 0;
+    if (!hasRequiredFields) return false;
     const parsed = valuationSchema.safeParse(formValues);
     return parsed.success && propertyImages.length >= 4;
   }, [formValues, propertyImages.length]);

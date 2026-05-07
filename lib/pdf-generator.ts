@@ -3,11 +3,6 @@ import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
 import { insertPayment, updatePaymentReceipt } from "./schema";
 
-// 128x128 JPEG of assets/images/app_icon.jpeg, pre-encoded to avoid
-// runtime expo-asset dependency which has SDK version-mismatch issues.
-const LOGO_BASE64_URI =
-  "data:image/jpeg;base64,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";
-
 export interface PaymentReceiptData {
   refNo: string;
   clientName: string;
@@ -62,8 +57,6 @@ const getPaymentMethodLabel = (data: PaymentReceiptData): string => {
 
 const generateReceiptHtml = (data: PaymentReceiptData): string => {
   const totalReceived = data.cashPayment + data.onlinePayment;
-
-  const logoImg = `<img src="${LOGO_BASE64_URI}" class="logo-img" alt="Mr. Valuator" />`;
 
   return `<!DOCTYPE html>
 <html>
@@ -306,9 +299,8 @@ const generateReceiptHtml = (data: PaymentReceiptData): string => {
   <!-- Brand header -->
   <div class="brand-header">
     <div class="brand-left">
-      ${logoImg}
       <div>
-        <div class="brand-name">MR. VALUATOR</div>
+        <div class="brand-name">${data.clientName || "Client"}</div>
         <div class="brand-tagline">Professional Property Valuation Services</div>
       </div>
     </div>
@@ -408,7 +400,7 @@ const generateReceiptHtml = (data: PaymentReceiptData): string => {
     <div class="footer-thanks">THANK YOU FOR THE PAYMENT!</div>
     <div class="footer-note">
       This is a computer-generated receipt. Generated on ${formatDateTime(new Date())}.<br/>
-      For queries: support@mrvaluator.com &nbsp;|&nbsp; +977-XXXX-XXXX
+      For queries: admin@mrvaluator.com &nbsp;|&nbsp; +977-9801010804
     </div>
   </div>
 

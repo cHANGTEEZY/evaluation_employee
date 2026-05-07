@@ -942,19 +942,19 @@ export function rowToFormValues(
     plot_no: row.plot_no ?? undefined,
     present_property_address: row.present_property_address ?? undefined,
     district: row.district ?? undefined,
-    valuation_for: row.valuation_for as ValuationFormValues["valuation_for"],
-    road_type: row.road_type as ValuationFormValues["road_type"],
+    valuation_for: (row.valuation_for as ValuationFormValues["valuation_for"]) ?? undefined,
+    road_type: (row.road_type as ValuationFormValues["road_type"]) ?? undefined,
     road_type_others: row.road_type_others ?? undefined,
     road_width: row.road_width ?? undefined,
     access_road_direction:
-      row.access_road_direction as ValuationFormValues["access_road_direction"],
+      ((row.access_road_direction as ValuationFormValues["access_road_direction"]) ?? undefined),
     access_road_direction_others: row.access_road_direction_others ?? undefined,
     property_area_length: row.property_area_length ?? undefined,
     property_frontage_direction:
-      row.property_frontage_direction as ValuationFormValues["property_frontage_direction"],
+      ((row.property_frontage_direction as ValuationFormValues["property_frontage_direction"]) ?? undefined),
     property_narrowest_length: row.property_narrowest_length ?? undefined,
     property_narrowest_direction:
-      row.property_narrowest_direction as ValuationFormValues["property_narrowest_direction"],
+      ((row.property_narrowest_direction as ValuationFormValues["property_narrowest_direction"]) ?? undefined),
     right_of_way: row.right_of_way === 1,
     right_of_way_width_ft: row.right_of_way_width_ft ?? undefined,
     right_of_way_m:
@@ -966,18 +966,18 @@ export function rowToFormValues(
     motorable_access: row.motorable_access === 1,
     electricity_available: row.electricity_available === 1,
     drainage_near_property: row.drainage_near_property === 1,
-    property_type: row.property_type as ValuationFormValues["property_type"],
+    property_type: (row.property_type as ValuationFormValues["property_type"]) ?? undefined,
     property_ownership_type:
-      row.property_ownership_type as ValuationFormValues["property_ownership_type"],
+      ((row.property_ownership_type as ValuationFormValues["property_ownership_type"]) ?? undefined),
     ownership_transferred_through:
-      row.ownership_transferred_through as ValuationFormValues["ownership_transferred_through"],
-    hold_type: row.hold_type as ValuationFormValues["hold_type"],
+      ((row.ownership_transferred_through as ValuationFormValues["ownership_transferred_through"]) ?? undefined),
+    hold_type: (row.hold_type as ValuationFormValues["hold_type"]) ?? undefined,
     land_rate_unit: (row.land_rate_unit as ValuationFormValues["land_rate_unit"]) ?? "anna",
     commercial_rate_per_anna: row.commercial_rate_per_anna ?? undefined,
     government_rate_per_anna: row.government_rate_per_anna ?? undefined,
-    building_type: row.building_type as ValuationFormValues["building_type"],
+    building_type: (row.building_type as ValuationFormValues["building_type"]) ?? undefined,
     building_purpose:
-      row.building_purpose as ValuationFormValues["building_purpose"],
+      ((row.building_purpose as ValuationFormValues["building_purpose"]) ?? undefined),
     number_of_storeys: row.number_of_storeys ?? undefined,
     storey_height: row.storey_height ?? undefined,
     building_age_years: row.building_age_years ?? undefined,
@@ -1008,7 +1008,7 @@ export function rowToFormValues(
     payment_cash: row.payment_cash ?? undefined,
     payment_online: row.payment_online ?? undefined,
     payment_online_mode:
-      row.payment_online_mode as ValuationFormValues["payment_online_mode"],
+      ((row.payment_online_mode as ValuationFormValues["payment_online_mode"]) ?? undefined),
     payment_pending_due: row.payment_pending_due ?? undefined,
     documents: row.documents
       ? normalizeDocumentsForForm(JSON.parse(row.documents))

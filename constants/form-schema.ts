@@ -25,7 +25,9 @@ export const valuationSchema = z.object({
     .date({ message: "Please enter a valid valuation date" })
     .optional(),
   branch: z.string().optional(),
-  client_name: z.string().optional(),
+  client_name: z
+    .string({ message: "Client name is required" })
+    .min(1, { message: "Client name is required" }),
   contact_number: z
     .string()
     .regex(/^[0-9+\-\s()]+$/, "Please enter a valid phone number")
@@ -45,7 +47,9 @@ export const valuationSchema = z.object({
     .string({ message: "Plot number is required" })
     .min(1, { message: "Plot number is required" }),
   present_property_address: z.string().optional(),
-  district: z.string().optional(),
+  district: z
+    .string({ message: "District is required" })
+    .min(1, { message: "District is required" }),
 
   // ===== Valuation Purpose =====
   valuation_for: z

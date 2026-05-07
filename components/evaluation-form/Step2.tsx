@@ -252,7 +252,7 @@ const Step2 = () => {
       </Text>
       <FormInput
         name="property_area_length"
-        label="Property Area Length"
+        label="Frontage Length"
         keyboardType="decimal-pad"
       />
       <FormSelect
@@ -294,7 +294,8 @@ const Step2 = () => {
               {
                 color:
                   selectedRateUnit === "anna"
-                    ? theme.colors.onPrimaryContainer ?? theme.colors.onPrimary
+                    ? (theme.colors.onPrimaryContainer ??
+                      theme.colors.onPrimary)
                     : theme.colors.onSurfaceVariant,
               },
             ]}
@@ -321,7 +322,8 @@ const Step2 = () => {
               {
                 color:
                   selectedRateUnit === "kattha"
-                    ? theme.colors.onPrimaryContainer ?? theme.colors.onPrimary
+                    ? (theme.colors.onPrimaryContainer ??
+                      theme.colors.onPrimary)
                     : theme.colors.onSurfaceVariant,
               },
             ]}

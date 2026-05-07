@@ -348,7 +348,7 @@ const EvaluationDetail = () => {
               value={valuation.access_road_direction}
             />
             <InfoRow
-              label="Property Area Length"
+              label="Frontage Length"
               value={
                 valuation.property_area_length != null
                   ? `${valuation.property_area_length} sq ft`

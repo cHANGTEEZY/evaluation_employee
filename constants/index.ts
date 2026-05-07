@@ -1,9 +1,10 @@
 import Constants from "expo-constants";
 
-const DEV_API_URL = "http://192.168.0.215:3000";
-const PROD_API_URL = "https://evaluation-backend-production-dac9.up.railway.app";
-// const DEFAULT_API_URL = __DEV__ ? DEV_API_URL : PROD_API_URL;
-const DEFAULT_API_URL =  PROD_API_URL;
+const DEV_API_URL = "https://evaluation-backend-production-dac9.up.railway.app";
+const PROD_API_URL =
+  "https://evaluation-backend-production-dac9.up.railway.app";
+const DEFAULT_API_URL = __DEV__ ? DEV_API_URL : PROD_API_URL;
+// const DEFAULT_API_URL =  PROD_API_URL;
 
 type AppExtra = {
   apiUrl?: string;

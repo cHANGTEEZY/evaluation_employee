@@ -99,7 +99,6 @@ const Step1 = () => {
       <FormInput
         name="plot_no"
         label="Plot No."
-        keyboardType="numeric"
         parseAsNumber={false}
       />
       <FormInput
