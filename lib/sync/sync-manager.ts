@@ -17,15 +17,17 @@ import { useSyncStore, type SyncQueueItem } from "./sync-store";
 import { BASE_API_URL, ADMIN_SESSION_COOKIE_NAME } from "../../constants";
 import { File } from "expo-file-system";
 import * as FileSystemLegacy from "expo-file-system/legacy";
-import { sha256Hex, parseSyncedImageHashes, imageHashesMatch, type SyncedImageHashes } from "../hash";
+import {
+  sha256Hex,
+  parseSyncedImageHashes,
+  imageHashesMatch,
+  type SyncedImageHashes,
+} from "../hash";
 
-// Maximum retry attempts
 const MAX_RETRY_ATTEMPTS = 3;
 
-// Exponential backoff delays (in ms)
 const BACKOFF_DELAYS = [1000, 5000, 15000];
 
-//* Convert valuations to api - send ALL fields (even unfilled) so backend can write complete rows
 function valuationToPayload(valuation: ValuationRow): Record<string, unknown> {
   return {
     id: valuation.id ?? "",
@@ -58,7 +60,8 @@ function valuationToPayload(valuation: ValuationRow): Record<string, unknown> {
     drainage_near_property: valuation.drainage_near_property === 1,
     property_type: valuation.property_type ?? "",
     property_ownership_type: valuation.property_ownership_type ?? "",
-    ownership_transferred_through: valuation.ownership_transferred_through ?? "",
+    ownership_transferred_through:
+      valuation.ownership_transferred_through ?? "",
     hold_type: valuation.hold_type ?? "",
     land_rate_unit: valuation.land_rate_unit ?? "",
     commercial_rate_per_anna: valuation.commercial_rate_per_anna ?? "",
@@ -83,7 +86,8 @@ function valuationToPayload(valuation: ValuationRow): Record<string, unknown> {
     flood_prone_area: valuation.flood_prone_area === 1,
     flood_prone_area_setback: valuation.flood_prone_area_setback ?? "",
     heritage_memorial_site: valuation.heritage_memorial_site === 1,
-    heritage_memorial_site_setback: valuation.heritage_memorial_site_setback ?? "",
+    heritage_memorial_site_setback:
+      valuation.heritage_memorial_site_setback ?? "",
     site_charge: valuation.site_charge ?? "",
     high_land_ft: valuation.high_land_ft ?? "",
     low_land_ft: valuation.low_land_ft ?? "",
@@ -120,7 +124,6 @@ function valuationToPayload(valuation: ValuationRow): Record<string, unknown> {
   };
 }
 
-// Helper to read file as base64 (images and PDFs). Uses legacy API as fallback so PDFs from documentDirectory paths are read correctly.
 async function fileToBase64(uri: string): Promise<string | null> {
   try {
     const file = new File(uri);
@@ -142,7 +145,6 @@ async function fileToBase64(uri: string): Promise<string | null> {
   }
 }
 
-// Sync single valuation to server with images
 export async function syncValuation(
   valuation: ValuationRow,
   authToken?: string,
@@ -155,7 +157,6 @@ export async function syncValuation(
   try {
     const payload = valuationToPayload(valuation);
 
-    // Read all images and compute hashes for change detection
     let sitePlanImage: string | null = null;
     const propertyImages: string[] = [];
     const documentImages: string[] = [];
@@ -178,21 +179,24 @@ export async function syncValuation(
       }
     }
 
-    // Compute hashes (same order as payload) for comparison with last sync
     const currentHashes: SyncedImageHashes = {
-      propertyImages: await Promise.all(propertyImages.map((b) => sha256Hex(b))),
+      propertyImages: await Promise.all(
+        propertyImages.map((b) => sha256Hex(b)),
+      ),
       sitePlan: sitePlanImage ? await sha256Hex(sitePlanImage) : null,
-      documentPhotos: await Promise.all(documentImages.map((b) => sha256Hex(b))),
+      documentPhotos: await Promise.all(
+        documentImages.map((b) => sha256Hex(b)),
+      ),
     };
-    const storedHashes = parseSyncedImageHashes(valuation.synced_image_hashes ?? null);
+    const storedHashes = parseSyncedImageHashes(
+      valuation.synced_image_hashes ?? null,
+    );
     const imagesUnchanged = imageHashesMatch(storedHashes, currentHashes);
 
-    // When images unchanged, send empty image payloads to save bandwidth; backend will skip upload
     const bodySitePlanImage = imagesUnchanged ? null : sitePlanImage;
     const bodyPropertyImages = imagesUnchanged ? [] : propertyImages;
     const bodyDocumentImages = imagesUnchanged ? [] : documentImages;
 
-    // Prepare payment receipts
     const paymentReceipts: { id: string; content: string; name: string }[] = [];
     const payments = await getPaymentsByValuationId(valuation.id);
     const paymentIds: string[] = [];
@@ -225,7 +229,7 @@ export async function syncValuation(
     console.log(
       "[SYNC] Sending request to:",
       `${BASE_API_URL}/api/sync/valuation`,
-      imagesUnchanged ? "(images unchanged, skipping upload)" : ""
+      imagesUnchanged ? "(images unchanged, skipping upload)" : "",
     );
 
     const response = await fetch(`${BASE_API_URL}/api/sync/valuation`, {
@@ -264,7 +268,6 @@ export async function syncValuation(
     const data = await response.json();
     console.log("[SYNC] Success!");
 
-    // Persist server metadata and image hashes after successful sync
     const serverId = data.evaluationFolderId ?? data.driveFolderId ?? null;
     if (serverId) {
       await updateValuationServerId(valuation.id, serverId);
@@ -285,7 +288,6 @@ export async function syncValuation(
   }
 }
 
-//* Add item to scync queue
 export async function addToSyncQueue(
   entityType: "valuation" | "image",
   entityId: string,
@@ -304,7 +306,6 @@ export async function addToSyncQueue(
   return id;
 }
 
-//!* Get all pending sync queue items
 export async function getSyncQueueItems(): Promise<SyncQueueItem[]> {
   const db = await getDb();
   const results = await db.getAllAsync<{
@@ -332,7 +333,6 @@ export async function getSyncQueueItems(): Promise<SyncQueueItem[]> {
   }));
 }
 
-//!* Get failed sync queue items
 export async function getFailedSyncItems(): Promise<SyncQueueItem[]> {
   const db = await getDb();
   const results = await db.getAllAsync<{
@@ -360,7 +360,6 @@ export async function getFailedSyncItems(): Promise<SyncQueueItem[]> {
   }));
 }
 
-//!* Update sync queue item status
 export async function updateSyncQueueItem(
   id: string,
   status: "pending" | "in_progress" | "completed" | "failed",
@@ -382,13 +381,11 @@ export async function updateSyncQueueItem(
   }
 }
 
-//!* Remove completed sync queue item
 export async function removeSyncQueueItem(id: string): Promise<void> {
   const db = await getDb();
   await db.runAsync(`DELETE FROM sync_queue WHERE id = ?`, [id]);
 }
 
-//!* Reset failed items to pending for retry
 export async function resetFailedItems(): Promise<void> {
   const db = await getDb();
   await db.runAsync(
@@ -397,7 +394,6 @@ export async function resetFailedItems(): Promise<void> {
   );
 }
 
-//* Process the entire sync queue (only current user's pending valuations when userId provided)
 export async function processQueue(
   authToken?: string,
   userId?: string | null,
@@ -433,24 +429,19 @@ export async function processQueue(
   for (let i = 0; i < pendingValuations.length; i++) {
     const valuation = pendingValuations[i];
 
-    // Update progress
     store.updateProgress(i + 1, pendingValuations.length);
 
-    // Mark as syncing
     await updateValuationStatus(
       valuation.id,
       valuation.status as "pending" | "synced",
       "syncing",
     );
 
-    // Attempt sync
     const result = await syncValuation(valuation, authToken);
 
     if (result.success) {
-      // Mark as synced
       await updateValuationStatus(valuation.id, "synced", "synced");
 
-      // Mark payments as synced
       if (result.paymentIds) {
         for (const paymentId of result.paymentIds) {
           await updatePaymentSyncStatus(paymentId, "synced");
@@ -459,7 +450,6 @@ export async function processQueue(
 
       synced++;
     } else {
-      // Mark as error
       await updateValuationStatus(
         valuation.id,
         valuation.status as "pending" | "synced",
@@ -474,7 +464,6 @@ export async function processQueue(
   store.stopSync();
   store.setLastSyncedAt(new Date().toISOString());
 
-  // Refresh pending/failed items in store
   const queueItems = await getSyncQueueItems();
   store.setPendingItems(queueItems.filter((item) => item.status === "pending"));
   store.setFailedItems(queueItems.filter((item) => item.status === "failed"));
@@ -482,7 +471,6 @@ export async function processQueue(
   return { synced, failed, errors };
 }
 
-//* Retry all failed sync valuations (only current user's when userId provided)
 export async function retryFailedSync(
   authToken?: string,
   userId?: string | null,
@@ -491,17 +479,13 @@ export async function retryFailedSync(
   failed: number;
   errors: string[];
 }> {
-  // Reset only this user's failed valuations to pending
   await resetFailedSyncValuations(userId ?? null);
-  // Also reset failed items in sync queue
   await resetFailedItems();
-  // Process the queue
   return processQueue(authToken, userId);
 }
 
 // ===== AUDIT LOG SYNC =====
 
-// Sync audit logs to Google Sheets and delete after sync
 export async function syncAuditLogs(
   authToken?: string,
 ): Promise<{ synced: number; error?: string }> {
@@ -542,7 +526,6 @@ export async function syncAuditLogs(
     const data = await response.json();
     console.log(`[AUDIT] Synced ${data.syncedCount} audit logs`);
 
-    // Delete synced audit logs from local database
     if (data.syncedIds && data.syncedIds.length > 0) {
       await deleteAuditLogs(data.syncedIds);
       console.log(

@@ -395,28 +395,11 @@ const generateReceiptHtml = (data: PaymentReceiptData): string => {
     </div>
   </div>
 
-  <!-- Footer -->
-  <div class="footer-bar">
-    <div class="footer-thanks">THANK YOU FOR THE PAYMENT!</div>
-    <div class="footer-note">
-      This is a computer-generated receipt. Generated on ${formatDateTime(new Date())}.<br/>
-      For queries: admin@mrvaluator.com &nbsp;|&nbsp; +977-9801010804
-    </div>
-  </div>
-
+  
 </body>
 </html>`;
 };
 
-/**
- * Generate a PDF receipt for the payment and save it to the payments folder.
- * When existingPaymentId is provided (e.g. when updating a valuation), updates
- * that payment row instead of inserting a new one.
- * @param valuationId - The valuation ID to associate the payment with
- * @param data - The payment receipt data
- * @param existingPaymentId - If provided, update this payment's pdf_uri/file_name instead of inserting
- * @returns The PDF file URI
- */
 export async function generatePaymentReceipt(
   valuationId: string,
   data: PaymentReceiptData,
@@ -425,18 +408,15 @@ export async function generatePaymentReceipt(
   try {
     const html = await generateReceiptHtml(data);
 
-    // Generate PDF using expo-print
     const { uri: tempUri } = await Print.printToFileAsync({
       html,
       base64: false,
     });
 
-    // Create a filename for the record
     const rawRef = data.refNo || valuationId;
     const safeRef = rawRef.replace(/[^a-zA-Z0-9]/g, "_");
     const fileName = `receipt_${safeRef}_${Date.now()}.pdf`;
 
-    // Save to app's persistent "receipts" folder (app files – visible when you open Edit and tap the receipt icon).
     if (!FileSystem.documentDirectory) {
       throw new Error("FileSystem.documentDirectory is null");
     }
@@ -445,15 +425,12 @@ export async function generatePaymentReceipt(
       ? `${baseDir}receipts/`
       : `${baseDir}/receipts/`;
 
-    // Ensure directory exists - blindly create with intermediates: true
     try {
       await FileSystem.makeDirectoryAsync(receiptsDir, { intermediates: true });
     } catch (e) {
-      // Ignore error if directory already exists
       console.log("Directory creation warning:", e);
     }
 
-    // Full file URI so the PDF can be opened and viewed when editing
     const pdfUri = `${receiptsDir}${fileName}`;
 
     try {
@@ -469,7 +446,6 @@ export async function generatePaymentReceipt(
       });
     }
 
-    // Insert or update payment record in database with the PDF URI
     if (existingPaymentId) {
       await updatePaymentReceipt(existingPaymentId, pdfUri, fileName);
     } else {
@@ -483,9 +459,6 @@ export async function generatePaymentReceipt(
   }
 }
 
-/**
- * Check if a receipt PDF file exists at the given URI (e.g. after app restart or when opening in edit mode).
- */
 export async function receiptFileExists(pdfUri: string): Promise<boolean> {
   try {
     const info = await FileSystem.getInfoAsync(pdfUri, { size: false });
@@ -495,9 +468,6 @@ export async function receiptFileExists(pdfUri: string): Promise<boolean> {
   }
 }
 
-/**
- * Share / open the PDF receipt (opens system viewer or share sheet; user can choose "Save to Files" to save a copy).
- */
 export async function sharePaymentReceipt(pdfUri: string): Promise<void> {
   if (await Sharing.isAvailableAsync()) {
     await Sharing.shareAsync(pdfUri, {

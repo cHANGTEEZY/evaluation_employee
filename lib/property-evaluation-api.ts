@@ -97,9 +97,6 @@ function safeStringifyBody(raw: string): string {
   }
 }
 
-//* Parse the stringified geometry from water / transmissionline fields into
-//* a GeoJSON-compatible coordinate array: number[][] (each item is [lng, lat]).
-//* Returns null when parsing fails.
 export function parseLineGeometry(
   raw: string | null | undefined,
 ): number[][] | null {

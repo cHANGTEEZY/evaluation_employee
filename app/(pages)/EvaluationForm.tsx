@@ -159,7 +159,11 @@ const stepTitles: Record<number, string> = {
 
 const step0Fields: FieldPath<ValuationFormValues>[] = [];
 
-const step1Fields: FieldPath<ValuationFormValues>[] = ["client_name", "district", "plot_no"];
+const step1Fields: FieldPath<ValuationFormValues>[] = [
+  "client_name",
+  "district",
+  "plot_no",
+];
 
 const step2Fields: FieldPath<ValuationFormValues>[] = [];
 
@@ -186,7 +190,6 @@ const EvaluationForm = () => {
   const [_drawingSaved, setDrawingSaved] = useState(false);
   const [receiptUri, setReceiptUri] = useState<string | null>(null);
 
-  //* When user saves a draft (new form), we create/update a DB row and keep its id so they can come back to it from the evaluations list. */
   const [draftValuationId, setDraftValuationId] = useState<string | null>(null);
 
   const theme = useTheme();
