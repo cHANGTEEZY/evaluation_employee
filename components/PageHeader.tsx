@@ -3,7 +3,6 @@ import { View, StyleSheet, Pressable } from "react-native";
 import { Text, useTheme } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 type PageHeaderProps = {
   title: string;
   subtitle?: string;
@@ -12,7 +11,6 @@ type PageHeaderProps = {
   rightIcon?: string;
   onRightPress?: () => void;
 };
-
 const PageHeader = ({
   title,
   subtitle,
@@ -23,7 +21,6 @@ const PageHeader = ({
 }: PageHeaderProps) => {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-
   return (
     <View
       style={[
@@ -95,9 +92,7 @@ const PageHeader = ({
     </View>
   );
 };
-
 export default PageHeader;
-
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 20,

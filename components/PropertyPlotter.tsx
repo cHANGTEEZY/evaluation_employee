@@ -1,20 +1,3 @@
-/**
- * PropertyPlotter — triangulation-based land area measurement tool.
- *
- * Workflow:
- *  1. Tap anywhere to place unlimited points (p1, p2, …) — no locking.
- *  2. Tap a point to select it (highlighted ring). When exactly 3 are selected,
- *     a floating "Create Triangle" banner appears.
- *  3. After creating a triangle, tap any of its three edge lines to enter the
- *     real-world distance (feet + inches) via a dialog.
- *  4. When all three sides are measured the area is auto-computed (Heron's formula)
- *     and shown in the details panel in Step5.
- *  5. Long-press + drag a point to move it.
- *     Long-press that doesn't become a drag → delete-point dialog.
- *     Deleting a point prunes every triangle that referenced it.
- *  6. Tap the "×" icon near a triangle centroid to delete that triangle.
- */
-
 import React, {
   forwardRef,
   useCallback,
@@ -42,56 +25,37 @@ import {
   useTheme,
 } from "react-native-paper";
 import * as Haptics from "expo-haptics";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export interface PlotPoint {
   x: number;
   y: number;
 }
-
 export interface PlotDistance {
   feet: number;
   inches: number;
-  /** Metric input in meters (e.g. 1.53). When present, this is the canonical measurement. */
   meters?: number;
-  /** Pre-computed total in feet — used by area calculations. */
   totalFt?: number;
 }
-
-/** A triangle defined by three point indices into PlotterData.points. */
 export interface PlotTriangle {
   id: string;
-  /** Indices into points array */
   pointIndices: [number, number, number];
-  /**
-   * sides[0] = edge i→j, sides[1] = j→k, sides[2] = k→i.
-   * null means unmeasured.
-   */
   sides: [PlotDistance | null, PlotDistance | null, PlotDistance | null];
 }
-
 export interface PlotterData {
   points: PlotPoint[];
   triangles: PlotTriangle[];
   canvasWidth: number;
   canvasHeight: number;
-  /** @deprecated kept for backward-compat deserialization only */
   distances?: PlotDistance[];
-  /** @deprecated kept for backward-compat deserialization only */
   isClosed?: boolean;
 }
-
 export type MeasureUnit = "imperial" | "metric";
 export type TapMode = "select" | "delete";
-
 export interface PlotterUIState {
   measureUnit: MeasureUnit;
   tapMode: TapMode;
   selectedCount: number;
   pointCount: number;
 }
-
 export interface PropertyPlotterRef {
   clear: () => void;
   getData: () => PlotterData;
@@ -102,21 +66,15 @@ export interface PropertyPlotterRef {
   undo: () => void;
   deselectAll: () => void;
 }
-
 interface PropertyPlotterProps {
   onDataChange?: (data: PlotterData) => void;
   onUIStateChange?: (state: PlotterUIState) => void;
-  /** Pre-load saved plotter data when opening a draft/edit. */
   initialData?: PlotterData | null;
 }
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const HIT_VERTEX_PX = 24;
 const HIT_EDGE_PX = 18;
 const HIT_CENTROID_PX = 20;
 const VERTEX_RADIUS = 7;
-
 const TRIANGLE_COLORS = [
   { fill: "rgba(37,99,235,0.12)", stroke: "#2563eb" },
   { fill: "rgba(22,163,74,0.12)", stroke: "#16a34a" },
@@ -129,18 +87,13 @@ const SELECTED_COLOR = "#f59e0b";
 const VERTEX_COLOR = "#2563eb";
 const VERTEX_STROKE = "#1e40af";
 const LABEL_BG = "rgba(255,255,255,0.92)";
-
 let _idCounter = 0;
 function makeId() {
   return `tri_${Date.now()}_${++_idCounter}`;
 }
-
-// ─── Geometry helpers ─────────────────────────────────────────────────────────
-
 function ptDist(a: PlotPoint, b: PlotPoint): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
-
 function distToSegment(p: PlotPoint, a: PlotPoint, b: PlotPoint): number {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
@@ -152,15 +105,12 @@ function distToSegment(p: PlotPoint, a: PlotPoint, b: PlotPoint): number {
   );
   return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
 }
-
 function midpoint(a: PlotPoint, b: PlotPoint): PlotPoint {
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
 }
-
 function centroid(a: PlotPoint, b: PlotPoint, c: PlotPoint): PlotPoint {
   return { x: (a.x + b.x + c.x) / 3, y: (a.y + b.y + c.y) / 3 };
 }
-
 function formatDist(d: PlotDistance | null, unit: MeasureUnit): string {
   if (!d) return "";
   if (unit === "metric") {
@@ -182,9 +132,6 @@ function formatDist(d: PlotDistance | null, unit: MeasureUnit): string {
   if (inches > 0) return `${inches}″`;
   return "";
 }
-
-// MeasureUnit and TapMode are exported above with the interfaces
-
 function scalePoints(
   pts: PlotPoint[],
   fromW: number,
@@ -197,12 +144,6 @@ function scalePoints(
   const sy = toH / fromH;
   return pts.map((p) => ({ x: p.x * sx, y: p.y * sy }));
 }
-
-/**
- * Fan-triangulate a closed polygon from point 0:
- * triangles = [0,1,2], [0,2,3], …, [0,n-2,n-1]
- * Distributes old perimeter edge distances onto matching triangle sides.
- */
 function fanTriangulate(
   pts: PlotPoint[],
   oldDistances: PlotDistance[] = [],
@@ -211,7 +152,6 @@ function fanTriangulate(
   if (n < 3) return [];
   const result: PlotTriangle[] = [];
   for (let i = 1; i < n - 1; i++) {
-    // sides[0] = 0→i, sides[1] = i→i+1 (perimeter edge i), sides[2] = i+1→0
     const side1: PlotDistance | null = oldDistances[i] ?? null;
     const side0: PlotDistance | null =
       i === 1 ? (oldDistances[0] ?? null) : null;
@@ -223,55 +163,38 @@ function fanTriangulate(
   }
   return result;
 }
-
 const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
   ({ onDataChange, onUIStateChange, initialData }, ref) => {
     const theme = useTheme();
-
     const [measureUnit, setMeasureUnit] = useState<MeasureUnit>("imperial");
     const [tapMode, setTapMode] = useState<TapMode>("select");
-
     const [points, setPoints] = useState<PlotPoint[]>([]);
     const [triangles, setTriangles] = useState<PlotTriangle[]>([]);
     const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
     const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
-
-    // Edge distance dialog
     const [distDialog, setDistDialog] = useState<{
       triId: string;
       sideIdx: 0 | 1 | 2;
-      // Imperial fields
       feet: string;
       inches: string;
-      // Metric fields
       meters: string;
       centimeters: string;
     } | null>(null);
-
-    // Delete-point dialog
     const [deletePointIndex, setDeletePointIndex] = useState<number | null>(
       null,
     );
-
-    // Delete-triangle dialog
     const [deleteTriId, setDeleteTriId] = useState<string | null>(null);
-
-    // Drag state
     const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
     const [draggingPos, setDraggingPos] = useState<PlotPoint | null>(null);
     const draggingIdxRef = useRef<number | null>(null);
     const justFinishedDraggingRef = useRef(false);
-    // Pre-seed with initialData so it loads as soon as the canvas sizes itself.
     const pendingLoadRef = useRef<PlotterData | null>(initialData ?? null);
     const viewShotRef = useRef<ViewShot>(null);
-
-    // Stable refs for gesture callbacks
     const pointsRef = useRef(points);
     const trianglesRef = useRef(triangles);
     const selectedRef = useRef(selectedIndices);
     const tapModeRef = useRef<TapMode>("select");
     const measureUnitRef = useRef<MeasureUnit>("imperial");
-
     const syncAndNotify = useCallback(
       (
         nextPts: PlotPoint[],
@@ -293,16 +216,12 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
       },
       [canvasSize, onDataChange],
     );
-
-    // Keep unit/mode refs in sync
     useEffect(() => {
       tapModeRef.current = tapMode;
     }, [tapMode]);
     useEffect(() => {
       measureUnitRef.current = measureUnit;
     }, [measureUnit]);
-
-    // Notify parent of UI state changes
     const onUIStateChangeRef = useRef(onUIStateChange);
     useEffect(() => {
       onUIStateChangeRef.current = onUIStateChange;
@@ -315,9 +234,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
         pointCount: points.length,
       });
     }, [measureUnit, tapMode, selectedIndices.length, points.length]);
-
-    // ── Ref API ────────────────────────────────────────────────────────────
-
     useImperativeHandle(ref, () => ({
       clear() {
         syncAndNotify([], [], []);
@@ -368,7 +284,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
         syncAndNotify(pointsRef.current, trianglesRef.current, []);
       },
     }));
-
     function applyLoad(data: PlotterData, w: number, h: number) {
       pendingLoadRef.current = null;
       const scaled = scalePoints(
@@ -379,22 +294,16 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
         h,
       );
       let tris = data.triangles ?? [];
-      // Backward-compat: old closed-polygon → fan-triangulate
       if (tris.length === 0 && data.isClosed && scaled.length >= 3) {
         tris = fanTriangulate(scaled, data.distances ?? []);
       }
       syncAndNotify(scaled, tris, []);
     }
-
     useEffect(() => {
       const data = pendingLoadRef.current;
       if (!data || !canvasSize.width || !canvasSize.height) return;
       applyLoad(data, canvasSize.width, canvasSize.height);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [canvasSize.width, canvasSize.height]);
-
-    // ── Gestures ──────────────────────────────────────────────────────────
-
     const tap = Gesture.Tap()
       .runOnJS(true)
       .onEnd((e) => {
@@ -406,15 +315,11 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
         const pts = pointsRef.current;
         const tris = trianglesRef.current;
         const sel = selectedRef.current;
-
-        // 1. Hit vertex
         for (let i = 0; i < pts.length; i++) {
           if (ptDist(tapPt, pts[i]) < HIT_VERTEX_PX) {
             if (tapModeRef.current === "delete") {
-              // Delete mode: tap vertex → delete dialog
               setDeletePointIndex(i);
             } else {
-              // Select mode: toggle selection
               const already = sel.includes(i);
               const newSel = already ? sel.filter((s) => s !== i) : [...sel, i];
               syncAndNotify(pts, tris, newSel);
@@ -423,23 +328,18 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
             return;
           }
         }
-
-        // 2. Hit triangle centroid delete icon (only when nothing selected)
         if (sel.length === 0) {
           for (const tri of tris) {
             const [ai, bi, ci] = tri.pointIndices;
             if (ai >= pts.length || bi >= pts.length || ci >= pts.length)
               continue;
             const c = centroid(pts[ai], pts[bi], pts[ci]);
-            // The × icon is drawn at (c.x - 18, c.y - 8)
             if (ptDist(tapPt, { x: c.x - 18, y: c.y - 8 }) < HIT_CENTROID_PX) {
               setDeleteTriId(tri.id);
               return;
             }
           }
         }
-
-        // 3. Hit triangle edge → open distance dialog
         for (const tri of tris) {
           const [ai, bi, ci] = tri.pointIndices;
           if (ai >= pts.length || bi >= pts.length || ci >= pts.length)
@@ -450,16 +350,12 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
             const b = verts[(s + 1) % 3];
             if (distToSegment(tapPt, a, b) < HIT_EDGE_PX) {
               const existing = tri.sides[s as 0 | 1 | 2];
-
-              // Convert existing measurement to current unit system for the dialog
               let dialogFeet = "";
               let dialogInches = "";
               let dialogMeters = "";
               let dialogCentimeters = "";
-
               if (existing) {
                 if (measureUnitRef.current === "metric") {
-                  // Need metric values — convert from imperial if necessary
                   const totalMeters =
                     existing.meters ??
                     (existing.totalFt != null
@@ -472,7 +368,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
                     );
                   }
                 } else {
-                  // Need imperial values — convert from metric if necessary
                   const totalFt =
                     existing.totalFt ??
                     (existing.meters != null
@@ -481,7 +376,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
                   if (totalFt > 0) {
                     let feet = Math.floor(totalFt);
                     let inches = Math.round((totalFt - feet) * 12);
-                    // Handle case where rounding gives 12+ inches
                     if (inches >= 12) {
                       feet += Math.floor(inches / 12);
                       inches = inches % 12;
@@ -491,7 +385,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
                   }
                 }
               }
-
               setDistDialog({
                 triId: tri.id,
                 sideIdx: s as 0 | 1 | 2,
@@ -504,8 +397,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
             }
           }
         }
-
-        // 4. Empty space → add new point (only in select mode)
         if (tapModeRef.current === "select") {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
             () => {},
@@ -513,7 +404,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
           syncAndNotify([...pts, tapPt], tris, sel);
         }
       });
-
     const longPress = Gesture.LongPress()
       .minDuration(400)
       .runOnJS(true)
@@ -532,7 +422,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
           }
         }
       });
-
     const pan = Gesture.Pan()
       .minDistance(0)
       .runOnJS(true)
@@ -551,25 +440,17 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
           pts[i] = { x: e.x, y: e.y };
           syncAndNotify(pts, trianglesRef.current, selectedRef.current);
         } else {
-          // Didn't really drag → treat as "delete" intent
           setDeletePointIndex(i);
         }
         draggingIdxRef.current = null;
         setDraggingIdx(null);
         setDraggingPos(null);
       });
-
     const composed = Gesture.Simultaneous(tap, longPress, pan);
-
-    // ── Triangle creation ──────────────────────────────────────────────────
-
     function handleCreateTriangle() {
       const sel = selectedRef.current;
       if (sel.length !== 3) return;
       const [a, b, c] = sel as [number, number, number];
-
-      // Pre-populate any side that was already measured on a shared edge
-      // (e.g. p1→p3 was measured in an existing triangle, reuse it here)
       const newEdges: [number, number][] = [
         [a, b],
         [b, c],
@@ -594,7 +475,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
           }
         }
       }
-
       const newTri: PlotTriangle = {
         id: makeId(),
         pointIndices: [a, b, c],
@@ -605,9 +485,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
       );
       syncAndNotify(pointsRef.current, [...trianglesRef.current, newTri], []);
     }
-
-    // ── Distance dialog ────────────────────────────────────────────────────
-
     function confirmDistance() {
       if (!distDialog) return;
       let dist: PlotDistance;
@@ -623,7 +500,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
         const totalFt = feet + inches / 12;
         dist = { feet, inches, totalFt };
       }
-      // Find the two point indices for the edge that was just measured
       const sourceTri = trianglesRef.current.find(
         (t) => t.id === distDialog.triId,
       );
@@ -634,15 +510,12 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
         [pC, pA],
       ];
       const [edgeP, edgeQ] = srcEdges[distDialog.sideIdx];
-
-      // Update the source triangle AND propagate to any other triangle sharing the same edge
       const updated = trianglesRef.current.map((t) => {
         if (t.id === distDialog.triId) {
           const newSides = [...t.sides] as PlotTriangle["sides"];
           newSides[distDialog.sideIdx] = dist;
           return { ...t, sides: newSides };
         }
-        // Check if this triangle has the same edge
         const [a, b, c] = t.pointIndices;
         const edges: [number, number][] = [
           [a, b],
@@ -665,9 +538,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
       syncAndNotify(pointsRef.current, updated, selectedRef.current);
       setDistDialog(null);
     }
-
-    // ── Delete point ───────────────────────────────────────────────────────
-
     function confirmDeletePoint() {
       const i = deletePointIndex;
       setDeletePointIndex(null);
@@ -675,7 +545,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
       const pts = pointsRef.current;
       const newPts = [...pts.slice(0, i), ...pts.slice(i + 1)];
-      // Remove triangles referencing this point; remap indices above i
       const newTris = trianglesRef.current
         .filter((t) => !t.pointIndices.includes(i))
         .map((t) => ({
@@ -691,9 +560,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
         .map((s) => (s > i ? s - 1 : s));
       syncAndNotify(newPts, newTris, newSel);
     }
-
-    // ── Delete triangle ────────────────────────────────────────────────────
-
     function confirmDeleteTriangle() {
       const id = deleteTriId;
       setDeleteTriId(null);
@@ -704,9 +570,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
         selectedRef.current,
       );
     }
-
-    // ── Undo ───────────────────────────────────────────────────────────────
-
     function handleUndo() {
       const pts = pointsRef.current;
       if (pts.length === 0) return;
@@ -724,21 +587,14 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
       const newSel = selectedRef.current.filter((s) => s !== lastIdx);
       syncAndNotify(newPts, newTris, newSel);
     }
-
-    // ── Render ─────────────────────────────────────────────────────────────
-
     const n = points.length;
-
     const displayPoints =
       draggingIdx !== null && draggingPos
         ? points.map((p, i) => (i === draggingIdx ? draggingPos : p))
         : points;
-
     const showCreateButton = selectedIndices.length === 3;
-
     return (
       <View style={styles.wrapper}>
-        {/* Floating "Create Triangle" banner */}
         {showCreateButton && (
           <View style={styles.createTriangleBanner}>
             <Button
@@ -781,7 +637,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
                 height={canvasSize.height || "100%"}
                 style={styles.svg}
               >
-                {/* Grid */}
                 {canvasSize.width > 0 &&
                   Array.from({
                     length: Math.floor(canvasSize.width / 40) + 1,
@@ -811,7 +666,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
                     />
                   ))}
 
-                {/* Triangle fills */}
                 {triangles.map((tri, tIdx) => {
                   const [ai, bi, ci] = tri.pointIndices;
                   if (ai >= n || bi >= n || ci >= n) return null;
@@ -829,7 +683,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
                   );
                 })}
 
-                {/* Triangle edges + labels + centroid delete button */}
                 {triangles.map((tri, tIdx) => {
                   const [ai, bi, ci] = tri.pointIndices;
                   if (ai >= n || bi >= n || ci >= n) return null;
@@ -840,7 +693,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
                   ];
                   const color = TRIANGLE_COLORS[tIdx % TRIANGLE_COLORS.length];
                   const cen = centroid(verts[0], verts[1], verts[2]);
-
                   return (
                     <G key={`tri-${tri.id}`}>
                       {([0, 1, 2] as const).map((s) => {
@@ -901,7 +753,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
                         );
                       })}
 
-                      {/* Centroid delete icon "×" */}
                       <G>
                         <Rect
                           x={cen.x - 14}
@@ -928,7 +779,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
                   );
                 })}
 
-                {/* Vertices */}
                 {displayPoints.map((pt, i) => {
                   const isSelected = selectedIndices.includes(i);
                   const selOrder = isSelected
@@ -996,7 +846,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
           </GestureDetector>
         </ViewShot>
 
-        {/* Hint */}
         <PlotterHint
           pointCount={n}
           triangleCount={triangles.length}
@@ -1004,9 +853,7 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
           primaryColor={VERTEX_COLOR}
         />
 
-        {/* Dialogs */}
         <Portal>
-          {/* Edge distance */}
           <Dialog visible={!!distDialog} onDismiss={() => setDistDialog(null)}>
             <Dialog.Title>
               {measureUnit === "metric"
@@ -1072,7 +919,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
             </Dialog.Actions>
           </Dialog>
 
-          {/* Delete point */}
           <Dialog
             visible={deletePointIndex !== null}
             onDismiss={() => setDeletePointIndex(null)}
@@ -1097,7 +943,6 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
             </Dialog.Actions>
           </Dialog>
 
-          {/* Delete triangle */}
           <Dialog
             visible={!!deleteTriId}
             onDismiss={() => setDeleteTriId(null)}
@@ -1124,12 +969,8 @@ const PropertyPlotter = forwardRef<PropertyPlotterRef, PropertyPlotterProps>(
     );
   },
 );
-
 PropertyPlotter.displayName = "PropertyPlotter";
 export default PropertyPlotter;
-
-// ─── Hint sub-component ───────────────────────────────────────────────────────
-
 function PlotterHint({
   pointCount,
   triangleCount,
@@ -1150,7 +991,6 @@ function PlotterHint({
   else if (selectedCount === 2) hint = "Select 1 more point to form a triangle";
   else if (selectedCount >= 3) hint = "Tap 'Create Triangle' above to confirm";
   else if (triangleCount > 0) hint = "";
-
   return (
     <Svg width="100%" height={18} style={styles.hintSvg}>
       <SvgText
@@ -1166,9 +1006,6 @@ function PlotterHint({
     </Svg>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,

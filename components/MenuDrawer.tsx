@@ -10,45 +10,34 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from "react-native-reanimated";
-
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const DRAWER_WIDTH = SCREEN_WIDTH * 0.75;
-
 type MenuDrawerProps = {
   visible: boolean;
   onDismiss: () => void;
 };
-
 const MenuDrawer = ({ visible, onDismiss }: MenuDrawerProps) => {
   const theme = useTheme();
   const [active, setActive] = React.useState("first");
   const { signOut, session, isAuthenticated } = useAuthSession();
-
-  // Guest fallback data
   const userName =
     isAuthenticated && session?.user?.name ? session.user.name : "Guest";
   const userEmail =
     isAuthenticated && session?.user?.email
       ? session.user.email
       : "Sign in to sync data";
-
   const handleAuthAction = () => {
     onDismiss();
     if (isAuthenticated) {
-      // Do NOT clear biometric credentials here — they should survive
-      // sign-outs so the user can biometric-login back in.
       signOut();
     } else {
       router.push("/(auth)/login");
     }
   };
-
   const progress = useSharedValue(0);
-
   useEffect(() => {
     progress.value = withTiming(visible ? 1 : 0, { duration: 300 });
   }, [visible]);
-
   const drawerStyle = useAnimatedStyle(() => {
     const translateX = interpolate(
       progress.value,
@@ -60,7 +49,6 @@ const MenuDrawer = ({ visible, onDismiss }: MenuDrawerProps) => {
       transform: [{ translateX }],
     };
   });
-
   const overlayStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
       progress.value,
@@ -70,11 +58,9 @@ const MenuDrawer = ({ visible, onDismiss }: MenuDrawerProps) => {
     );
     return {
       opacity,
-      // Hide overlay when not visible to prevent blocking touches
       display: progress.value === 0 ? "none" : "flex",
     };
   });
-
   return (
     <Portal>
       <Animated.View
@@ -178,9 +164,7 @@ const MenuDrawer = ({ visible, onDismiss }: MenuDrawerProps) => {
     </Portal>
   );
 };
-
 export default MenuDrawer;
-
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,

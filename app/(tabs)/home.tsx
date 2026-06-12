@@ -1,15 +1,6 @@
 import { StyleSheet, View, ScrollView, Alert } from "react-native";
 import React, { useCallback, useState } from "react";
-
-import {
-  useTheme,
-  Text,
-  Card,
-  Button,
-  ProgressBar,
-  IconButton,
-  TouchableRipple,
-} from "react-native-paper";
+import { useTheme, Text, Card, Button, ProgressBar, IconButton, TouchableRipple, } from "react-native-paper";
 import { useAuthSession } from "../../lib/auth-store";
 import { router, useFocusEffect } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -18,355 +9,239 @@ import MenuDrawer from "../../components/MenuDrawer";
 import { greeting } from "../../lib/greeting";
 import EvaliationFAB from "../../components/EvaliationFAB";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  getRecentValuations,
-  getValuationsMetrics,
-  ValuationRow,
-} from "../../lib/schema";
+import { getRecentValuations, getValuationsMetrics, ValuationRow, } from "../../lib/schema";
 import { getPresence } from "../../lib/presence-api";
 import ValuationVIcon from "../../components/ValuationVIcon";
-
 const HomeScreen = () => {
-  const [drawerVisible, setDrawerVisible] = useState(false);
-  const theme = useTheme();
-  const { session, isAuthenticated, user } = useAuthSession();
-  const userName =
-    isAuthenticated && session?.user?.name ? session.user.name : "Guest";
-
-  const insets = useSafeAreaInsets();
-
-  const [recentValuations, setRecentValuations] = useState<ValuationRow[]>([]);
-  const [stats, setStats] = useState({
-    pending: 0,
-    synced: 0,
-    total: 0,
-  });
-  const [presenceLabel, setPresenceLabel] = useState<string | null>(null);
-  const [headerHeight, setHeaderHeight] = useState(0);
-
-  const PRESENCE_LABELS: Record<string, string> = {
-    on_site: "On-site",
-    office: "Office",
-    leave: "Leave",
-    others: "Others",
-  };
-
-  useFocusEffect(
-    useCallback(() => {
-      const fetchData = async () => {
-        const userId = user?.id ?? null;
-
-        const valuations = await getRecentValuations(userId);
-        setRecentValuations(valuations);
-
-        const metrics = await getValuationsMetrics(userId);
-
-        setStats({
-          pending: metrics.submitted,
-          synced: metrics.synced,
-          total: metrics.total,
-        });
-
-        if (isAuthenticated) {
-          try {
-            const res = await getPresence();
-            if (res.success && res.presenceStatus) {
-              const label =
-                PRESENCE_LABELS[res.presenceStatus] ?? res.presenceStatus;
-              setPresenceLabel(
-                res.presenceStatus === "on_site" &&
-                  res.presenceClientName?.trim()
-                  ? `${label} (${res.presenceClientName.trim()})`
-                  : label,
-              );
-            } else {
-              setPresenceLabel(null);
+    const [drawerVisible, setDrawerVisible] = useState(false);
+    const theme = useTheme();
+    const { session, isAuthenticated, user } = useAuthSession();
+    const userName = isAuthenticated && session?.user?.name ? session.user.name : "Guest";
+    const insets = useSafeAreaInsets();
+    const [recentValuations, setRecentValuations] = useState<ValuationRow[]>([]);
+    const [stats, setStats] = useState({
+        pending: 0,
+        synced: 0,
+        total: 0,
+    });
+    const [presenceLabel, setPresenceLabel] = useState<string | null>(null);
+    const [headerHeight, setHeaderHeight] = useState(0);
+    const PRESENCE_LABELS: Record<string, string> = {
+        on_site: "On-site",
+        office: "Office",
+        leave: "Leave",
+        others: "Others",
+    };
+    useFocusEffect(useCallback(() => {
+        const fetchData = async () => {
+            const userId = user?.id ?? null;
+            const valuations = await getRecentValuations(userId);
+            setRecentValuations(valuations);
+            const metrics = await getValuationsMetrics(userId);
+            setStats({
+                pending: metrics.submitted,
+                synced: metrics.synced,
+                total: metrics.total,
+            });
+            if (isAuthenticated) {
+                try {
+                    const res = await getPresence();
+                    if (res.success && res.presenceStatus) {
+                        const label = PRESENCE_LABELS[res.presenceStatus] ?? res.presenceStatus;
+                        setPresenceLabel(res.presenceStatus === "on_site" &&
+                            res.presenceClientName?.trim()
+                            ? `${label} (${res.presenceClientName.trim()})`
+                            : label);
+                    }
+                    else {
+                        setPresenceLabel(null);
+                    }
+                }
+                catch {
+                    setPresenceLabel(null);
+                }
             }
-          } catch {
-            setPresenceLabel(null);
-          }
-        } else {
-          setPresenceLabel(null);
+            else {
+                setPresenceLabel(null);
+            }
+        };
+        fetchData();
+    }, [user?.id, isAuthenticated]));
+    const getRelativeTime = (dateString: string) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+        if (diffMins < 60)
+            return `${diffMins} min${diffMins !== 1 ? "s" : ""} ago`;
+        if (diffHours < 24)
+            return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
+        if (diffDays === 1)
+            return "Yesterday";
+        if (diffDays < 7)
+            return `${diffDays} days ago`;
+        return date.toLocaleDateString();
+    };
+    const getStatusDisplay = (status: string, syncStatus: string) => {
+        if (syncStatus === "synced")
+            return "Synced";
+        if (status === "submitted")
+            return "Completed";
+        return "Pending";
+    };
+    const handleCreateEvaluation = () => {
+        if (!isAuthenticated) {
+            Alert.alert("Authentication Required", "You must be logged in to create evaluations. Please sign in first.", [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Sign In",
+                    onPress: () => router.replace("/(auth)/login"),
+                },
+            ]);
+            return;
         }
-      };
+        router.push("/(pages)/EvaluationForm");
+    };
+    return (<View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <MenuDrawer visible={drawerVisible} onDismiss={() => setDrawerVisible(false)}/>
 
-      fetchData();
-    }, [user?.id, isAuthenticated]),
-  );
+      <View style={[styles.gradientHeader, { paddingTop: insets.top + 12 }]} onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}>
+        <LinearGradient colors={[theme.colors.primaryContainer, theme.colors.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill}/>
 
-  // Helper function to format relative time
-  const getRelativeTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 60) return `${diffMins} min${diffMins !== 1 ? "s" : ""} ago`;
-    if (diffHours < 24)
-      return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
-    if (diffDays === 1) return "Yesterday";
-    if (diffDays < 7) return `${diffDays} days ago`;
-    return date.toLocaleDateString();
-  };
-
-  // Helper function to get status display
-  const getStatusDisplay = (status: string, syncStatus: string) => {
-    if (syncStatus === "synced") return "Synced";
-    if (status === "submitted") return "Completed";
-    return "Pending";
-  };
-
-  // Handler for creating new evaluation with auth check
-  const handleCreateEvaluation = () => {
-    if (!isAuthenticated) {
-      Alert.alert(
-        "Authentication Required",
-        "You must be logged in to create evaluations. Please sign in first.",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Sign In",
-            onPress: () => router.replace("/(auth)/login"),
-          },
-        ],
-      );
-      return;
-    }
-    router.push("/(pages)/EvaluationForm");
-  };
-
-  return (
-    <View
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-    >
-      <MenuDrawer
-        visible={drawerVisible}
-        onDismiss={() => setDrawerVisible(false)}
-      />
-
-      <View
-        style={[styles.gradientHeader, { paddingTop: insets.top + 12 }]}
-        onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
-      >
-        <LinearGradient
-          colors={[theme.colors.primaryContainer, theme.colors.primary]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-
-        {headerHeight > 0 && (
-          <View style={styles.headerBgIcon} pointerEvents="none">
-            <ValuationVIcon
-              size={Math.round(headerHeight * 0.88)}
-              color="rgba(44, 43, 43, 0.2)"
-            />
-          </View>
-        )}
+        {headerHeight > 0 && (<View style={styles.headerBgIcon} pointerEvents="none">
+            <ValuationVIcon size={Math.round(headerHeight * 0.88)} color="rgba(44, 43, 43, 0.2)"/>
+          </View>)}
         <View style={styles.headerTopRow}>
           <View style={{ flex: 1, marginLeft: 4 }}>
-            <Text
-              variant="labelLarge"
-              style={{
-                color: "rgba(255,255,255,0.9)",
-                letterSpacing: 0.5,
-                textTransform: "uppercase",
-              }}
-            >
+            <Text variant="labelLarge" style={{
+            color: "rgba(255,255,255,0.9)",
+            letterSpacing: 0.5,
+            textTransform: "uppercase",
+        }}>
               {greeting()}
             </Text>
-            <Text
-              variant="headlineMedium"
-              style={{
-                fontWeight: "700",
-                color: "white",
-                marginTop: 6,
-                textTransform: "capitalize",
-                letterSpacing: -0.3,
-              }}
-            >
+            <Text variant="headlineMedium" style={{
+            fontWeight: "700",
+            color: "white",
+            marginTop: 6,
+            textTransform: "capitalize",
+            letterSpacing: -0.3,
+        }}>
               {userName}
             </Text>
-            <Text
-              variant="bodySmall"
-              style={{
-                color: "rgba(255,255,255,0.88)",
-                marginTop: 4,
-                letterSpacing: 0.2,
-              }}
-            >
+            <Text variant="bodySmall" style={{
+            color: "rgba(255,255,255,0.88)",
+            marginTop: 4,
+            letterSpacing: 0.2,
+        }}>
               {new Date().toLocaleDateString("en-US", {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-              })}
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+        })}
             </Text>
-            {isAuthenticated && presenceLabel && (
-              <View
-                style={{
-                  marginTop: 10,
-                  alignSelf: "flex-start",
-                  backgroundColor: "rgba(255,255,255,0.25)",
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  borderRadius: 16,
-                }}
-              >
-                <Text
-                  variant="labelMedium"
-                  style={{ color: "white", fontWeight: "600" }}
-                >
+            {isAuthenticated && presenceLabel && (<View style={{
+                marginTop: 10,
+                alignSelf: "flex-start",
+                backgroundColor: "rgba(255,255,255,0.25)",
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 16,
+            }}>
+                <Text variant="labelMedium" style={{ color: "white", fontWeight: "600" }}>
                   {presenceLabel}
                 </Text>
-              </View>
-            )}
+              </View>)}
           </View>
 
-          <IconButton
-            icon={drawerVisible ? "menu-open" : "menu"}
-            iconColor={theme.colors.shadow}
-            size={28}
-            onPress={() => setDrawerVisible(!drawerVisible)}
-            style={{ marginLeft: -8 }}
-          />
+          <IconButton icon={drawerVisible ? "menu-open" : "menu"} iconColor={theme.colors.shadow} size={28} onPress={() => setDrawerVisible(!drawerVisible)} style={{ marginLeft: -8 }}/>
         </View>
 
         <View style={styles.headerStatsRow}>
           <View style={styles.headerStatItem}>
-            <Text
-              variant="headlineSmall"
-              style={{ fontWeight: "bold", color: "white" }}
-            >
+            <Text variant="headlineSmall" style={{ fontWeight: "bold", color: "white" }}>
               {stats.total}
             </Text>
-            <Text
-              variant="labelMedium"
-              style={{ color: "white", opacity: 0.85 }}
-            >
+            <Text variant="labelMedium" style={{ color: "white", opacity: 0.85 }}>
               Total
             </Text>
           </View>
 
-          <View style={styles.headerStatDivider} />
+          <View style={styles.headerStatDivider}/>
 
           <View style={styles.headerStatItem}>
-            <Text
-              variant="headlineSmall"
-              style={{ fontWeight: "bold", color: "white" }}
-            >
+            <Text variant="headlineSmall" style={{ fontWeight: "bold", color: "white" }}>
               {stats.pending}
             </Text>
-            <Text
-              variant="labelMedium"
-              style={{ color: "white", opacity: 0.85 }}
-            >
+            <Text variant="labelMedium" style={{ color: "white", opacity: 0.85 }}>
               Pending
             </Text>
           </View>
 
-          <View style={styles.headerStatDivider} />
+          <View style={styles.headerStatDivider}/>
 
           <View style={styles.headerStatItem}>
-            <Text
-              variant="headlineSmall"
-              style={{ fontWeight: "bold", color: "white" }}
-            >
+            <Text variant="headlineSmall" style={{ fontWeight: "bold", color: "white" }}>
               {stats.synced}
             </Text>
-            <Text
-              variant="labelMedium"
-              style={{ color: "white", opacity: 0.85 }}
-            >
+            <Text variant="labelMedium" style={{ color: "white", opacity: 0.85 }}>
               Synced
             </Text>
           </View>
         </View>
       </View>
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: 100 }}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         <View style={styles.scrollContent}>
           <View style={styles.section}>
             <Text variant="titleLarge" style={styles.sectionTitle}>
               Quick Actions
             </Text>
             <View style={styles.quickActionsGrid}>
-              <Card
-                style={[
-                  styles.quickActionCard,
-                  { backgroundColor: theme.colors.primaryContainer },
-                ]}
-                onPress={handleCreateEvaluation}
-              >
+              <Card style={[
+            styles.quickActionCard,
+            { backgroundColor: theme.colors.primaryContainer },
+        ]} onPress={handleCreateEvaluation}>
                 <Card.Content style={styles.quickActionContent}>
-                  <MaterialCommunityIcons
-                    name="plus-circle"
-                    size={32}
-                    color={theme.colors.onPrimaryContainer}
-                  />
-                  <Text
-                    variant="labelLarge"
-                    style={{
-                      color: theme.colors.onPrimaryContainer,
-                      marginTop: 8,
-                      fontWeight: "600",
-                    }}
-                  >
+                  <MaterialCommunityIcons name="plus-circle" size={32} color={theme.colors.onPrimaryContainer}/>
+                  <Text variant="labelLarge" style={{
+            color: theme.colors.onPrimaryContainer,
+            marginTop: 8,
+            fontWeight: "600",
+        }}>
                     Create
                   </Text>
                 </Card.Content>
               </Card>
 
-              <Card
-                style={[
-                  styles.quickActionCard,
-                  { backgroundColor: theme.colors.secondaryContainer },
-                ]}
-                onPress={() => router.push("/(tabs)/evaluations")}
-              >
+              <Card style={[
+            styles.quickActionCard,
+            { backgroundColor: theme.colors.secondaryContainer },
+        ]} onPress={() => router.push("/(tabs)/evaluations")}>
                 <Card.Content style={styles.quickActionContent}>
-                  <MaterialCommunityIcons
-                    name="file-document-multiple"
-                    size={32}
-                    color={theme.colors.onSecondaryContainer}
-                  />
-                  <Text
-                    variant="labelLarge"
-                    style={{
-                      color: theme.colors.onSecondaryContainer,
-                      marginTop: 8,
-                      fontWeight: "600",
-                    }}
-                  >
+                  <MaterialCommunityIcons name="file-document-multiple" size={32} color={theme.colors.onSecondaryContainer}/>
+                  <Text variant="labelLarge" style={{
+            color: theme.colors.onSecondaryContainer,
+            marginTop: 8,
+            fontWeight: "600",
+        }}>
                     View All
                   </Text>
                 </Card.Content>
               </Card>
 
-              <Card
-                style={[
-                  styles.quickActionCard,
-                  { backgroundColor: theme.colors.tertiaryContainer },
-                ]}
-                onPress={() => router.push("/(tabs)/sync")}
-              >
+              <Card style={[
+            styles.quickActionCard,
+            { backgroundColor: theme.colors.tertiaryContainer },
+        ]} onPress={() => router.push("/(tabs)/sync")}>
                 <Card.Content style={styles.quickActionContent}>
-                  <MaterialCommunityIcons
-                    name="cloud-sync"
-                    size={32}
-                    color={theme.colors.onTertiaryContainer}
-                  />
-                  <Text
-                    variant="labelLarge"
-                    style={{
-                      color: theme.colors.onTertiaryContainer,
-                      marginTop: 8,
-                      fontWeight: "600",
-                    }}
-                  >
+                  <MaterialCommunityIcons name="cloud-sync" size={32} color={theme.colors.onTertiaryContainer}/>
+                  <Text variant="labelLarge" style={{
+            color: theme.colors.onTertiaryContainer,
+            marginTop: 8,
+            fontWeight: "600",
+        }}>
                     Sync Data
                   </Text>
                 </Card.Content>
@@ -374,436 +249,338 @@ const HomeScreen = () => {
             </View>
           </View>
 
-          <Card
-            style={[
-              styles.insightsCard,
-              { borderColor: theme.colors.outlineVariant, borderWidth: 1 },
-            ]}
-            mode="outlined"
-          >
+          <Card style={[
+            styles.insightsCard,
+            { borderColor: theme.colors.outlineVariant, borderWidth: 1 },
+        ]} mode="outlined">
             <Card.Content>
               <View style={styles.insightsHeader}>
-                <MaterialCommunityIcons
-                  name="chart-line"
-                  size={24}
-                  color={theme.colors.primary}
-                />
-                <Text
-                  variant="titleMedium"
-                  style={{ fontWeight: "bold", marginLeft: 8 }}
-                >
+                <MaterialCommunityIcons name="chart-line" size={24} color={theme.colors.primary}/>
+                <Text variant="titleMedium" style={{ fontWeight: "bold", marginLeft: 8 }}>
                   Productivity Insights
                 </Text>
               </View>
 
               <View style={styles.insightsRow}>
                 <View style={styles.insightItem}>
-                  <Text
-                    variant="bodySmall"
-                    style={{ color: theme.colors.onSurfaceVariant }}
-                  >
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
                     Completion Rate
                   </Text>
-                  <Text
-                    variant="headlineSmall"
-                    style={{
-                      fontWeight: "bold",
-                      color: theme.colors.primary,
-                      marginTop: 4,
-                    }}
-                  >
+                  <Text variant="headlineSmall" style={{
+            fontWeight: "bold",
+            color: theme.colors.primary,
+            marginTop: 4,
+        }}>
                     {stats.total > 0
-                      ? Math.round((stats.synced / stats.total) * 100)
-                      : 0}
+            ? Math.round((stats.synced / stats.total) * 100)
+            : 0}
                     %
                   </Text>
                 </View>
 
-                <View
-                  style={[
-                    styles.divider,
-                    { backgroundColor: theme.colors.outlineVariant },
-                  ]}
-                />
+                <View style={[
+            styles.divider,
+            { backgroundColor: theme.colors.outlineVariant },
+        ]}/>
 
                 <View style={styles.insightItem}>
-                  <Text
-                    variant="bodySmall"
-                    style={{ color: theme.colors.onSurfaceVariant }}
-                  >
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
                     Sync Status
                   </Text>
-                  <Text
-                    variant="headlineSmall"
-                    style={{
-                      fontWeight: "bold",
-                      color:
-                        stats.pending > 0
-                          ? theme.colors.error
-                          : theme.colors.tertiary,
-                      marginTop: 4,
-                    }}
-                  >
+                  <Text variant="headlineSmall" style={{
+            fontWeight: "bold",
+            color: stats.pending > 0
+                ? theme.colors.error
+                : theme.colors.tertiary,
+            marginTop: 4,
+        }}>
                     {stats.pending > 0
-                      ? `${stats.pending} Pending`
-                      : "All Synced"}
+            ? `${stats.pending} Pending`
+            : "All Synced"}
                   </Text>
                 </View>
               </View>
 
-              {stats.total > 0 && (
-                <>
-                  <View
-                    style={[
-                      styles.progressBarContainer,
-                      { marginTop: 16, marginBottom: 8 },
-                    ]}
-                  >
-                    <ProgressBar
-                      progress={stats.synced / stats.total}
-                      color={theme.colors.primary}
-                      style={{ height: 8, borderRadius: 4 }}
-                    />
+              {stats.total > 0 && (<>
+                  <View style={[
+                styles.progressBarContainer,
+                { marginTop: 16, marginBottom: 8 },
+            ]}>
+                    <ProgressBar progress={stats.synced / stats.total} color={theme.colors.primary} style={{ height: 8, borderRadius: 4 }}/>
                   </View>
-                  <Text
-                    variant="bodySmall"
-                    style={{ color: theme.colors.onSurfaceVariant }}
-                  >
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
                     {stats.synced} of {stats.total} valuations synced to server
                   </Text>
-                </>
-              )}
+                </>)}
             </Card.Content>
           </Card>
 
           <View style={styles.section}>
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 12,
-              }}
-            >
+            <View style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 12,
+        }}>
               <Text variant="titleLarge" style={styles.sectionTitle}>
                 Recent Activity
               </Text>
-              <Button
-                mode="text"
-                onPress={() => router.push("/(tabs)/evaluations")}
-              >
+              <Button mode="text" onPress={() => router.push("/(tabs)/evaluations")}>
                 See All
               </Button>
             </View>
 
-            {recentValuations.length === 0 ? (
-              <Card
-                style={[
-                  styles.activityCard,
-                  { backgroundColor: theme.colors.surfaceVariant },
-                ]}
-              >
+            {recentValuations.length === 0 ? (<Card style={[
+                styles.activityCard,
+                { backgroundColor: theme.colors.surfaceVariant },
+            ]}>
                 <Card.Content style={{ padding: 24, alignItems: "center" }}>
-                  <MaterialCommunityIcons
-                    name="clipboard-text-outline"
-                    size={48}
-                    color={theme.colors.onSurfaceVariant}
-                  />
-                  <Text
-                    variant="bodyMedium"
-                    style={{
-                      color: theme.colors.onSurfaceVariant,
-                      marginTop: 12,
-                    }}
-                  >
+                  <MaterialCommunityIcons name="clipboard-text-outline" size={48} color={theme.colors.onSurfaceVariant}/>
+                  <Text variant="bodyMedium" style={{
+                color: theme.colors.onSurfaceVariant,
+                marginTop: 12,
+            }}>
                     No valuations yet. Create your first one!
                   </Text>
                 </Card.Content>
-              </Card>
-            ) : (
-              recentValuations.map((item) => {
-                const displayStatus = getStatusDisplay(
-                  item.status,
-                  item.sync_status,
-                );
-                return (
-                  <Card
-                    key={item.id}
-                    style={[
-                      styles.activityCard,
-                      { backgroundColor: theme.colors.surface },
-                    ]}
-                    mode="contained"
-                  >
-                    <TouchableRipple
-                      onPress={() => {
-                        router.push({
-                          pathname: "/(pages)/EvaluationDetail",
-                          params: { id: item.id },
-                        });
-                      }}
-                      rippleColor={theme.colors.primary + "1A"}
-                      style={{ flex: 1 }}
-                    >
+              </Card>) : (recentValuations.map((item) => {
+            const displayStatus = getStatusDisplay(item.status, item.sync_status);
+            return (<Card key={item.id} style={[
+                    styles.activityCard,
+                    { backgroundColor: theme.colors.surface },
+                ]} mode="contained">
+                    <TouchableRipple onPress={() => {
+                    router.push({
+                        pathname: "/(pages)/EvaluationDetail",
+                        params: { id: item.id },
+                    });
+                }} rippleColor={theme.colors.primary + "1A"} style={{ flex: 1 }}>
                       <View style={styles.activityContent}>
-                        {/* Icon Box */}
-                        <View
-                          style={[
-                            styles.iconBox,
-                            { backgroundColor: theme.colors.elevation.level2 },
-                          ]}
-                        >
-                          <MaterialCommunityIcons
-                            name={
-                              displayStatus === "Pending"
-                                ? "clock-outline"
-                                : displayStatus === "Completed"
-                                  ? "check-circle-outline"
-                                  : "cloud-check"
-                            }
-                            size={24}
-                            color={
-                              displayStatus === "Pending"
-                                ? theme.colors.error
-                                : theme.colors.primary
-                            }
-                          />
+                        
+                        <View style={[
+                    styles.iconBox,
+                    { backgroundColor: theme.colors.elevation.level2 },
+                ]}>
+                          <MaterialCommunityIcons name={displayStatus === "Pending"
+                    ? "clock-outline"
+                    : displayStatus === "Completed"
+                        ? "check-circle-outline"
+                        : "cloud-check"} size={24} color={displayStatus === "Pending"
+                    ? theme.colors.error
+                    : theme.colors.primary}/>
                         </View>
 
-                        {/* Text Info */}
+                        
                         <View style={{ flex: 1, marginLeft: 16 }}>
-                          <Text
-                            variant="titleMedium"
-                            style={{ fontWeight: "600" }}
-                          >
+                          <Text variant="titleMedium" style={{ fontWeight: "600" }}>
                             {item.client_name || "Unnamed Valuation"}
                           </Text>
-                          <Text
-                            variant="bodySmall"
-                            style={{
-                              color: theme.colors.onSurfaceVariant,
-                              marginTop: 2,
-                            }}
-                            numberOfLines={1}
-                          >
+                          <Text variant="bodySmall" style={{
+                    color: theme.colors.onSurfaceVariant,
+                    marginTop: 2,
+                }} numberOfLines={1}>
                             {item.present_property_address ||
-                              item.property_address_deed ||
-                              "No address"}
+                    item.property_address_deed ||
+                    "No address"}
                           </Text>
                         </View>
 
-                        {/* Status Badge & Date */}
+                        
                         <View style={{ alignItems: "flex-end" }}>
-                          <View
-                            style={[
-                              styles.statusBadge,
-                              {
-                                backgroundColor:
-                                  displayStatus === "Pending"
-                                    ? theme.colors.errorContainer
-                                    : theme.colors.secondaryContainer,
-                              },
-                            ]}
-                          >
-                            <Text
-                              variant="labelSmall"
-                              style={{
-                                color:
-                                  displayStatus === "Pending"
-                                    ? theme.colors.onErrorContainer
-                                    : theme.colors.onSecondaryContainer,
-                                fontWeight: "bold",
-                              }}
-                            >
+                          <View style={[
+                    styles.statusBadge,
+                    {
+                        backgroundColor: displayStatus === "Pending"
+                            ? theme.colors.errorContainer
+                            : theme.colors.secondaryContainer,
+                    },
+                ]}>
+                            <Text variant="labelSmall" style={{
+                    color: displayStatus === "Pending"
+                        ? theme.colors.onErrorContainer
+                        : theme.colors.onSecondaryContainer,
+                    fontWeight: "bold",
+                }}>
                               {displayStatus}
                             </Text>
                           </View>
-                          <Text
-                            variant="labelSmall"
-                            style={{
-                              color: theme.colors.onSurfaceVariant,
-                              marginTop: 6,
-                            }}
-                          >
+                          <Text variant="labelSmall" style={{
+                    color: theme.colors.onSurfaceVariant,
+                    marginTop: 6,
+                }}>
                             {getRelativeTime(item.created_at)}
                           </Text>
                         </View>
                       </View>
                     </TouchableRipple>
-                  </Card>
-                );
-              })
-            )}
+                  </Card>);
+        }))}
           </View>
         </View>
       </ScrollView>
 
       <EvaliationFAB />
-    </View>
-  );
+    </View>);
 };
-
 export default HomeScreen;
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  gradientHeader: {
-    position: "relative",
-    overflow: "hidden",
-    paddingHorizontal: 24,
-    paddingBottom: 28,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  headerBgIcon: {
-    position: "absolute",
-    right: -24,
-    top: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "flex-end",
-    width: "50%",
-  },
-  headerTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 20,
-    zIndex: 1,
-  },
-  headerStatsRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    marginTop: 8,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.2)",
-    zIndex: 1,
-  },
-  headerStatItem: {
-    flex: 1,
-    alignItems: "center",
-  },
-  headerStatDivider: {
-    width: 1,
-    height: 35,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
-  },
-  scrollContent: {
-    padding: 24,
-  },
-  section: {
-    marginBottom: 28,
-  },
-  sectionTitle: {
-    fontWeight: "700",
-    marginBottom: 16,
-    letterSpacing: -0.2,
-  },
-  statsGrid: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  statsCard: {
-    flex: 1,
-    height: 160,
-    justifyContent: "center",
-  },
-  statsColumn: {
-    flex: 1,
-  },
-  statsCardSmall: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  smallCardContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  progressCard: {
-    marginBottom: 24,
-    backgroundColor: "transparent",
-  },
-  quickActionsGrid: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  quickActionCard: {
-    flex: 1,
-    borderRadius: 20,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  quickActionContent: {
-    alignItems: "center",
-    paddingVertical: 18,
-  },
-  insightsCard: {
-    marginBottom: 24,
-    backgroundColor: "transparent",
-    borderRadius: 20,
-    overflow: "hidden",
-  },
-  insightsHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  insightsRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-  },
-  insightItem: {
-    flex: 1,
-    alignItems: "center",
-  },
-  divider: {
-    width: 1,
-    height: 40,
-    marginHorizontal: 16,
-  },
-  progressBarContainer: {
-    width: "100%",
-  },
-  // Updated Styles for Recent Activity
-  activityCard: {
-    marginBottom: 12,
-    borderRadius: 20,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  activityContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 18,
-  },
-  iconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 10,
-  },
+    container: {
+        flex: 1,
+    },
+    gradientHeader: {
+        position: "relative",
+        overflow: "hidden",
+        paddingHorizontal: 24,
+        paddingBottom: 28,
+        borderBottomLeftRadius: 32,
+        borderBottomRightRadius: 32,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.06,
+        shadowRadius: 16,
+        elevation: 4,
+    },
+    headerBgIcon: {
+        position: "absolute",
+        right: -24,
+        top: 0,
+        bottom: 0,
+        justifyContent: "center",
+        alignItems: "flex-end",
+        width: "50%",
+    },
+    headerTopRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 20,
+        zIndex: 1,
+    },
+    headerStatsRow: {
+        flexDirection: "row",
+        justifyContent: "space-around",
+        alignItems: "center",
+        marginTop: 8,
+        paddingTop: 20,
+        borderTopWidth: 1,
+        borderTopColor: "rgba(255, 255, 255, 0.2)",
+        zIndex: 1,
+    },
+    headerStatItem: {
+        flex: 1,
+        alignItems: "center",
+    },
+    headerStatDivider: {
+        width: 1,
+        height: 35,
+        backgroundColor: "rgba(255, 255, 255, 0.3)",
+    },
+    scrollContent: {
+        padding: 24,
+    },
+    section: {
+        marginBottom: 28,
+    },
+    sectionTitle: {
+        fontWeight: "700",
+        marginBottom: 16,
+        letterSpacing: -0.2,
+    },
+    statsGrid: {
+        flexDirection: "row",
+        gap: 12,
+    },
+    statsCard: {
+        flex: 1,
+        height: 160,
+        justifyContent: "center",
+    },
+    statsColumn: {
+        flex: 1,
+    },
+    statsCardSmall: {
+        flex: 1,
+        justifyContent: "center",
+    },
+    smallCardContent: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+    },
+    progressCard: {
+        marginBottom: 24,
+        backgroundColor: "transparent",
+    },
+    quickActionsGrid: {
+        flexDirection: "row",
+        gap: 12,
+    },
+    quickActionCard: {
+        flex: 1,
+        borderRadius: 20,
+        overflow: "hidden",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    quickActionContent: {
+        alignItems: "center",
+        paddingVertical: 18,
+    },
+    insightsCard: {
+        marginBottom: 24,
+        backgroundColor: "transparent",
+        borderRadius: 20,
+        overflow: "hidden",
+    },
+    insightsHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 16,
+    },
+    insightsRow: {
+        flexDirection: "row",
+        justifyContent: "space-around",
+        alignItems: "center",
+    },
+    insightItem: {
+        flex: 1,
+        alignItems: "center",
+    },
+    divider: {
+        width: 1,
+        height: 40,
+        marginHorizontal: 16,
+    },
+    progressBarContainer: {
+        width: "100%",
+    },
+    activityCard: {
+        marginBottom: 12,
+        borderRadius: 20,
+        overflow: "hidden",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    activityContent: {
+        flexDirection: "row",
+        alignItems: "center",
+        padding: 18,
+    },
+    iconBox: {
+        width: 48,
+        height: 48,
+        borderRadius: 14,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    statusBadge: {
+        paddingHorizontal: 12,
+        paddingVertical: 5,
+        borderRadius: 10,
+    },
 });

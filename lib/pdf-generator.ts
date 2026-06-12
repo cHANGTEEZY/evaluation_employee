@@ -2,63 +2,57 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
 import { insertPayment, updatePaymentReceipt } from "./schema";
-
 export interface PaymentReceiptData {
-  refNo: string;
-  clientName: string;
-  valuationDate: Date;
-  siteCharge: number;
-  cashPayment: number;
-  onlinePayment: number;
-  onlinePaymentMode?: string;
-  pendingDue: number;
+    refNo: string;
+    clientName: string;
+    valuationDate: Date;
+    siteCharge: number;
+    cashPayment: number;
+    onlinePayment: number;
+    onlinePaymentMode?: string;
+    pendingDue: number;
 }
-
 const getOnlinePaymentModeLabel = (mode?: string): string => {
-  switch (mode) {
-    case "esewa":
-      return "eSewa";
-    case "khalti":
-      return "Khalti";
-    case "bank_transfer":
-      return "Bank Transfer";
-    case "fonepay":
-      return "FonePay";
-    case "other":
-      return "Other";
-    default:
-      return "N/A";
-  }
+    switch (mode) {
+        case "esewa":
+            return "eSewa";
+        case "khalti":
+            return "Khalti";
+        case "bank_transfer":
+            return "Bank Transfer";
+        case "fonepay":
+            return "FonePay";
+        case "other":
+            return "Other";
+        default:
+            return "N/A";
+    }
 };
-
 const formatCurrency = (amount: number): string => {
-  return `Rs. ${amount.toLocaleString("en-NP")}`;
+    return `Rs. ${amount.toLocaleString("en-NP")}`;
 };
-
 const formatDateTime = (date: Date): string => {
-  return date.toLocaleString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+    return date.toLocaleString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
 };
-
 const getPaymentMethodLabel = (data: PaymentReceiptData): string => {
-  const methods: string[] = [];
-  if (data.cashPayment > 0) methods.push("Cash");
-  if (data.onlinePayment > 0) {
-    const mode = getOnlinePaymentModeLabel(data.onlinePaymentMode);
-    methods.push(mode !== "N/A" ? mode : "Online");
-  }
-  return methods.length > 0 ? methods.join(" + ") : "N/A";
+    const methods: string[] = [];
+    if (data.cashPayment > 0)
+        methods.push("Cash");
+    if (data.onlinePayment > 0) {
+        const mode = getOnlinePaymentModeLabel(data.onlinePaymentMode);
+        methods.push(mode !== "N/A" ? mode : "Online");
+    }
+    return methods.length > 0 ? methods.join(" + ") : "N/A";
 };
-
 const generateReceiptHtml = (data: PaymentReceiptData): string => {
-  const totalReceived = data.cashPayment + data.onlinePayment;
-
-  return `<!DOCTYPE html>
+    const totalReceived = data.cashPayment + data.onlinePayment;
+    return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
@@ -72,7 +66,6 @@ const generateReceiptHtml = (data: PaymentReceiptData): string => {
       padding: 32px 36px;
     }
 
-    /* ── Brand header ─────────────────────────────── */
     .brand-header {
       display: flex;
       align-items: center;
@@ -105,7 +98,6 @@ const generateReceiptHtml = (data: PaymentReceiptData): string => {
       margin-top: 2px;
     }
 
-    /* ── Receipt title ────────────────────────────── */
     .receipt-title {
       font-size: 36px;
       font-weight: 800;
@@ -114,7 +106,6 @@ const generateReceiptHtml = (data: PaymentReceiptData): string => {
       letter-spacing: 2px;
     }
 
-    /* ── Meta row (Receipt No / Date / Payment) ──── */
     .meta-table {
       width: 100%;
       border-collapse: collapse;
@@ -138,7 +129,6 @@ const generateReceiptHtml = (data: PaymentReceiptData): string => {
       border-bottom: 1px solid #eee;
     }
 
-    /* ── Client section ───────────────────────────── */
     .client-section {
       display: flex;
       gap: 40px;
@@ -162,7 +152,6 @@ const generateReceiptHtml = (data: PaymentReceiptData): string => {
       margin: 0;
     }
 
-    /* ── Line-items table ─────────────────────────── */
     .items-table {
       width: 100%;
       border-collapse: collapse;
@@ -195,7 +184,6 @@ const generateReceiptHtml = (data: PaymentReceiptData): string => {
       border-bottom: 1px solid #e8e8e8;
     }
 
-    /* ── Summary block ────────────────────────────── */
     .summary-wrapper {
       display: flex;
       justify-content: space-between;
@@ -252,7 +240,6 @@ const generateReceiptHtml = (data: PaymentReceiptData): string => {
       background: #fef2f2;
     }
 
-    /* ── Signature section ────────────────────────── */
     .signature-section {
       display: flex;
       justify-content: space-between;
@@ -273,7 +260,6 @@ const generateReceiptHtml = (data: PaymentReceiptData): string => {
       color: #333;
     }
 
-    /* ── Footer ───────────────────────────────────── */
     .footer-bar {
       text-align: center;
       margin-top: 36px;
@@ -296,7 +282,6 @@ const generateReceiptHtml = (data: PaymentReceiptData): string => {
 </head>
 <body>
 
-  <!-- Brand header -->
   <div class="brand-header">
     <div class="brand-left">
       <div>
@@ -306,10 +291,8 @@ const generateReceiptHtml = (data: PaymentReceiptData): string => {
     </div>
   </div>
 
-  <!-- Receipt title -->
   <div class="receipt-title">RECEIPT</div>
 
-  <!-- Meta row -->
   <table class="meta-table">
     <thead>
       <tr>
@@ -327,7 +310,6 @@ const generateReceiptHtml = (data: PaymentReceiptData): string => {
     </tbody>
   </table>
 
-  <!-- Client -->
   <div class="client-section">
     <div class="client-block">
       <div class="client-block-title">Client</div>
@@ -335,7 +317,6 @@ const generateReceiptHtml = (data: PaymentReceiptData): string => {
     </div>
   </div>
 
-  <!-- Line items -->
   <table class="items-table">
     <thead>
       <tr>
@@ -358,7 +339,6 @@ const generateReceiptHtml = (data: PaymentReceiptData): string => {
     </tbody>
   </table>
 
-  <!-- Summary -->
   <div class="summary-wrapper">
     <div class="notes-block">
       <div class="notes-label">Notes</div>
@@ -383,7 +363,6 @@ const generateReceiptHtml = (data: PaymentReceiptData): string => {
     </table>
   </div>
 
-  <!-- Signature -->
   <div class="signature-section">
     <div class="sig-block">
       <div class="sig-line"></div>
@@ -399,82 +378,73 @@ const generateReceiptHtml = (data: PaymentReceiptData): string => {
 </body>
 </html>`;
 };
-
-export async function generatePaymentReceipt(
-  valuationId: string,
-  data: PaymentReceiptData,
-  existingPaymentId?: string,
-): Promise<string> {
-  try {
-    const html = await generateReceiptHtml(data);
-
-    const { uri: tempUri } = await Print.printToFileAsync({
-      html,
-      base64: false,
-    });
-
-    const rawRef = data.refNo || valuationId;
-    const safeRef = rawRef.replace(/[^a-zA-Z0-9]/g, "_");
-    const fileName = `receipt_${safeRef}_${Date.now()}.pdf`;
-
-    if (!FileSystem.documentDirectory) {
-      throw new Error("FileSystem.documentDirectory is null");
-    }
-    const baseDir = FileSystem.documentDirectory;
-    const receiptsDir = baseDir.endsWith("/")
-      ? `${baseDir}receipts/`
-      : `${baseDir}/receipts/`;
-
+export async function generatePaymentReceipt(valuationId: string, data: PaymentReceiptData, existingPaymentId?: string): Promise<string> {
     try {
-      await FileSystem.makeDirectoryAsync(receiptsDir, { intermediates: true });
-    } catch (e) {
-      console.log("Directory creation warning:", e);
+        const html = await generateReceiptHtml(data);
+        const { uri: tempUri } = await Print.printToFileAsync({
+            html,
+            base64: false,
+        });
+        const rawRef = data.refNo || valuationId;
+        const safeRef = rawRef.replace(/[^a-zA-Z0-9]/g, "_");
+        const fileName = `receipt_${safeRef}_${Date.now()}.pdf`;
+        if (!FileSystem.documentDirectory) {
+            throw new Error("FileSystem.documentDirectory is null");
+        }
+        const baseDir = FileSystem.documentDirectory;
+        const receiptsDir = baseDir.endsWith("/")
+            ? `${baseDir}receipts/`
+            : `${baseDir}/receipts/`;
+        try {
+            await FileSystem.makeDirectoryAsync(receiptsDir, { intermediates: true });
+        }
+        catch (e) {
+            console.log("Directory creation warning:", e);
+        }
+        const pdfUri = `${receiptsDir}${fileName}`;
+        try {
+            await FileSystem.moveAsync({
+                from: tempUri,
+                to: pdfUri,
+            });
+        }
+        catch (e) {
+            console.log("Move failed, attempting copy...", e);
+            await FileSystem.copyAsync({
+                from: tempUri,
+                to: pdfUri,
+            });
+        }
+        if (existingPaymentId) {
+            await updatePaymentReceipt(existingPaymentId, pdfUri, fileName);
+        }
+        else {
+            await insertPayment(valuationId, pdfUri, fileName);
+        }
+        return pdfUri;
     }
-
-    const pdfUri = `${receiptsDir}${fileName}`;
-
-    try {
-      await FileSystem.moveAsync({
-        from: tempUri,
-        to: pdfUri,
-      });
-    } catch (e) {
-      console.log("Move failed, attempting copy...", e);
-      await FileSystem.copyAsync({
-        from: tempUri,
-        to: pdfUri,
-      });
+    catch (error) {
+        console.error("Error generating PDF receipt:", error);
+        throw error;
     }
-
-    if (existingPaymentId) {
-      await updatePaymentReceipt(existingPaymentId, pdfUri, fileName);
-    } else {
-      await insertPayment(valuationId, pdfUri, fileName);
-    }
-
-    return pdfUri;
-  } catch (error) {
-    console.error("Error generating PDF receipt:", error);
-    throw error;
-  }
 }
-
 export async function receiptFileExists(pdfUri: string): Promise<boolean> {
-  try {
-    const info = await FileSystem.getInfoAsync(pdfUri, { size: false });
-    return info.exists === true;
-  } catch {
-    return false;
-  }
+    try {
+        const info = await FileSystem.getInfoAsync(pdfUri, { size: false });
+        return info.exists === true;
+    }
+    catch {
+        return false;
+    }
 }
-
 export async function sharePaymentReceipt(pdfUri: string): Promise<void> {
-  if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(pdfUri, {
-      mimeType: "application/pdf",
-      dialogTitle: "Payment Receipt – Open or Save to Files",
-    });
-  } else {
-    throw new Error("Sharing is not available on this device");
-  }
+    if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(pdfUri, {
+            mimeType: "application/pdf",
+            dialogTitle: "Payment Receipt – Open or Save to Files",
+        });
+    }
+    else {
+        throw new Error("Sharing is not available on this device");
+    }
 }

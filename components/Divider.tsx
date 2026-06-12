@@ -1,6 +1,5 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-
 type DividerProps = {
   colors: {
     divider: string;
@@ -9,7 +8,6 @@ type DividerProps = {
   };
   label?: string;
 };
-
 const Divider = ({ colors, label = "OR" }: DividerProps) => {
   return (
     <View style={styles.container}>
@@ -28,9 +26,7 @@ const Divider = ({ colors, label = "OR" }: DividerProps) => {
     </View>
   );
 };
-
 export default Divider;
-
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row",

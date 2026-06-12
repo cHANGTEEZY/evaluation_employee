@@ -11,26 +11,16 @@ import {
 } from "react-native";
 import { CameraView, type CameraType, useCameraPermissions } from "expo-camera";
 import { Button, Text, IconButton, useTheme } from "react-native-paper";
-
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-
 export type PhotoCaptureScreenProps = {
-  /** Current images (controlled from parent) */
   images: string[];
-  /** Called when user adds or removes photos */
   onImagesChange: (images: string[]) => void;
-  /** Minimum required count; used for counter and helper text (0 = no minimum) */
   minImages?: number;
-  /** Gallery section title */
   title?: string;
-  /** Helper text below thumbnails; if not set, uses default based on minImages */
   helperText?: string;
-  /** Show a close/done button at top (e.g. when used inside a modal) */
   showCloseButton?: boolean;
-  /** Called when user taps close (only when showCloseButton is true) */
   onClose?: () => void;
 };
-
 export default function PhotoCaptureScreen({
   images,
   onImagesChange,
@@ -47,11 +37,9 @@ export default function PhotoCaptureScreen({
   const [flash, setFlash] = useState<"off" | "on" | "auto">("off");
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const cameraRef = useRef<CameraView | null>(null);
-
   const toggleCameraFacing = () => {
     setFacing((current) => (current === "back" ? "front" : "back"));
   };
-
   const toggleFlash = () => {
     setFlash((current) => {
       if (current === "off") return "on";
@@ -59,11 +47,9 @@ export default function PhotoCaptureScreen({
       return "off";
     });
   };
-
   const handleZoomChange = (zoomLevel: number) => {
     setZoom(zoomLevel);
   };
-
   const handleTakePicture = async () => {
     if (!cameraRef.current) return;
     try {
@@ -78,29 +64,24 @@ export default function PhotoCaptureScreen({
       console.error("Error taking picture:", error);
     }
   };
-
   const handleRemoveImage = (uri: string) => {
     onImagesChange(images.filter((imageUri) => imageUri !== uri));
     setPreviewImage(null);
   };
-
   const getFlashIcon = () => {
     if (flash === "off") return "flash-off";
     if (flash === "on") return "flash";
     return "flash-auto";
   };
-
   const defaultHelperText =
     minImages > 0
       ? images.length < minImages
         ? `Take at least ${minImages} photos to enable submit`
         : "4 photos required for report; add more (8–12 for buildings, or more for large properties)."
       : "Tap thumbnail to view • Tap delete in preview to remove. No limit.";
-
   if (!cameraPermission) {
     return <View style={styles.placeholder} />;
   }
-
   if (!cameraPermission.granted) {
     return (
       <View
@@ -127,7 +108,6 @@ export default function PhotoCaptureScreen({
       </View>
     );
   }
-
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
       {showCloseButton && onClose && (
@@ -320,7 +300,6 @@ export default function PhotoCaptureScreen({
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   placeholder: {
     flex: 1,

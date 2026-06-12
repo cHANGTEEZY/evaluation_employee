@@ -1,7 +1,6 @@
 const fs = require('fs');
 let code = fs.readFileSync('lib/pdf-generator.ts', 'utf8');
 const oldFn = fs.readFileSync('/tmp/old_html.txt', 'utf8');
-
 const newFn = `const generateReceiptHtml = (data: PaymentReceiptData): string => {
   const totalReceived = data.cashPayment + data.onlinePayment;
 
@@ -158,6 +157,5 @@ const newFn = `const generateReceiptHtml = (data: PaymentReceiptData): string =>
   \`;
 };
 `;
-
 code = code.replace(oldFn, newFn);
 fs.writeFileSync('lib/pdf-generator.ts', code);

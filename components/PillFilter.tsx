@@ -1,17 +1,14 @@
 import { StyleSheet, View, ScrollView } from "react-native";
 import React from "react";
 import { Chip, useTheme } from "react-native-paper";
-
 type Filter = {
   icon: string;
   name: string;
   onPress?: () => void;
   selected?: boolean;
 };
-
 const PillFilter = ({ filters }: { filters: Filter[] }) => {
   const theme = useTheme();
-
   return (
     <View style={styles.filterContainer}>
       <ScrollView
@@ -23,11 +20,9 @@ const PillFilter = ({ filters }: { filters: Filter[] }) => {
           const backgroundColor = filter.selected
             ? theme.colors.primaryContainer
             : theme.colors.surfaceVariant;
-
           const contentColor = filter.selected
             ? theme.colors.onPrimaryContainer
             : theme.colors.onSurfaceVariant;
-
           return (
             <Chip
               key={filter.name}
@@ -52,9 +47,7 @@ const PillFilter = ({ filters }: { filters: Filter[] }) => {
     </View>
   );
 };
-
 export default PillFilter;
-
 const styles = StyleSheet.create({
   filterContainer: {
     marginVertical: 10,

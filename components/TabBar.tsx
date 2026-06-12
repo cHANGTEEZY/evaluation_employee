@@ -3,11 +3,9 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTheme } from "react-native-paper";
 import { Text } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 export default function TabBar({ state, descriptors, navigation }: any) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom + 10 }]}>
       <View style={[styles.tabBar, { backgroundColor: theme.colors.surface }]}>
@@ -20,28 +18,23 @@ export default function TabBar({ state, descriptors, navigation }: any) {
                 : options.title !== undefined
                   ? options.title
                   : route.name;
-
             const isFocused = state.index === index;
-
             const onPress = () => {
               const event = navigation.emit({
                 type: "tabPress",
                 target: route.key,
                 canPreventDefault: true,
               });
-
               if (!isFocused && !event.defaultPrevented) {
                 navigation.navigate(route.name, route.params);
               }
             };
-
             const onLongPress = () => {
               navigation.emit({
                 type: "tabLongPress",
                 target: route.key,
               });
             };
-
             let iconName: keyof typeof MaterialCommunityIcons.glyphMap =
               "circle";
             if (route.name === "evaluations")
@@ -54,7 +47,6 @@ export default function TabBar({ state, descriptors, navigation }: any) {
               iconName = isFocused ? "account" : "account-outline";
             if (route.name === "home")
               iconName = isFocused ? "home" : "home-outline";
-
             return (
               <Pressable
                 key={route.key}
@@ -102,7 +94,6 @@ export default function TabBar({ state, descriptors, navigation }: any) {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     position: "absolute",

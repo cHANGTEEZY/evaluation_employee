@@ -20,27 +20,21 @@ import {
   Searchbar,
   List,
 } from "react-native-paper";
-
 interface LocationPickerProps {
   initialLatitude?: number;
   initialLongitude?: number;
   onLocationSelect: (latitude: number, longitude: number) => void;
   editable?: boolean;
 }
-
 interface SearchResult {
   place_id: number;
   display_name: string;
   lat: string;
   lon: string;
 }
-
 type LocationStatus = "idle" | "requesting" | "granted" | "denied" | "error";
-
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const MAP_HEIGHT = 300;
-
-// OpenStreetMap HTML with Leaflet.js - no API key required
 const getMapHTML = (lat: number, lng: number, canEdit: boolean) => `
 <!DOCTYPE html>
 <html>
@@ -115,7 +109,6 @@ const getMapHTML = (lat: number, lng: number, canEdit: boolean) => `
         : ""
     }
     
-    // Function to update marker from React Native
     window.setLocation = function(lat, lng) {
       console.log('Setting location to:', lat, lng);
       marker.setLatLng([lat, lng]);
@@ -126,7 +119,6 @@ const getMapHTML = (lat: number, lng: number, canEdit: boolean) => `
 </body>
 </html>
 `;
-
 export function LocationPicker({
   initialLatitude,
   initialLongitude,
@@ -135,11 +127,8 @@ export function LocationPicker({
 }: LocationPickerProps) {
   const theme = useTheme();
   const webViewRef = useRef<WebView>(null);
-
-  // Default to Kathmandu, Nepal coordinates
   const defaultLat = initialLatitude ?? 27.7172;
   const defaultLng = initialLongitude ?? 85.324;
-
   const [currentPosition, setCurrentPosition] = useState({
     latitude: defaultLat,
     longitude: defaultLng,
@@ -147,17 +136,17 @@ export function LocationPicker({
   const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
   const [isLoading, setIsLoading] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [mapKey, setMapKey] = useState(0); // Key to force re-render of WebView
-
-  // Search state
+  const [mapKey, setMapKey] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
-
-  // Handle message from WebView (location selected)
   const handleMessage = useCallback(
-    (event: { nativeEvent: { data: string } }) => {
+    (event: {
+      nativeEvent: {
+        data: string;
+      };
+    }) => {
       try {
         const data = JSON.parse(event.nativeEvent.data);
         if (data.type === "locationSelected") {
@@ -173,8 +162,6 @@ export function LocationPicker({
     },
     [onLocationSelect],
   );
-
-  // Update map when position changes
   const updateMapLocation = useCallback(
     (lat: number, lng: number) => {
       console.log("[Location] Updating map to:", lat, lng);
@@ -183,24 +170,18 @@ export function LocationPicker({
           `window.setLocation(${lat}, ${lng}); true;`,
         );
       } else {
-        // If map not loaded yet, force re-render with new coordinates
         setCurrentPosition({ latitude: lat, longitude: lng });
         setMapKey((prev) => prev + 1);
       }
     },
     [mapLoaded],
   );
-
-  // Request current location from device
   const requestCurrentLocation = useCallback(async () => {
     setLocationStatus("requesting");
     setIsLoading(true);
-
     try {
-      // Check if location services are enabled
       const serviceEnabled = await Location.hasServicesEnabledAsync();
       console.log("[Location] Services enabled:", serviceEnabled);
-
       if (!serviceEnabled) {
         setLocationStatus("error");
         Alert.alert(
@@ -223,8 +204,6 @@ export function LocationPicker({
         setIsLoading(false);
         return;
       }
-
-      // Request permission
       console.log("[Location] Requesting foreground permission...");
       const { status, canAskAgain } =
         await Location.requestForegroundPermissionsAsync();
@@ -234,7 +213,6 @@ export function LocationPicker({
         "canAskAgain:",
         canAskAgain,
       );
-
       if (status !== "granted") {
         setLocationStatus("denied");
         Alert.alert(
@@ -257,23 +235,16 @@ export function LocationPicker({
         setIsLoading(false);
         return;
       }
-
       setLocationStatus("granted");
-
-      // Get current position with high accuracy
       console.log("[Location] Getting current position...");
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
-
       const newLat = location.coords.latitude;
       const newLng = location.coords.longitude;
       console.log("[Location] Got coordinates:", newLat, newLng);
-
       setCurrentPosition({ latitude: newLat, longitude: newLng });
       onLocationSelect(newLat, newLng);
-
-      // Update map - force re-render to ensure coordinates update
       updateMapLocation(newLat, newLng);
     } catch (error) {
       setLocationStatus("error");
@@ -286,41 +257,28 @@ export function LocationPicker({
       setIsLoading(false);
     }
   }, [onLocationSelect, updateMapLocation]);
-
-  // Search for landmarks using OpenStreetMap Nominatim API (free, no key needed)
   const searchLandmark = useCallback(async () => {
     if (!searchQuery.trim()) return;
-
     setIsSearching(true);
     setShowResults(true);
     Keyboard.dismiss();
-
     try {
-      // Add Nepal bias to search
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          searchQuery,
-        )}&countrycodes=np&limit=5`,
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&countrycodes=np&limit=5`,
         {
           headers: {
             "User-Agent": "EvaluationApp/1.0",
           },
         },
       );
-
       if (!response.ok) {
         throw new Error("Search failed");
       }
-
       const data: SearchResult[] = await response.json();
       setSearchResults(data);
-
       if (data.length === 0) {
-        // Try without country restriction
         const globalResponse = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-            searchQuery,
-          )}&limit=5`,
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5`,
           {
             headers: {
               "User-Agent": "EvaluationApp/1.0",
@@ -340,34 +298,26 @@ export function LocationPicker({
       setIsSearching(false);
     }
   }, [searchQuery]);
-
-  // Handle search result selection
   const handleSelectSearchResult = useCallback(
     (result: SearchResult) => {
       const lat = parseFloat(result.lat);
       const lng = parseFloat(result.lon);
-
       setCurrentPosition({ latitude: lat, longitude: lng });
       onLocationSelect(lat, lng);
       updateMapLocation(lat, lng);
-
       setShowResults(false);
       setSearchQuery("");
       setSearchResults([]);
     },
     [onLocationSelect, updateMapLocation],
   );
-
-  // Trigger location callback on initial mount if we have initial values
   useEffect(() => {
     if (initialLatitude && initialLongitude) {
       onLocationSelect(initialLatitude, initialLongitude);
     }
   }, []);
-
   return (
     <View style={styles.container}>
-      {/* Search Bar */}
       <Searchbar
         placeholder="Search landmark (e.g., Boudha Stupa)"
         value={searchQuery}
@@ -378,7 +328,6 @@ export function LocationPicker({
         style={styles.searchBar}
       />
 
-      {/* Search Results */}
       {showResults && searchResults.length > 0 && (
         <Surface style={styles.searchResults} elevation={3}>
           {searchResults.map((result) => (
@@ -407,7 +356,6 @@ export function LocationPicker({
         </Surface>
       )}
 
-      {/* GPS Button */}
       <Button
         mode="contained"
         onPress={requestCurrentLocation}
@@ -423,7 +371,6 @@ export function LocationPicker({
         Tap on the map to drop a pin, search, or use GPS
       </Text>
 
-      {/* Map Container */}
       <Surface style={styles.mapContainer} elevation={2}>
         {!mapLoaded && (
           <View style={styles.loadingOverlay}>
@@ -453,7 +400,6 @@ export function LocationPicker({
         />
       </Surface>
 
-      {/* Selected Coordinates Display */}
       <Surface style={styles.coordinatesCard} elevation={1}>
         <Text variant="labelMedium" style={styles.coordinatesLabel}>
           Selected Coordinates
@@ -482,7 +428,6 @@ export function LocationPicker({
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -556,5 +501,4 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
-
 export default LocationPicker;

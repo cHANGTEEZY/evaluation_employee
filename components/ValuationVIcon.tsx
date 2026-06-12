@@ -1,12 +1,10 @@
 import React from "react";
 import Svg, { Path } from "react-native-svg";
-
 type Props = {
   size?: number;
   color?: string;
   opacity?: number;
 };
-
 export default function ValuationVIcon({
   size = 24,
   color = "currentColor",

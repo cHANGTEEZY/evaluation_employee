@@ -1,6 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
 import React from "react";
-
 const OTP = () => {
   return (
     <View>
@@ -8,7 +7,5 @@ const OTP = () => {
     </View>
   );
 };
-
 export default OTP;
-
 const styles = StyleSheet.create({});
