@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Image,
   ScrollView,
@@ -8,6 +8,9 @@ import {
   Modal,
   Dimensions,
   Pressable,
+  Linking,
+  AppState,
+  type AppStateStatus,
 } from "react-native";
 import { CameraView, type CameraType, useCameraPermissions } from "expo-camera";
 import { Button, Text, IconButton, useTheme } from "react-native-paper";
@@ -31,12 +34,40 @@ export default function PhotoCaptureScreen({
   onClose,
 }: PhotoCaptureScreenProps) {
   const theme = useTheme();
-  const [cameraPermission, requestPermission] = useCameraPermissions();
+  const [cameraPermission, requestPermission, getPermission] =
+    useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>("back");
   const [zoom, setZoom] = useState(0);
   const [flash, setFlash] = useState<"off" | "on" | "auto">("off");
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const cameraRef = useRef<CameraView | null>(null);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener(
+      "change",
+      (nextAppState) => {
+        if (
+          appStateRef.current.match(/inactive|background/) &&
+          nextAppState === "active"
+        ) {
+          void getPermission();
+        }
+        appStateRef.current = nextAppState;
+      },
+    );
+    return () => subscription.remove();
+  }, [getPermission]);
+
+  const handlePermissionContinue = useCallback(async () => {
+    if (!cameraPermission) return;
+    if (cameraPermission.canAskAgain === false) {
+      await Linking.openSettings();
+      return;
+    }
+    await requestPermission();
+  }, [cameraPermission, requestPermission]);
+
   const toggleCameraFacing = () => {
     setFacing((current) => (current === "back" ? "front" : "back"));
   };
@@ -83,6 +114,7 @@ export default function PhotoCaptureScreen({
     return <View style={styles.placeholder} />;
   }
   if (!cameraPermission.granted) {
+    const needsSettings = cameraPermission.canAskAgain === false;
     return (
       <View
         style={[
@@ -91,7 +123,7 @@ export default function PhotoCaptureScreen({
         ]}
       >
         <Text variant="titleLarge" style={{ color: theme.colors.onSurface }}>
-          Camera permissions required
+          Camera access
         </Text>
         <Text
           variant="bodyMedium"
@@ -100,10 +132,12 @@ export default function PhotoCaptureScreen({
             { color: theme.colors.onSurfaceVariant },
           ]}
         >
-          We need camera access to take photos.
+          {needsSettings
+            ? "Camera access was turned off. Open Settings to enable the camera so you can photograph the property for your valuation report."
+            : "Camera access is used to photograph the property for your valuation report."}
         </Text>
-        <Button onPress={requestPermission} mode="contained">
-          Grant permission
+        <Button onPress={handlePermissionContinue} mode="contained">
+          {needsSettings ? "Open Settings" : "Continue"}
         </Button>
       </View>
     );

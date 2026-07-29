@@ -2,7 +2,7 @@
   "expo": {
     "name": "Mr. Valuator",
     "slug": "Evaluation",
-    "version": "1.3",
+    "version": "1.4",
     "orientation": "portrait",
     "icon": "./assets/images/app_icon.png",
     "scheme": "evaluationapp",
@@ -14,19 +14,19 @@
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
-      "buildNumber": "3",
+      "buildNumber": "7",
       "supportsTablet": true,
       "bundleIdentifier": "com.mrvaulator.app",
       "icon": "./assets/valuator.icon/",
       "appleTeamId": "XPZVK3T5VQ",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Allow Valuation to access your location to capture property coordinates.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow Valuation to access your location to capture property coordinates.",
-        "NSLocationAlwaysUsageDescription": "Allow Valuation to access your location to capture property coordinates."
+        "NSLocationWhenInUseUsageDescription": "Mr. Valuator uses your location while you use the app to record property coordinates on the map and support site valuation (for example, pinning a property and aligning the compass).",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Mr. Valuator uses your location while you use the app to record property coordinates on the map and support site valuation (for example, pinning a property and aligning the compass).",
+        "NSLocationAlwaysUsageDescription": "Mr. Valuator uses your location while you use the app to record property coordinates on the map and support site valuation (for example, pinning a property and aligning the compass)."
       }
     },
     "android": {
-      "versionCode": 6,
+      "versionCode": 7,
       "adaptiveIcon": {
         "foregroundImage": "./assets/valuator.icon/Assets/app_icon.png",
         "backgroundColor": "#ffffff"
@@ -49,13 +49,13 @@
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "Allow $(PRODUCT_NAME) to use Face ID."
+          "faceIDPermission": "Mr. Valuator uses Face ID to let you sign in securely without typing your password each time."
         }
       ],
       [
         "expo-sensors",
         {
-          "motionPermission": "Allow $(PRODUCT_NAME) to access your device motion"
+          "motionPermission": "Mr. Valuator uses device motion and compass heading to help you align north when marking property orientation during a valuation."
         }
       ],
       [
@@ -73,14 +73,14 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "The app accesses your photos to let you share them with your friends."
+          "photosPermission": "Mr. Valuator accesses your photo library so you can attach existing property photos to valuation reports."
         }
       ],
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
-          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone",
+          "cameraPermission": "Mr. Valuator uses the camera to photograph properties for valuation reports (for example, site photos attached to an evaluation).",
+          "microphonePermission": "Mr. Valuator may use the microphone when the camera captures media during a property site visit for a valuation report.",
           "recordAudioAndroid": true
         }
       ],
@@ -117,9 +117,9 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow Valuation to use your location for property valuation.",
-          "locationAlwaysPermission": "Allow Valuation to use your location for property valuation.",
-          "locationWhenInUsePermission": "Allow Valuation to use your location for property valuation."
+          "locationAlwaysAndWhenInUsePermission": "Mr. Valuator uses your location while you use the app to record property coordinates on the map and support site valuation (for example, pinning a property and aligning the compass).",
+          "locationAlwaysPermission": "Mr. Valuator uses your location while you use the app to record property coordinates on the map and support site valuation (for example, pinning a property and aligning the compass).",
+          "locationWhenInUsePermission": "Mr. Valuator uses your location while you use the app to record property coordinates on the map and support site valuation (for example, pinning a property and aligning the compass)."
         }
       ],
       "@maplibre/maplibre-react-native"
